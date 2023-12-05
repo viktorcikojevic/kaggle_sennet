@@ -29,3 +29,4 @@ dependencies:
     - hydra-optuna-sweeper
     - torchinfo
     - pytest
+    - opencv-python
