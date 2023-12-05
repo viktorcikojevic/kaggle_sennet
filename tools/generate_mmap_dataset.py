@@ -1,4 +1,5 @@
 from sennet.core.mmap_arrays import create_mmap_array, MmapArray
+from sennet.core.foreground_extraction import get_foreground_mask
 from typing import Optional
 from pathlib import Path
 import numpy as np
@@ -23,15 +24,21 @@ def main():
         image_paths = sorted(list(images_dir.glob("*.tif")))
         print(f"found {len(image_paths)} images under {images_dir}")
         mmap_array: Optional[MmapArray] = None
+        mask_mmap_array: Optional[MmapArray] = None
         for i, image_path in enumerate(image_paths):
             image = cv2.imread(str(image_path), 0)
             if i == 0:
                 # (c, h, w) to streamline conversion to torch
                 shape = [len(image_paths), image.shape[0], image.shape[1]]
                 mmap_array = create_mmap_array(output_dir / "image", shape, np.uint8)
+                mask_mmap_array = create_mmap_array(output_dir / "mask", shape, np.uint8)
             mmap_array.data[i, :, :] = image
+            fg_mask = get_foreground_mask(image)
+            mask_mmap_array.data[i, :, :] = fg_mask
         if mmap_array is not None:
             mmap_array.data.flush()
+        if mask_mmap_array is not None:
+            mask_mmap_array.data.flush()
     else:
         print(f"{images_dir=} doesn't exist, skipping")
 
