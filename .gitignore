@@ -1,0 +1,17 @@
+data/
+data_dumps/
+.idea/
+.ipynb_checkpoints/
+__pycache__/
+**/tb_logs/
+**/wandb/
+**/lightning_logs/
+site-packages/
+site-packages
+*.pclprof
+torchvision
+outputs/
+.pytest_cache/
+multirun/
+*.sqlite
+*.db

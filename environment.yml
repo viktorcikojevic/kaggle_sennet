@@ -1,0 +1,31 @@
+name: sennet
+channels:
+  - pytorch
+  - conda-forge
+  - nvidia
+  - anaconda
+  - defaults
+dependencies:
+  - pytorch
+  - pytorch-cuda=12.1
+  - pip:
+    - jupyter
+    - pandas
+    - numpy
+    - seaborn
+    - matplotlib
+    - pytorch-lightning
+    - scipy
+    - tensorboard
+    - PyYAML
+    - optuna
+    - scikit-learn
+    - wandb
+    - typer
+    - line_profiler_pycharm
+    - rich
+    - omegaconf
+    - hydra-core
+    - hydra-optuna-sweeper
+    - torchinfo
+    - pytest
