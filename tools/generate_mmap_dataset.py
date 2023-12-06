@@ -35,10 +35,13 @@ def main():
             mmap_array.data[i, :, :] = image
             fg_mask = get_foreground_mask(image)
             mask_mmap_array.data[i, :, :] = fg_mask
+            print(f"done images: {i+1}/{len(image_paths)}: {image_path}")
+        print(f"flushing images")
         if mmap_array is not None:
             mmap_array.data.flush()
         if mask_mmap_array is not None:
             mask_mmap_array.data.flush()
+        print(f"done images")
     else:
         print(f"{images_dir=} doesn't exist, skipping")
 
@@ -53,8 +56,10 @@ def main():
                 shape = [len(label_paths), label.shape[0], label.shape[1]]
                 mmap_array = create_mmap_array(output_dir / "label", shape, np.uint8)
             mmap_array.data[i, :, :] = label
+        print(f"flushing labels")
         if mmap_array is not None:
             mmap_array.data.flush()
+        print(f"done labels")
     else:
         print(f"{labels_dir=} doesn't exist, skipping")
 

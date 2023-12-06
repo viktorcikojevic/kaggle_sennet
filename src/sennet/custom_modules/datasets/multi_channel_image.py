@@ -1,6 +1,4 @@
 from mmseg.registry import DATASETS as MMSEG_DATASETS
-from mmpretrain.registry import DATASETS as MMPRETRAIN_DATASETS
-from mmdet.registry import DATASETS as MMDET_DATASETS
 from mmseg.datasets.basesegdataset import BaseSegDataset
 from vesuvius.core.images import get_image_to_patches_bbox
 from typing import *
@@ -10,21 +8,17 @@ import json
 from tqdm import tqdm
 
 
-@MMDET_DATASETS.register_module()
-@MMPRETRAIN_DATASETS.register_module()
 @MMSEG_DATASETS.register_module()
 class MultiChannelDataset(BaseSegDataset):
     DUMMY_COLOR = (0, 0, 0)
     METAINFO = dict(
-        classes=('background', 'text'),
+        classes=('background', 'blood_vessel'),
         palette=[DUMMY_COLOR, (0, 255, 0)]  # this is due to reduce_zero_label shifting every indices down by one
         # classes=("text",),
         # palette=[[0, 255, 0]]  # this is due to reduce_zero_label shifting every indices down by one
     )
 
     def __init__(self,
-                 img_suffix=".tif",
-                 seg_map_suffix=".png",
                  reduce_zero_label=True,
                  apparent_length: int = None,
                  allow_missing_files: bool = False,
@@ -32,8 +26,8 @@ class MultiChannelDataset(BaseSegDataset):
         self.apparent_length = apparent_length
         self.allow_missing_files = allow_missing_files
         super().__init__(
-            img_suffix=img_suffix,
-            seg_map_suffix=seg_map_suffix,
+            img_suffix=".tif",
+            seg_map_suffix=".png",
             reduce_zero_label=reduce_zero_label,
             serialize_data=False,
             **kwargs)
@@ -83,9 +77,7 @@ def stride_mask_indices(mask_indices: np.ndarray, stride: int) -> np.ndarray:
     return mask_indices[take_mask, :]
 
 
-@MMDET_DATASETS.register_module()
 @MMSEG_DATASETS.register_module()
-@MMPRETRAIN_DATASETS.register_module()
 class PerPixelMultiChannelDataset(MultiChannelDataset):
     DUMMY_COLOR = MultiChannelDataset.DUMMY_COLOR
     METAINFO = MultiChannelDataset.METAINFO
