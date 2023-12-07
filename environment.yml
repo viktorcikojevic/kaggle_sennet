@@ -29,6 +29,7 @@ dependencies:
     - hydra-optuna-sweeper
     - torchinfo
     - pytest
+    - albumentations
     - opencv-python
     - ftfy
     - regex

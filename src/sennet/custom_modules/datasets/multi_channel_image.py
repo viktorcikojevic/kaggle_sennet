@@ -24,14 +24,21 @@ class MultiChannelDataset(BaseSegDataset):
                  reduce_zero_label=True,
                  assert_label_exists: bool = False,
                  stride: int = 4,
+                 channel_start: int = 0,
+                 channel_end: Optional[int] = None,
                  **kwargs) -> None:
         self.folders = [PROCESSED_DATA_DIR / folder for folder in folders]
+        print(f"reading from the following folders:")
+        for i, folder in enumerate(self.folders):
+            print(f"{i+1}/{len(folders)}: {folder}")
         self.crop_size = crop_size
         self.half_crop_size = int(self.crop_size / 2)
         self.n_take_channels = n_take_channels
         self.n_half_take_channels = int(self.n_take_channels / 2)
         self.stride = stride
         self.assert_label_exists = assert_label_exists
+        self.channel_start = channel_start
+        self.channel_end = channel_end
         super().__init__(
             img_suffix=".tif",
             seg_map_suffix=".png",
@@ -61,28 +68,34 @@ class MultiChannelDataset(BaseSegDataset):
             i_takes *= self.stride
             j_takes *= self.stride
             md = dict(
+                image_path=str(image_dir.absolute().resolve()),
+                seg_path=str(label_dir.absolute().resolve()),
+                img_h=mask.shape[1],
+                img_w=mask.shape[2],
+                img_c=mask.shape[0],
                 label_map=self.label_map,
                 reduce_zero_label=self.reduce_zero_label,
                 seg_fields=[],
             )
             c_mins = c_takes - self.n_half_take_channels
-            c_maxes = c_takes + self.n_half_take_channels
+            c_maxes = c_mins + self.n_take_channels
             i_mins = i_takes - self.half_crop_size
-            i_maxes = i_takes + self.half_crop_size
+            i_maxes = i_mins + self.crop_size
             j_mins = j_takes - self.half_crop_size
-            j_maxes = j_takes + self.half_crop_size
+            j_maxes = j_mins + self.crop_size
+            channel_end = mask.shape[0] if self.channel_end is None else self.channel_end
             take_masks = (
-                    (0 < c_mins) & (c_maxes < mask.shape[0])
+                    (self.channel_start < c_mins) & (c_maxes < channel_end)
                     & (0 < i_mins) & (i_maxes < mask.shape[1])
                     & (0 < j_mins) & (j_maxes < mask.shape[2])
             )
             take_indices = np.nonzero(take_masks)[0]
+            print(f"taking {len(take_indices)}/{len(take_masks)} ({len(take_indices)}/{(len(take_masks) + 1e-6)*100})% for {folder}")
             items = [
                 dict(
                     bbox=[
-                        c_mins[i], c_maxes[i],
-                        i_mins[i], i_maxes[i],
-                        j_mins[i], j_maxes[i],
+                        c_mins[i], j_mins[i], i_mins[i],
+                        c_maxes[i], j_maxes[i], i_maxes[i],
                     ],
                     **md,
                 )
