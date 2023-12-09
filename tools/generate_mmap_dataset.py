@@ -59,7 +59,7 @@ def main():
                 # (c, h, w) to streamline conversion to torch
                 shape = [len(label_paths), label.shape[0], label.shape[1]]
                 mmap_array = create_mmap_array(output_dir / "label", shape, np.uint8)
-            mmap_array.data[i, :, :] = label
+            mmap_array.data[i, :, :] = (label > 0).astype(np.uint8)
         print(f"flushing labels")
         if mmap_array is not None:
             mmap_array.data.flush()

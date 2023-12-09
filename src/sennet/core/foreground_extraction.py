@@ -9,8 +9,8 @@ def get_foreground_mask(
         img: np.ndarray,
         hist_bins: int = 50,
 ) -> np.ndarray:
-    # n_bins = hist_bins
-    n_bins = min(len(np.unique(img)), hist_bins)
+    n_bins = hist_bins
+    # n_bins = min(len(np.unique(img)), hist_bins)
 
     bin_freq, bin_edges = np.histogram(img, bins=n_bins)
     all_peaks, _ = find_peaks(bin_freq, distance=float(5.0/(bin_edges[1]-bin_edges[0])))
@@ -38,7 +38,8 @@ def get_foreground_mask(
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((kernel_size, kernel_size), np.uint8))
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((kernel_size, kernel_size), np.uint8))
 
-    # if (mask > 0).mean() < 0.01:
+    if (mask > 0).mean() < 0.002:
+        return np.ones((img.shape[0], img.shape[1]), dtype=bool)
     #     print(f"huh")
     # if (mask > 0).mean() > 0.9:
     #     print(f"big mask found")

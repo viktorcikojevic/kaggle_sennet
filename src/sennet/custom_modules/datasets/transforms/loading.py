@@ -1,8 +1,7 @@
 from typing import *
 import numpy as np
 from sennet.core.mmap_arrays import read_mmap_array, MmapArray
-from mmcv.transforms import BaseTransform
-from mmseg.registry import TRANSFORMS as MMSEG_TRANSFORMS
+# from mmseg.registry import TRANSFORMS as MMSEG_TRANSFORMS
 # from line_profiler_pycharm import profile
 from pathlib import Path
 import cv2
@@ -27,8 +26,8 @@ def process_seg_map(seg_map: np.ndarray, results: Dict):
     return seg_map
 
 
-@MMSEG_TRANSFORMS.register_module()
-class LoadMultiChannelImageAndAnnotationsFromFile(BaseTransform):
+# @MMSEG_TRANSFORMS.register_module()
+class LoadMultiChannelImageAndAnnotationsFromFile:
     def __init__(
             self,
             crop_size_range: Optional[Tuple[int, int]],
@@ -123,14 +122,10 @@ class LoadMultiChannelImageAndAnnotationsFromFile(BaseTransform):
             if seg_path not in self.loaded_seg_mmaps:
                 self.loaded_seg_mmaps[seg_path] = read_mmap_array(Path(seg_path))
             seg_mmap = self.loaded_seg_mmaps[seg_path]
-            seg_path = results["seg_path"]
-            if seg_path not in self.loaded_seg_mmaps:
-                self.loaded_seg_mmaps[seg_path] = read_mmap_array(Path(seg_path))
             seg_map = np.stack([
                 self._resize_to_output_size(seg_mmap.data[c, ly: uy, lx: ux])
                 for c in take_channels
             ], axis=2)
-            # seg_map = self._resize_to_output_size(seg_mmap.data[take_channels[0], ly: uy, lx: ux])  # TODO(Sumo): remove this
         else:
             seg_map = None
         return img, seg_map

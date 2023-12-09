@@ -1,7 +1,7 @@
 import math
 from functools import partial
-from mmseg.models.builder import BACKBONES
-from mmengine.model.base_module import BaseModule
+# from mmseg.models.builder import BACKBONES
+# from mmengine.model.base_module import BaseModule
 
 import torch
 import torch.nn as nn
@@ -101,7 +101,8 @@ class Bottleneck(nn.Module):
         return out
 
 
-class ResNet(BaseModule):
+# class ResNet(BaseModule):
+class ResNet(nn.Module):
 
     def __init__(self,
                  block,
@@ -235,7 +236,7 @@ class ResNet(BaseModule):
         # return x
 
 
-@BACKBONES.register_module()
+# @BACKBONES.register_module()
 class Resnet3D10(ResNet):
     def __init__(self, **kwargs):
         ResNet.__init__(
@@ -247,7 +248,7 @@ class Resnet3D10(ResNet):
         )
 
 
-@BACKBONES.register_module()
+# @BACKBONES.register_module()
 class Resnet3D18(ResNet):
     def __init__(self, **kwargs):
         ResNet.__init__(
@@ -259,19 +260,19 @@ class Resnet3D18(ResNet):
         )
 
 
-@BACKBONES.register_module()
+# @BACKBONES.register_module()
 class Resnet3D34(ResNet):
     def __init__(self, **kwargs):
         ResNet.__init__(
             self,
-            BasicBlock,
-            [3, 4, 6, 3],
-            get_inplanes(),
+            block=BasicBlock,
+            layers=[3, 4, 6, 3],
+            block_inplanes=get_inplanes(),
             **kwargs,
         )
 
 
-@BACKBONES.register_module()
+# @BACKBONES.register_module()
 class Resnet3D50(ResNet):
     def __init__(self, **kwargs):
         ResNet.__init__(
@@ -283,7 +284,7 @@ class Resnet3D50(ResNet):
         )
 
 
-@BACKBONES.register_module()
+# @BACKBONES.register_module()
 class Resnet3D101(ResNet):
     def __init__(self, **kwargs):
         ResNet.__init__(
@@ -295,7 +296,7 @@ class Resnet3D101(ResNet):
         )
 
 
-@BACKBONES.register_module()
+# @BACKBONES.register_module()
 class Resnet3D152(ResNet):
     def __init__(self, **kwargs):
         ResNet.__init__(
@@ -307,7 +308,7 @@ class Resnet3D152(ResNet):
         )
 
 
-@BACKBONES.register_module()
+# @BACKBONES.register_module()
 class Resnet3D200(ResNet):
     def __init__(self, **kwargs):
         ResNet.__init__(

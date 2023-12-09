@@ -1,0 +1,29 @@
+val_check_interval: 1000
+
+
+train_folders:
+  - kidney_1_dense
+
+val_folders:
+  - kidney_3_sparse
+
+
+dataset:
+  kwargs:
+    crop_size: 512
+    n_take_channels: 20
+    reduce_zero_label: False
+    assert_label_exists: True
+    stride: 20
+    channel_start: 0
+    channel_end: null
+
+    crop_size_range: null
+    output_crop_size: null
+    to_float32: true
+    channels_jitter: 0
+    p_channel_jitter: 0.0
+    load_ann: true
+    seg_fill_val: 0
+    crop_location_noise: 100
+

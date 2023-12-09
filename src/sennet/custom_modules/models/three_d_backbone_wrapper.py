@@ -1,10 +1,10 @@
-from mmengine.model.base_module import BaseModule
-from mmseg.models.builder import BACKBONES as MMSEG_BACKBONES
-from mmdet.registry import MODELS as MMDET_BACKBONES
+# from mmengine.model.base_module import BaseModule
+# from mmseg.models.builder import BACKBONES as MMSEG_BACKBONES
+# from mmdet.registry import MODELS as MMDET_BACKBONES
 
 
-@MMSEG_BACKBONES.register_module()
-@MMDET_BACKBONES.register_module()
+# @MMSEG_BACKBONES.register_module()
+# @MMDET_BACKBONES.register_module()
 class ThreeDBackboneWrapper(BaseModule):
     def __init__(
             self,

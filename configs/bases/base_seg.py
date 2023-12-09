@@ -26,7 +26,7 @@ crop_location_noise = 10
 channels_jitter = 1
 p_channel_jitter = 0.5
 use_mosaic = False
-train_dataset_stride = 10
+train_dataset_stride = 20
 val_dataset_stride = 10
 # -------------------------------------------------------
 
@@ -173,6 +173,7 @@ train_dataloader = dict(
         type="MultiChannelDataset",
         folders=train_folders,
         crop_size=crop_size,
+        channel_start=1000,
         n_take_channels=n_take_channels,
         reduce_zero_label=reduce_zero_label,
         assert_label_exists=True,

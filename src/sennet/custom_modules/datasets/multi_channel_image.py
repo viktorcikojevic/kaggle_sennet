@@ -1,14 +1,15 @@
 from src.sennet.environments.constants import PROCESSED_DATA_DIR
 from src.sennet.core.mmap_arrays import read_mmap_array
-from mmseg.registry import DATASETS as MMSEG_DATASETS
-from mmseg.datasets.basesegdataset import BaseSegDataset
+# from mmseg.registry import DATASETS as MMSEG_DATASETS
+# from mmseg.datasets.basesegdataset import BaseSegDataset
 from typing import *
 import numpy as np
 from tqdm import tqdm
 
 
-@MMSEG_DATASETS.register_module()
-class MultiChannelDataset(BaseSegDataset):
+# @MMSEG_DATASETS.register_module()
+# class MultiChannelDataset(BaseSegDataset):
+class MultiChannelDataset:
     DUMMY_COLOR = (0, 0, 0)
     METAINFO = dict(
         classes=('background', 'blood_vessel'),
@@ -17,16 +18,17 @@ class MultiChannelDataset(BaseSegDataset):
         # palette=[[0, 255, 0]]  # this is due to reduce_zero_label shifting every indices down by one
     )
 
-    def __init__(self,
-                 folders: List[str],
-                 crop_size: int,
-                 n_take_channels: int,
-                 reduce_zero_label=True,
-                 assert_label_exists: bool = False,
-                 stride: int = 4,
-                 channel_start: int = 0,
-                 channel_end: Optional[int] = None,
-                 **kwargs) -> None:
+    def __init__(
+            self,
+            folders: List[str],
+            crop_size: int,
+            n_take_channels: int,
+            reduce_zero_label=True,
+            assert_label_exists: bool = False,
+            stride: int = 4,
+            channel_start: int = 0,
+            channel_end: Optional[int] = None,
+    ) -> None:
         self.folders = [PROCESSED_DATA_DIR / folder for folder in folders]
         print(f"reading from the following folders:")
         for i, folder in enumerate(self.folders):
@@ -39,12 +41,13 @@ class MultiChannelDataset(BaseSegDataset):
         self.assert_label_exists = assert_label_exists
         self.channel_start = channel_start
         self.channel_end = channel_end
-        super().__init__(
-            img_suffix=".tif",
-            seg_map_suffix=".png",
-            reduce_zero_label=reduce_zero_label,
-            serialize_data=False,
-            **kwargs)
+        self.reduce_zero_label = reduce_zero_label
+        # super().__init__(
+        #     img_suffix=".tif",
+        #     seg_map_suffix=".png",
+        #     reduce_zero_label=reduce_zero_label,
+        #     serialize_data=False,
+        #     **kwargs)
 
     def load_data_list(self) -> List[dict]:
         """Load annotation from directory or annotation file.
@@ -73,7 +76,7 @@ class MultiChannelDataset(BaseSegDataset):
                 img_h=mask.shape[1],
                 img_w=mask.shape[2],
                 img_c=mask.shape[0],
-                label_map=self.label_map,
+                # label_map=self.label_map,
                 reduce_zero_label=self.reduce_zero_label,
                 seg_fields=[],
             )
