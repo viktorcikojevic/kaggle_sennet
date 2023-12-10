@@ -1,4 +1,20 @@
 val_check_interval: 1000
+batch_size: 2
+num_workers: 2
+dry_logger: false
+exp_name: three_d_seg
+patience: 5
+max_epochs: 10
+
+
+model:
+  type: Resnet3D34
+
+
+optimiser:
+  type: "AdamW"
+  kwargs:
+    lr: 5e-4
 
 
 train_folders:

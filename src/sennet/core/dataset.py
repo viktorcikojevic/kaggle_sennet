@@ -30,8 +30,6 @@ class ThreeDSegmentationDataset(Dataset):
     ):
         Dataset.__init__(self)
 
-        if crop_size_range is None:
-            crop_size_range = (crop_size, crop_size)
         if output_crop_size is None:
             output_crop_size = crop_size
 
@@ -74,6 +72,8 @@ class ThreeDSegmentationDataset(Dataset):
         data["img"] = torch.from_numpy(data["img"]).permute((2, 0, 1))
         if "gt_seg_map" in data:
             data["gt_seg_map"] = torch.from_numpy(data["gt_seg_map"]).permute((2, 0, 1))
+
+        data["img"] = data["img"].float()  # TODO(Sumo): change to actual normalisation here
         return data
 
 

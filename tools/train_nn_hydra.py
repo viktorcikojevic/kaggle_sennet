@@ -22,9 +22,11 @@ def main(cfg: DictConfig):
     cfg_dict: Dict = OmegaConf.to_container(cfg, resolve=True)
     dataset_kwargs = cfg_dict["dataset"]["kwargs"]
     train_dataset = ThreeDSegmentationDataset(
+        folders=cfg.train_folders,
         **dataset_kwargs,
     )
     val_dataset = ThreeDSegmentationDataset(
+        folders=cfg.val_folders,
         **dataset_kwargs,
     )
     train_loader = DataLoader(
@@ -46,8 +48,8 @@ def main(cfg: DictConfig):
 
     # ---------------------------------------
     model = Resnet3D34(
-        n_input_channels=20,
-        n_classes=2,
+        n_input_channels=1,
+        n_classes=1,
     )
     # ---------------------------------------
 
@@ -60,7 +62,7 @@ def main(cfg: DictConfig):
     if cfg.dry_logger:
         logger = None
     else:
-        logger = WandbLogger(project=cfg.exp_name, name=f"{str(cfg_dict['model']['type'])}-{str(cfg_dict['task']['kwargs']['focal_loss_alpha'])}")
+        logger = WandbLogger(project=cfg.exp_name, name=f"{str(cfg_dict['model']['type'])}")
         logger.experiment.config.update(OmegaConf.to_container(cfg, resolve=True))
         logger.experiment.config["dir_name"] = dir_name
     callbacks = [
@@ -101,8 +103,8 @@ def main(cfg: DictConfig):
         train_dataloaders=train_loader,
         val_dataloaders=val_loader,
     )
-    logger.experiment.config["best_surface_dice"] = task.best_surface_dice
     if not cfg.dry_logger:
+        logger.experiment.config["best_surface_dice"] = task.best_surface_dice
         logger.experiment.finish()
     return task.best_surface_dice
 

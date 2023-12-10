@@ -30,7 +30,10 @@ class ThreeDSegmentationTask(pl.LightningModule):
 
     def training_step(self, batch: Dict, batch_idx: int):
         preds = self.model(batch["img"])
-        loss = self.criterion(preds, batch["gt_seg_map"])
+        print(f"{[p.shape for p in preds] = }")
+        print(f'{batch["gt_seg_map"].shape = }')
+        assert False
+        loss = self.criterion(preds, batch["gt_seg_map"].float())
         self.log("train_loss", loss, prog_bar=True)
         return loss
 

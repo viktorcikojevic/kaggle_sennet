@@ -39,7 +39,8 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             seg_fill_val: int = 255,
             crop_location_noise: int = 0
     ):
-        assert crop_size_range[0] <= crop_size_range[1], f"{crop_size_range=}"
+        if crop_size_range is not None:
+            assert crop_size_range[0] <= crop_size_range[1], f"{crop_size_range=}"
         self.crop_size_range = crop_size_range
         self.output_crop_size = output_crop_size
         self.to_float32 = to_float32
@@ -76,8 +77,12 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         mid_y_noise = np.random.randint(-self.crop_location_noise, self.crop_location_noise+1)
         mid_x = int(0.5*lx + 0.5*ux) + mid_x_noise
         mid_y = int(0.5*ly + 0.5*uy) + mid_y_noise
-        new_crop_size_x = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
-        new_crop_size_y = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
+        if self.crop_size_range is not None:
+            new_crop_size_x = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
+            new_crop_size_y = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
+        else:
+            new_crop_size_x = ux - lx
+            new_crop_size_y = uy - ly
         lx = int(np.clip(mid_x - 0.5*new_crop_size_x, 0, results["img_w"] - new_crop_size_x))
         ly = int(np.clip(mid_y - 0.5*new_crop_size_y, 0, results["img_h"] - new_crop_size_y))
         ux = int(lx + new_crop_size_x)

@@ -91,7 +91,7 @@ class MultiChannelDataset:
                     & (0 < j_mins) & (j_maxes < mask.shape[2])
             )
             take_indices = np.nonzero(take_masks)[0]
-            print(f"taking {len(take_indices)}/{len(take_masks)} ({len(take_indices)}/{(len(take_masks) + 1e-6)*100})% for {folder}")
+            print(f"taking {len(take_indices)}/{len(take_masks)} ({len(take_indices)/(len(take_masks) + 1e-6)*100:.2f})% for {folder}")
             items = [
                 dict(
                     bbox=[
