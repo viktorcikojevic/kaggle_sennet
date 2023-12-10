@@ -35,6 +35,7 @@ class ThreeDSegmentationDataset(Dataset):
         if output_crop_size is None:
             output_crop_size = crop_size
 
+        self.folders = folders
         self.dataset = MultiChannelDataset(
             folders=folders,
             crop_size=crop_size,

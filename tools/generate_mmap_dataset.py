@@ -1,4 +1,5 @@
 from sennet.core.mmap_arrays import create_mmap_array, MmapArray
+from sennet.environments.constants import PROCESSED_DATA_DIR
 from sennet.core.foreground_extraction import get_foreground_mask
 from typing import Optional
 from pathlib import Path
@@ -10,11 +11,9 @@ import cv2
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", type=str, required=True)
-    parser.add_argument("--output-dir", type=str, required=True)
     args, _ = parser.parse_known_args()
     path = Path(args.path)
-    output_root = Path(args.output_dir)
-    output_dir = (output_root / path.name)
+    output_dir = (PROCESSED_DATA_DIR / path.name)
     assert path.is_dir(), f"{path=} doesn't exist"
     images_dir = path / "images"
     labels_dir = path / "labels"
@@ -22,6 +21,7 @@ def main():
 
     if images_dir.is_dir():
         image_paths = sorted(list(images_dir.glob("*.tif")))
+        (output_dir / "image_paths").write_text("\n".join([str(p) for p in image_paths]))
         print(f"found {len(image_paths)} images under {images_dir}")
         mmap_array: Optional[MmapArray] = None
         mask_mmap_array: Optional[MmapArray] = None

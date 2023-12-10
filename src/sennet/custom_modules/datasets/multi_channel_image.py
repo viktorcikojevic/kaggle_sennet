@@ -2,6 +2,7 @@ from src.sennet.environments.constants import PROCESSED_DATA_DIR
 from src.sennet.core.mmap_arrays import read_mmap_array
 # from mmseg.registry import DATASETS as MMSEG_DATASETS
 # from mmseg.datasets.basesegdataset import BaseSegDataset
+from pathlib import Path
 from typing import *
 import numpy as np
 from tqdm import tqdm
@@ -42,12 +43,7 @@ class MultiChannelDataset:
         self.channel_start = channel_start
         self.channel_end = channel_end
         self.reduce_zero_label = reduce_zero_label
-        # super().__init__(
-        #     img_suffix=".tif",
-        #     seg_map_suffix=".png",
-        #     reduce_zero_label=reduce_zero_label,
-        #     serialize_data=False,
-        #     **kwargs)
+        self.image_paths = {}
 
     def load_data_list(self) -> List[dict]:
         """Load annotation from directory or annotation file.
@@ -60,6 +56,7 @@ class MultiChannelDataset:
             image_dir = folder / "image"
             mask_dir = folder / "mask"
             label_dir = folder / "label"
+            image_paths = [Path(p) for p in Path(folder / "image_paths").read_text().split("\n")]
             assert image_dir.is_dir(), f"{image_dir=} doesn't exist"
             assert mask_dir.is_dir(), f"{mask_dir=} doesn't exist"
             if self.assert_label_exists:
@@ -71,15 +68,16 @@ class MultiChannelDataset:
             i_takes *= self.stride
             j_takes *= self.stride
             md = dict(
-                image_path=str(image_dir.absolute().resolve()),
-                seg_path=str(label_dir.absolute().resolve()),
+                folder=str(folder.absolute().resolve()),
+                image_dir=str(image_dir.absolute().resolve()),
+                seg_dir=str(label_dir.absolute().resolve()),
                 img_h=mask.shape[1],
                 img_w=mask.shape[2],
                 img_c=mask.shape[0],
-                # label_map=self.label_map,
                 reduce_zero_label=self.reduce_zero_label,
                 seg_fields=[],
             )
+            self.image_paths[md["folder"]] = [f"{p.parent.parent.stem}_{p.stem}" for p in image_paths]
             c_mins = c_takes - self.n_half_take_channels
             c_maxes = c_mins + self.n_take_channels
             i_mins = i_takes - self.half_crop_size

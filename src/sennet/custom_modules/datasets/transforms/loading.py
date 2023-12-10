@@ -109,7 +109,7 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             take_channels,
     ):
         lx, ly, ux, uy = crop_bbox
-        img_path = results["image_path"]
+        img_path = results["image_dir"]
         if img_path not in self.loaded_image_mmaps:
             self.loaded_image_mmaps[img_path] = read_mmap_array(Path(img_path))
         image_mmap = self.loaded_image_mmaps[img_path]
@@ -118,7 +118,7 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             for c in take_channels
         ], axis=2)
         if self.load_ann:
-            seg_path = results["seg_path"]
+            seg_path = results["seg_dir"]
             if seg_path not in self.loaded_seg_mmaps:
                 self.loaded_seg_mmaps[seg_path] = read_mmap_array(Path(seg_path))
             seg_mmap = self.loaded_seg_mmaps[seg_path]
