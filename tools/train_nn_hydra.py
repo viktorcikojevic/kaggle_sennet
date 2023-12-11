@@ -3,15 +3,13 @@ import pytorch_lightning as pl
 from sennet.core.three_d_segmentation_task import ThreeDSegmentationTask
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.environments.constants import MODEL_OUT_DIR
+from sennet.custom_modules.models import UNet3D
 from torch.utils.data import DataLoader
 from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
 from typing import Dict
 import hydra
 # import beepy
-
-
-from sennet.custom_modules.models.resnet3d import Resnet3D34
 
 
 @hydra.main(config_path="../configs", config_name="train", version_base="1.2")
@@ -23,10 +21,12 @@ def main(cfg: DictConfig):
     dataset_kwargs = cfg_dict["dataset"]["kwargs"]
     train_dataset = ThreeDSegmentationDataset(
         folders=cfg.train_folders,
+        substride=cfg.dataset.train_substride,
         **dataset_kwargs,
     )
     val_dataset = ThreeDSegmentationDataset(
         folders=cfg.val_folders,
+        substride=cfg.dataset.val_substride,
         **dataset_kwargs,
     )
     train_loader = DataLoader(
@@ -47,10 +47,7 @@ def main(cfg: DictConfig):
     )
 
     # ---------------------------------------
-    model = Resnet3D34(
-        n_input_channels=1,
-        n_classes=1,
-    )
+    model = UNet3D(1, 1, final_sigmoid=False)
     # ---------------------------------------
 
     task = ThreeDSegmentationTask(

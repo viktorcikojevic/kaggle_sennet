@@ -25,14 +25,11 @@ class ThreeDSegmentationTask(pl.LightningModule):
             self.val_rle_df.append(pd.read_csv(PROCESSED_DATA_DIR / f / "rle.csv"))
         self.val_rle_df = pd.concat(self.val_rle_df, axis=0)
         self.optimiser_spec = optimiser_spec
-        self.criterion = nn.BCEWithLogitsLoss(reduction="none")
+        self.criterion = nn.BCEWithLogitsLoss(reduction="mean")
         self.best_surface_dice = 0.0
 
     def training_step(self, batch: Dict, batch_idx: int):
         preds = self.model(batch["img"])
-        print(f"{[p.shape for p in preds] = }")
-        print(f'{batch["gt_seg_map"].shape = }')
-        assert False
         loss = self.criterion(preds, batch["gt_seg_map"].float())
         self.log("train_loss", loss, prog_bar=True)
         return loss
@@ -42,7 +39,12 @@ class ThreeDSegmentationTask(pl.LightningModule):
 
     def on_validation_epoch_end(self) -> None:
         with torch.no_grad():
-            submission_df = generate_submission_df(self.model, self.val_loader, 0.5, None)
+            submission_df = generate_submission_df(
+                self.model,
+                self.val_loader,
+                0.5,
+                None
+            )
             surface_dice_score = get_surface_dice_score(
                 solution=submission_df,
                 submission=self.val_rle_df,

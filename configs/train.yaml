@@ -1,4 +1,5 @@
-val_check_interval: 1000
+#val_check_interval: 1000
+val_check_interval: 50
 batch_size: 2
 num_workers: 2
 dry_logger: false
@@ -25,12 +26,13 @@ val_folders:
 
 
 dataset:
+  train_substride: 0.1
+  val_substride: 1.0
   kwargs:
-    crop_size: 512
-    n_take_channels: 20
+    crop_size: 256
+    n_take_channels: 10
     reduce_zero_label: False
     assert_label_exists: True
-    stride: 20
     channel_start: 0
     channel_end: null
 

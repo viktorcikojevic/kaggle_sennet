@@ -63,7 +63,7 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             max_jitter_val = min(num_channels-channel_end, self.channels_jitter)
             channel_jitter = np.random.randint(min_jitter_val, max_jitter_val)
             take_channels += channel_jitter
-        return take_channels
+        return take_channels.astype(int)
 
     # @profile
     def _get_pixel_bbox(self, results: Dict) -> Tuple[int, int, int, int]:
@@ -118,10 +118,15 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         if img_path not in self.loaded_image_mmaps:
             self.loaded_image_mmaps[img_path] = read_mmap_array(Path(img_path))
         image_mmap = self.loaded_image_mmaps[img_path]
-        img = np.stack([
-            self._resize_to_output_size(image_mmap.data[c, ly: uy, lx: ux])
-            for c in take_channels
-        ], axis=2)
+        try:
+            img = np.stack([
+                self._resize_to_output_size(image_mmap.data[c, ly: uy, lx: ux])
+                for c in take_channels
+            ], axis=2)
+        except:
+            print("fucked")
+            print(take_channels)
+            print(crop_bbox)
         if self.load_ann:
             seg_path = results["seg_dir"]
             if seg_path not in self.loaded_seg_mmaps:

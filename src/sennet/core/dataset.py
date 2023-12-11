@@ -1,3 +1,5 @@
+import numpy as np
+
 from sennet.custom_modules.datasets.multi_channel_image import MultiChannelDataset
 from sennet.custom_modules.datasets.transforms.loading import LoadMultiChannelImageAndAnnotationsFromFile
 from typing import List, Optional, Tuple
@@ -13,7 +15,7 @@ class ThreeDSegmentationDataset(Dataset):
             n_take_channels: int,
             reduce_zero_label=True,
             assert_label_exists: bool = False,
-            stride: int = 4,
+            substride: float = 0.25,
             channel_start: int = 0,
             channel_end: Optional[int] = None,
 
@@ -40,7 +42,7 @@ class ThreeDSegmentationDataset(Dataset):
             n_take_channels=n_take_channels,
             reduce_zero_label=reduce_zero_label,
             assert_label_exists=assert_label_exists,
-            stride=stride,
+            substride=substride,
             channel_start=channel_start,
             channel_end=channel_end,
         )
@@ -69,11 +71,14 @@ class ThreeDSegmentationDataset(Dataset):
         for t in self.transforms:
             data = t.transform(data)
 
+        # unsqueeze(0) are there to create a channel dimension
         data["img"] = torch.from_numpy(data["img"]).permute((2, 0, 1))
         if "gt_seg_map" in data:
-            data["gt_seg_map"] = torch.from_numpy(data["gt_seg_map"]).permute((2, 0, 1))
+            data["gt_seg_map"] = torch.from_numpy(data["gt_seg_map"]).permute((2, 0, 1)).unsqueeze(0)
 
-        data["img"] = data["img"].float()  # TODO(Sumo): change to actual normalisation here
+        data["img"] = data["img"].float().unsqueeze(0)  # TODO(Sumo): change to actual normalisation here
+        # data["bbox"] = torch.tensor(data["bbox"], dtype=torch.float)
+        data["bbox"] = np.array(data["bbox"])
         return data
 
 
@@ -82,7 +87,7 @@ if __name__ == "__main__":
         ["kidney_1_dense"],
         512,
         20,
-        stride=20,
+        substride=0.5,
     )
     _dl = DataLoader(
         _ds,

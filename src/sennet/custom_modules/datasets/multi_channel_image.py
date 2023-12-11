@@ -1,5 +1,5 @@
-from src.sennet.environments.constants import PROCESSED_DATA_DIR
-from src.sennet.core.mmap_arrays import read_mmap_array
+from sennet.environments.constants import PROCESSED_DATA_DIR
+from sennet.core.mmap_arrays import read_mmap_array
 # from mmseg.registry import DATASETS as MMSEG_DATASETS
 # from mmseg.datasets.basesegdataset import BaseSegDataset
 from pathlib import Path
@@ -26,7 +26,7 @@ class MultiChannelDataset:
             n_take_channels: int,
             reduce_zero_label=True,
             assert_label_exists: bool = False,
-            stride: int = 4,
+            substride: float = 0.25,
             channel_start: int = 0,
             channel_end: Optional[int] = None,
     ) -> None:
@@ -38,7 +38,9 @@ class MultiChannelDataset:
         self.half_crop_size = int(self.crop_size / 2)
         self.n_take_channels = n_take_channels
         self.n_half_take_channels = int(self.n_take_channels / 2)
-        self.stride = stride
+        self.substride = substride
+        self.xy_stride = max(1, int(self.substride * crop_size))
+        self.z_stride = max(1, int(self.substride * n_take_channels))
         self.assert_label_exists = assert_label_exists
         self.channel_start = channel_start
         self.channel_end = channel_end
@@ -63,10 +65,11 @@ class MultiChannelDataset:
                 assert label_dir.is_dir(), f"{label_dir=} doesn't exist but {self.assert_label_exists=}"
             # not really sure if loading all non_zero indices is the best idea, also with all these channels
             mask = read_mmap_array(mask_dir)
-            mask_data = mask.data[:, ::self.stride, ::self.stride]
+            mask_data = mask.data[::self.z_stride, ::self.xy_stride, ::self.xy_stride]
             c_takes, i_takes, j_takes = np.nonzero(mask_data)
-            i_takes *= self.stride
-            j_takes *= self.stride
+            c_takes = (c_takes * self.z_stride).astype(int)
+            i_takes = (i_takes * self.xy_stride).astype(int)
+            j_takes = (j_takes * self.xy_stride).astype(int)
             md = dict(
                 folder=str(folder.absolute().resolve()),
                 image_dir=str(image_dir.absolute().resolve()),
@@ -111,6 +114,6 @@ if __name__ == "__main__":
         ["kidney_1_dense"],
         512,
         20,
-        stride=10,
+        substride=0.5,
     )
     _m = _ds.load_data_list()
