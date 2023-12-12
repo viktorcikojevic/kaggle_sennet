@@ -1,7 +1,5 @@
 from sennet.environments.constants import PROCESSED_DATA_DIR
 from sennet.core.mmap_arrays import read_mmap_array
-# from mmseg.registry import DATASETS as MMSEG_DATASETS
-# from mmseg.datasets.basesegdataset import BaseSegDataset
 from pathlib import Path
 from typing import *
 import numpy as np
@@ -65,11 +63,11 @@ class MultiChannelDataset:
                 assert label_dir.is_dir(), f"{label_dir=} doesn't exist but {self.assert_label_exists=}"
             # not really sure if loading all non_zero indices is the best idea, also with all these channels
             mask = read_mmap_array(mask_dir)
-            mask_data = mask.data[::self.z_stride, ::self.xy_stride, ::self.xy_stride]
-            c_takes, i_takes, j_takes = np.nonzero(mask_data)
-            c_takes = (c_takes * self.z_stride).astype(int)
-            i_takes = (i_takes * self.xy_stride).astype(int)
-            j_takes = (j_takes * self.xy_stride).astype(int)
+            # mask_data = mask.data[::self.z_stride, ::self.xy_stride, ::self.xy_stride]
+            # c_takes, i_takes, j_takes = np.nonzero(mask_data)
+            # c_takes = (c_takes * self.z_stride).astype(int)
+            # i_takes = (i_takes * self.xy_stride).astype(int)
+            # j_takes = (j_takes * self.xy_stride).astype(int)
             md = dict(
                 folder=str(folder.absolute().resolve()),
                 image_dir=str(image_dir.absolute().resolve()),
@@ -81,30 +79,49 @@ class MultiChannelDataset:
                 seg_fields=[],
             )
             self.image_paths[md["folder"]] = [f"{p.parent.parent.stem}_{p.stem}" for p in image_paths]
-            c_mins = c_takes - self.n_half_take_channels
-            c_maxes = c_mins + self.n_take_channels
-            i_mins = i_takes - self.half_crop_size
-            i_maxes = i_mins + self.crop_size
-            j_mins = j_takes - self.half_crop_size
-            j_maxes = j_mins + self.crop_size
-            channel_end = mask.shape[0] if self.channel_end is None else self.channel_end
-            take_masks = (
-                    (self.channel_start < c_mins) & (c_maxes < channel_end)
-                    & (0 < i_mins) & (i_maxes < mask.shape[1])
-                    & (0 < j_mins) & (j_maxes < mask.shape[2])
-            )
-            take_indices = np.nonzero(take_masks)[0]
-            print(f"taking {len(take_indices)}/{len(take_masks)} ({len(take_indices)/(len(take_masks) + 1e-6)*100:.2f})% for {folder}")
+            # c_mins = c_takes - self.n_half_take_channels
+            # c_maxes = c_mins + self.n_take_channels
+            # i_mins = i_takes - self.half_crop_size
+            # i_maxes = i_mins + self.crop_size
+            # j_mins = j_takes - self.half_crop_size
+            # j_maxes = j_mins + self.crop_size
+            # channel_end = mask.shape[0] if self.channel_end is None else self.channel_end
+            # take_masks = (
+            #         (self.channel_start < c_mins) & (c_maxes < channel_end)
+            #         & (0 < i_mins) & (i_maxes < mask.shape[1])
+            #         & (0 < j_mins) & (j_maxes < mask.shape[2])
+            # )
+            # take_indices = np.nonzero(take_masks)[0]
+            # print(f"taking {len(take_indices)}/{len(take_masks)} ({len(take_indices)/(len(take_masks) + 1e-6)*100:.2f})% for {folder}")
+            # items = [
+            #     dict(
+            #         bbox=[
+            #             c_mins[i], j_mins[i], i_mins[i],
+            #             c_maxes[i], j_maxes[i], i_maxes[i],
+            #         ],
+            #         **md,
+            #     )
+            #     for i in tqdm(take_indices, desc="indexing", total=len(take_indices))
+            # ]
+            print("generating indices")
             items = [
                 dict(
                     bbox=[
-                        c_mins[i], j_mins[i], i_mins[i],
-                        c_maxes[i], j_maxes[i], i_maxes[i],
+                        c, j, i,
+                        c+self.n_take_channels, j+self.crop_size, i+self.crop_size,
                     ],
                     **md,
                 )
-                for i in tqdm(take_indices, desc="indexing", total=len(take_indices))
+                for c in range(self.n_half_take_channels, mask.shape[0]-self.n_half_take_channels, self.z_stride)
+                for i in range(self.half_crop_size, mask.shape[1]-self.half_crop_size, self.xy_stride)
+                for j in range(self.half_crop_size, mask.shape[2]-self.half_crop_size, self.xy_stride)
+                if (
+                    (c+self.n_take_channels < mask.shape[0])
+                    and (i+self.crop_size < mask.shape[1])
+                    and (j+self.crop_size < mask.shape[2])
+                )
             ]
+            print("done generating indices")
             metadata += items
         return metadata
 

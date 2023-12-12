@@ -5,6 +5,8 @@ from sennet.custom_modules.datasets.transforms.loading import LoadMultiChannelIm
 from typing import List, Optional, Tuple
 from torch.utils.data import Dataset, DataLoader
 import torch
+from tqdm import tqdm
+from line_profiler_pycharm import profile
 
 
 class ThreeDSegmentationDataset(Dataset):
@@ -65,6 +67,7 @@ class ThreeDSegmentationDataset(Dataset):
     def __len__(self):
         return len(self.data_list)
 
+    @profile
     def __getitem__(self, i: int):
         data = self.data_list[i]
         data = self.loader.transform(data)
@@ -85,8 +88,9 @@ class ThreeDSegmentationDataset(Dataset):
 if __name__ == "__main__":
     _ds = ThreeDSegmentationDataset(
         ["kidney_1_dense"],
-        512,
+        256,
         20,
+        output_crop_size=256,
         substride=0.5,
     )
     _dl = DataLoader(
@@ -95,5 +99,5 @@ if __name__ == "__main__":
         shuffle=True,
     )
     _item = _ds[100]
-    for _batch in _dl:
+    for _batch in tqdm(_dl, total=len(_dl)):
         print(":D")

@@ -5,25 +5,7 @@ from sennet.core.mmap_arrays import read_mmap_array, MmapArray
 # from line_profiler_pycharm import profile
 from pathlib import Path
 import cv2
-
-
-def process_seg_map(seg_map: np.ndarray, results: Dict):
-    # copied from the original LoadAnnotations class
-    reduce_zero_label = results["reduce_zero_label"]
-    if reduce_zero_label:
-        # avoid using underflow conversion
-        seg_map[seg_map == 0] = 255
-        seg_map = seg_map - 1
-        seg_map[seg_map == 254] = 255
-    # modify if custom classes
-    if results.get("label_map", None) is not None:
-        # Add deep copy to solve bug of repeatedly
-        # replace `gt_semantic_seg`, which is reported in
-        # https://github.com/open-mmlab/mmsegmentation/pull/1445/
-        seg_map_copy = seg_map.copy()
-        for old_id, new_id in results["label_map"].items():
-            seg_map[seg_map_copy == old_id] = new_id
-    return seg_map
+from line_profiler_pycharm import profile
 
 
 # @MMSEG_TRANSFORMS.register_module()
@@ -89,7 +71,7 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         uy = int(ly + new_crop_size_y)
         return lx, ly, ux, uy
 
-    # @profile
+    @profile
     def transform(self, results: Dict) -> Optional[Dict]:
         crop_bbox = self._get_pixel_bbox(results)
         take_channels = self._get_take_channels(results)
@@ -101,12 +83,13 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         results["img"] = img
         results["img_shape"] = img.shape[:2]
         if seg is not None:
-            processed_seg_map = process_seg_map(seg, results)
-            results["gt_seg_map"] = processed_seg_map
+            # processed_seg_map = process_seg_map(seg, results)
+            # results["gt_seg_map"] = processed_seg_map
+            results["gt_seg_map"] = seg
             results["seg_fields"].append("gt_seg_map")
         return results
 
-    # @profile
+    @profile
     def _read_image_and_seg(
             self,
             results,
@@ -118,15 +101,10 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         if img_path not in self.loaded_image_mmaps:
             self.loaded_image_mmaps[img_path] = read_mmap_array(Path(img_path))
         image_mmap = self.loaded_image_mmaps[img_path]
-        try:
-            img = np.stack([
-                self._resize_to_output_size(image_mmap.data[c, ly: uy, lx: ux])
-                for c in take_channels
-            ], axis=2)
-        except:
-            print("fucked")
-            print(take_channels)
-            print(crop_bbox)
+        img = np.stack([
+            self._resize_to_output_size(image_mmap.data[c, ly: uy, lx: ux])
+            for c in take_channels
+        ], axis=2)
         if self.load_ann:
             seg_path = results["seg_dir"]
             if seg_path not in self.loaded_seg_mmaps:
