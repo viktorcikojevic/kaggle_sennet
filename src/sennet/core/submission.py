@@ -1,13 +1,13 @@
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.core.rles import rle_encode
 from sennet.core.mmap_arrays import create_mmap_array
+from sennet.environments.constants import TMP_SUB_MMAP_DIR
 from typing import Optional, Union, List
 from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 import torch.nn as nn
 from tqdm import tqdm
-import pandas as pd
 import numpy as np
 from line_profiler_pycharm import profile
 from datetime import datetime
@@ -17,8 +17,8 @@ import shutil
 class AppendingSubmissionCsv:
     def __init__(self, csv_path: Union[Path, str]):
         self.csv_path = csv_path
+        Path(self.csv_path).write_text(f"id,rle")
         self.file = open(csv_path, "a")
-        self.file.write(f"id,rle")
 
     def __del__(self):
         self.file.flush()
@@ -52,7 +52,7 @@ def generate_submission_df(
     sub_file = AppendingSubmissionCsv(Path(sub_out_dir) / "submission.csv")
     write_to_tmp_file = raw_pred_out_dir is None
     if write_to_tmp_file:
-        raw_pred_out_dir = Path(f"/tmp/sennet_tmp_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
+        raw_pred_out_dir = TMP_SUB_MMAP_DIR / f"sennet_tmp_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
 
     with torch.no_grad():
         for batch in tqdm(data_loader, total=len(data_loader)):
@@ -64,33 +64,34 @@ def generate_submission_df(
                 pred = pred_batch[i]
                 bbox = batch["bbox"][i].cpu().numpy()
                 if current_folder is None or current_folder != folder:
-                    # if current_folder is not None:
-                    #     current_mean_prob[:] = current_total_prob / (current_total_count + 1e-6)
-                    #     thresholded_prob[:] = current_mean_prob > threshold
-                    #
-                    #     image_paths = dataset.dataset.image_paths[current_folder]
-                    #     for c in range(thresholded_prob.shape[0]):
-                    #         prob_rle = rle_encode(thresholded_prob[c])
-                    #         sub_file.add_line([image_paths[c], prob_rle])
-                    #
-                    #     if current_total_prob is not None:
-                    #         current_total_prob.flush()
-                    #     if current_total_count is not None:
-                    #         current_total_count.flush()
-                    #     if current_mean_prob is not None:
-                    #         current_mean_prob.flush()
-                    #     if thresholded_prob is not None:
-                    #         thresholded_prob.flush()
+                    if current_folder is not None and current_total_prob is not None and current_total_count is not None:
+                        image_paths = dataset.dataset.image_paths[current_folder]
+                        for c in tqdm(range(thresholded_prob.shape[0])):
+                            current_mean_prob[c, ...] = current_total_prob[c, ...] / (current_total_count[c, ...] + 1e-6)
+                            thresholded_prob[c, ...] = current_mean_prob[c, ...] > threshold
+
+                            prob_rle = rle_encode(thresholded_prob[c])
+                            sub_file.add_line([image_paths[c], prob_rle])
+
+                        if current_total_prob is not None:
+                            current_total_prob.flush()
+                        if current_total_count is not None:
+                            current_total_count.flush()
+                        if current_mean_prob is not None:
+                            current_mean_prob.flush()
+                        if thresholded_prob is not None:
+                            thresholded_prob.flush()
 
                     img_h = int(batch["img_h"][i])
                     img_w = int(batch["img_w"][i])
                     img_c = int(batch["img_c"][i])
 
                     current_folder = folder
-                    current_total_prob = create_mmap_array(raw_pred_out_dir / folder / "total_prob", [img_c, img_h, img_w], float).data
-                    current_total_count = create_mmap_array(raw_pred_out_dir / folder / "total_count", [img_c, img_h, img_w], np.int64).data
-                    current_mean_prob = create_mmap_array(raw_pred_out_dir / folder / "mean_prob", [img_c, img_h, img_w], float).data
-                    thresholded_prob = create_mmap_array(raw_pred_out_dir / folder / "thresholded_prob", [img_c, img_h, img_w], bool).data
+                    folder_name = Path(folder).name
+                    current_total_prob = create_mmap_array(raw_pred_out_dir / folder_name / "total_prob", [img_c, img_h, img_w], float).data
+                    current_total_count = create_mmap_array(raw_pred_out_dir / folder_name / "total_count", [img_c, img_h, img_w], np.int64).data
+                    current_mean_prob = create_mmap_array(raw_pred_out_dir / folder_name / "mean_prob", [img_c, img_h, img_w], float).data
+                    thresholded_prob = create_mmap_array(raw_pred_out_dir / folder_name / "thresholded_prob", [img_c, img_h, img_w], bool).data
 
                 lc = bbox[0]
                 lx = bbox[1]
@@ -103,11 +104,9 @@ def generate_submission_df(
                 current_total_count[lc: uc, ly: uy, lx: ux] += 1
 
     if current_folder is not None and current_total_prob is not None and current_total_count is not None:
-        np.divide(current_total_prob, current_total_count + 1e-6, out=current_mean_prob)
-
         image_paths = dataset.dataset.image_paths[current_folder]
-        for c in range(thresholded_prob.shape[0]):
-            # current_mean_prob[c, ...] = current_total_prob[c, ...] / (current_total_count[c, ...] + 1e-6)
+        for c in tqdm(range(thresholded_prob.shape[0])):
+            current_mean_prob[c, ...] = current_total_prob[c, ...] / (current_total_count[c, ...] + 1e-6)
             thresholded_prob[c, ...] = current_mean_prob[c, ...] > threshold
 
             prob_rle = rle_encode(thresholded_prob[c])
@@ -122,7 +121,7 @@ def generate_submission_df(
         if thresholded_prob is not None:
             thresholded_prob.flush()
 
-    if write_to_tmp_file:
+    if write_to_tmp_file and raw_pred_out_dir.is_dir():
         shutil.rmtree(raw_pred_out_dir)
 
 
