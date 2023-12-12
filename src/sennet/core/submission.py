@@ -103,11 +103,13 @@ def generate_submission_df(
                 current_total_count[lc: uc, ly: uy, lx: ux] += 1
 
     if current_folder is not None and current_total_prob is not None and current_total_count is not None:
-        current_mean_prob[:] = current_total_prob / (current_total_count + 1e-6)
-        thresholded_prob[:] = current_mean_prob > threshold
+        np.divide(current_total_prob, current_total_count + 1e-6, out=current_mean_prob)
 
         image_paths = dataset.dataset.image_paths[current_folder]
         for c in range(thresholded_prob.shape[0]):
+            # current_mean_prob[c, ...] = current_total_prob[c, ...] / (current_total_count[c, ...] + 1e-6)
+            thresholded_prob[c, ...] = current_mean_prob[c, ...] > threshold
+
             prob_rle = rle_encode(thresholded_prob[c])
             sub_file.add_line([image_paths[c], prob_rle])
 
