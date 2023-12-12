@@ -29,8 +29,8 @@ dataset:
   train_substride: 0.1
   val_substride: 1.0
   kwargs:
-    crop_size: 256
-    n_take_channels: 10
+    crop_size: 64
+    n_take_channels: 64
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
