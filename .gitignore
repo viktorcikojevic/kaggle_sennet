@@ -15,4 +15,3 @@ outputs/
 multirun/
 *.sqlite
 *.db
-src/sennet/environments/environments.py
