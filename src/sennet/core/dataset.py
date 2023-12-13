@@ -75,11 +75,14 @@ class ThreeDSegmentationDataset(Dataset):
             data = t.transform(data)
 
         # unsqueeze(0) are there to create a channel dimension
-        data["img"] = torch.from_numpy(data["img"]).permute((2, 0, 1))
         if "gt_seg_map" in data:
-            data["gt_seg_map"] = torch.from_numpy(data["gt_seg_map"]).permute((2, 0, 1)).unsqueeze(0)
+            data["gt_seg_map"] = torch.from_numpy(data["gt_seg_map"]).unsqueeze(0)
 
-        data["img"] = data["img"].float().unsqueeze(0)  # TODO(Sumo): change to actual normalisation here
+        # data["img"] = (data["img"] - 127.0) / 60.0
+        data["img"] = torch.from_numpy(data["img"])
+        data["img"] = data["img"].float()
+        data["img"] = (data["img"] - 127.0) / 60.0
+        data["img"] = data["img"].unsqueeze(0)  # TODO(Sumo): change to actual normalisation here
         # data["bbox"] = torch.tensor(data["bbox"], dtype=torch.float)
         data["bbox"] = np.array(data["bbox"])
         return data
@@ -88,10 +91,10 @@ class ThreeDSegmentationDataset(Dataset):
 if __name__ == "__main__":
     _ds = ThreeDSegmentationDataset(
         ["kidney_1_dense"],
-        256,
-        20,
-        output_crop_size=256,
-        substride=0.5,
+        64,
+        64,
+        output_crop_size=64,
+        substride=1.0,
     )
     _dl = DataLoader(
         _ds,
@@ -100,4 +103,5 @@ if __name__ == "__main__":
     )
     _item = _ds[100]
     for _batch in tqdm(_dl, total=len(_dl)):
-        print(":D")
+        pass
+        # print(":D")

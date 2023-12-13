@@ -8,12 +8,18 @@ from scipy.signal import find_peaks
 def get_foreground_mask(
         img: np.ndarray,
         hist_bins: int = 50,
+        inlier_p: float = 1.0
 ) -> np.ndarray:
     n_bins = hist_bins
     # n_bins = min(len(np.unique(img)), hist_bins)
 
-    bin_freq, bin_edges = np.histogram(img, bins=n_bins)
-    all_peaks, _ = find_peaks(bin_freq, distance=float(5.0/(bin_edges[1]-bin_edges[0])))
+    low_percentile, median, high_percentile = np.percentile(img, [inlier_p, 50, 100 - inlier_p])
+    inter_percentile_range = high_percentile - low_percentile
+    outlier_lb = low_percentile - 2.0 * inter_percentile_range
+    outlier_ub = high_percentile + 2.0 * inter_percentile_range
+
+    bin_freq, bin_edges = np.histogram(img[(img > outlier_lb) & (img < outlier_ub)], bins=n_bins)
+    all_peaks, _ = find_peaks(bin_freq, distance=float(5.0 / (bin_edges[1] - bin_edges[0])))
     if len(all_peaks) < 2:
         print(f"all_peaks < 2: {all_peaks}")
         return np.ones((img.shape[0], img.shape[1]), dtype=bool)
@@ -31,7 +37,12 @@ def get_foreground_mask(
         print(f"idx0 == idx1: {idx0}")
         return np.ones((img.shape[0], img.shape[1]), dtype=bool)
 
-    split_val = bin_edges[np.argmin(bin_freq[idx0: idx1]) + idx0]
+    # min_freq = np.min(bin_freq[idx0: idx1])
+    # print(f"{min_freq=}")
+    # print(f"indices: {np.argwhere(bin_freq[idx0: idx1] == min_freq)[0]}")
+    # split_val = bin_edges[int(np.mean(np.argwhere(bin_freq[idx0: idx1] == min_freq)[0]) + idx0)]
+    # print(f"{split_val=}")
+    split_val = 0.5 * (bin_edges[idx0] + bin_edges[idx1])
 
     mask = ((img > split_val) * 255).astype(np.uint8)
     kernel_size = 7

@@ -133,7 +133,7 @@ if __name__ == "__main__":
         50,
         50,
         output_crop_size=50,
-        substride=2.0,
+        substride=1.0,
     )
     _dl = DataLoader(
         _ds,
