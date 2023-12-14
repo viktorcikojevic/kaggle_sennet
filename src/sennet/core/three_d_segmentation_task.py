@@ -62,6 +62,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             )
             if surface_dice_score > self.best_surface_dice:
                 self.best_surface_dice = surface_dice_score
+            self.log_dict({"surface_dice": surface_dice_score})
 
     def configure_optimizers(self):
         optimiser = torch.optim.Adam(self.model.parameters(), **self.optimiser_spec["kwargs"])

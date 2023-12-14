@@ -59,7 +59,7 @@ def main(cfg: DictConfig):
     if cfg.dry_logger:
         logger = None
     else:
-        logger = WandbLogger(project=cfg.exp_name, name=f"{str(cfg_dict['model']['type'])}")
+        logger = WandbLogger(project=cfg.exp_name, name=f"{str(cfg_dict['model']['type'])}-{time_now}")
         logger.experiment.config.update(OmegaConf.to_container(cfg, resolve=True))
         logger.experiment.config["dir_name"] = dir_name
     callbacks = [

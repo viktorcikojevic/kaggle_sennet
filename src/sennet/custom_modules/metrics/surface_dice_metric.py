@@ -6,8 +6,8 @@ import pandas.api.types
 from numba import jit
 from scipy.ndimage import label, generate_binary_structure
 from skimage.transform import resize
+from tqdm import tqdm
 from typing import Optional, Tuple, Union
-
 
 class ParticipantVisibleError(Exception):
     pass
@@ -172,14 +172,14 @@ def score(
     # Create joined dataframe to iterate over
     joined = solution.join(submission,
                            lsuffix='_sol',
-                           rsuffix='_sub')
+                           rsuffix='_sub').reset_index()
 
     del submission
 
     # Compute surface dice for each group of slices and total
     total_dice = 0.0
     group_col = row_id_column_name if image_id_column_name is None else image_id_column_name
-    for group, df in joined.groupby(group_col):
+    for group, df in tqdm(joined.groupby(group_col), desc="Scoring", total=len(joined[group_col].unique())):
         # Make indexing easier
         df = df.reset_index(drop=True)
 
@@ -1183,7 +1183,7 @@ Returns:
     overlap_pred = np.sum(
         surfel_areas_pred[distances_pred_to_gt <= tolerance_mm])
     surface_dice = (overlap_gt + overlap_pred) / (np.sum(surfel_areas_gt) +
-                                                  np.sum(surfel_areas_pred))
+                                                  np.sum(surfel_areas_pred) + 1e-8)
     return surface_dice
 
 
