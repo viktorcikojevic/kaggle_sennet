@@ -40,10 +40,9 @@ class ThreeDSegmentationTask(pl.LightningModule):
     def on_validation_epoch_end(self) -> None:
         with torch.no_grad():
             submission_df = generate_submission_df(
-                self.model,
-                self.val_loader,
-                0.5,
-                None
+                model=self.model,
+                data_loader=self.val_loader,
+                threshold=0.5
             )
             surface_dice_score = get_surface_dice_score(
                 solution=submission_df,
@@ -57,7 +56,8 @@ class ThreeDSegmentationTask(pl.LightningModule):
             )
             if surface_dice_score > self.best_surface_dice:
                 self.best_surface_dice = surface_dice_score
-
+            self.log_dict({"surface_dice": surface_dice_score})
+            
     def configure_optimizers(self):
         optimiser = torch.optim.Adam(self.model.parameters(), **self.optimiser_spec["kwargs"])
         return {
