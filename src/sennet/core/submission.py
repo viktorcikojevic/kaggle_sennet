@@ -12,6 +12,7 @@ import numpy as np
 from line_profiler_pycharm import profile
 from datetime import datetime
 import shutil
+import pandas as pd
 
 
 class AppendingSubmissionCsv:
@@ -33,7 +34,7 @@ def generate_submission_df(
         model: nn.Module,
         data_loader: DataLoader,
         threshold: float,
-        sub_out_dir: Union[str, Path],
+        sub_out_dir: Union[str, Path] = "/tmp",
         raw_pred_out_dir: Optional[Union[str, Path]] = None,
         device: str = "cuda",
 ) -> None:
@@ -123,6 +124,11 @@ def generate_submission_df(
 
     if write_to_tmp_file and raw_pred_out_dir.is_dir():
         shutil.rmtree(raw_pred_out_dir)
+
+    df_out = pd.read_csv(sub_file.csv_path)
+    # replace nan rle with "1 0"
+    df_out['rle'] = df_out['rle'].fillna("1 0")
+    return df_out
 
 
 if __name__ == "__main__":
