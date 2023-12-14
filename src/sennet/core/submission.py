@@ -58,7 +58,8 @@ def generate_submission_df(
         for batch in tqdm(data_loader, total=len(data_loader)):
             pred_batch = model(batch["img"].to(device))[:, 0, :, :, :]
             pred_batch = torch.nn.functional.sigmoid(pred_batch)
-            pred_batch = pred_batch.cpu().numpy()
+            pred_batch = pred_batch.cpu()
+            pred_batch = pred_batch.numpy()
             for i in range(len(pred_batch)):
                 folder = batch["folder"][i]
                 pred = pred_batch[i]
@@ -128,11 +129,12 @@ def generate_submission_df(
 if __name__ == "__main__":
     from sennet.custom_modules.models import UNet3D
 
+    _crop_size = 100
     _ds = ThreeDSegmentationDataset(
         ["kidney_1_dense"],
-        50,
-        50,
-        output_crop_size=50,
+        _crop_size,
+        _crop_size,
+        output_crop_size=_crop_size,
         substride=1.0,
     )
     _dl = DataLoader(
