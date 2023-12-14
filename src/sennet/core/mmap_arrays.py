@@ -22,9 +22,15 @@ def read_mmap_array(
         read_json = json.loads((root_path / "metadata.json").read_text())
     shape = read_json["shape"]
     dtype = read_json["dtype"]
+    if dtype == "bool":
+        dtype = bool
+    elif dtype == "float":
+        dtype = float
+    else:
+        dtype = getattr(np, dtype)
     data = np.memmap(
         filename=str(root_path / "data.npy"),
-        dtype=getattr(np, dtype),
+        dtype=dtype,
         mode=mode,
         shape=tuple(shape),
     )

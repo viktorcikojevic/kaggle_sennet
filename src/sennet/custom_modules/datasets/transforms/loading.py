@@ -34,18 +34,21 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         self.loaded_image_mmaps: Dict[str, MmapArray] = {}
         self.loaded_seg_mmaps: Dict[str, MmapArray] = {}
 
-    def _get_take_channels(self, results: Dict) -> np.ndarray:
+    @profile
+    def _get_take_channels(self, results: Dict) -> Tuple[bool, Union[Tuple[int, int], np.ndarray]]:
         # skip some channels and take others (like not taking consecutive channels)?
         channel_start = results["bbox"][0]
         channel_end = results["bbox"][3]
         num_channels = results["img_c"]
-        take_channels = np.arange(start=channel_start, stop=channel_end, step=1)
-        if np.random.binomial(n=1, p=self.p_channel_jitter):
+        if self.p_channel_jitter > 1e-3 and np.random.binomial(n=1, p=self.p_channel_jitter):
             min_jitter_val = -min(channel_start, self.channels_jitter)
             max_jitter_val = min(num_channels-channel_end, self.channels_jitter)
             channel_jitter = np.random.randint(min_jitter_val, max_jitter_val)
+            take_channels = np.arange(start=channel_start, stop=channel_end, step=1)
             take_channels += channel_jitter
-        return take_channels.astype(int)
+            return True, take_channels.astype(int)
+        else:
+            return False, (channel_start, channel_end)
 
     # @profile
     def _get_pixel_bbox(self, results: Dict) -> Tuple[int, int, int, int]:
@@ -74,11 +77,12 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
     @profile
     def transform(self, results: Dict) -> Optional[Dict]:
         crop_bbox = self._get_pixel_bbox(results)
-        take_channels = self._get_take_channels(results)
+        is_channels_augmented, take_channels = self._get_take_channels(results)
         img, seg = self._read_image_and_seg(
             results,
             crop_bbox,
             take_channels,
+            is_channels_augmented,
         )
         results["img"] = img
         results["img_shape"] = img.shape[:2]
@@ -95,28 +99,45 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             results,
             crop_bbox,
             take_channels,
+            is_channels_augmented: bool,
     ):
-        lx, ly, ux, uy = crop_bbox
         img_path = results["image_dir"]
         if img_path not in self.loaded_image_mmaps:
             self.loaded_image_mmaps[img_path] = read_mmap_array(Path(img_path))
         image_mmap = self.loaded_image_mmaps[img_path]
-        img = np.stack([
-            self._resize_to_output_size(image_mmap.data[c, ly: uy, lx: ux])
-            for c in take_channels
-        ], axis=2)
+        img = self._get_3d_slice(image_mmap.data, crop_bbox, take_channels, is_channels_augmented)
+        # img = np.ascontiguousarray(img)
         if self.load_ann:
             seg_path = results["seg_dir"]
             if seg_path not in self.loaded_seg_mmaps:
                 self.loaded_seg_mmaps[seg_path] = read_mmap_array(Path(seg_path))
             seg_mmap = self.loaded_seg_mmaps[seg_path]
-            seg_map = np.stack([
-                self._resize_to_output_size(seg_mmap.data[c, ly: uy, lx: ux])
-                for c in take_channels
-            ], axis=2)
+            seg_map = self._get_3d_slice(seg_mmap.data, crop_bbox, take_channels, is_channels_augmented)
+            # seg_map = np.ascontiguousarray(seg_map)
         else:
             seg_map = None
         return img, seg_map
+
+    @profile
+    def _get_3d_slice(
+            self,
+            full_array: np.ndarray,
+            crop_bbox,
+            take_channels,
+            is_channels_augmented: bool = False,
+    ) -> np.ndarray:
+        lx, ly, ux, uy = crop_bbox
+        if ux-lx == self.output_crop_size and uy-ly == self.output_crop_size:
+            if is_channels_augmented:
+                return full_array[take_channels, ly: uy, lx: ux]
+            else:
+                return full_array[take_channels[0]: take_channels[1], ly: uy, lx: ux]
+        resized_arrays = [
+            self._resize_to_output_size(full_array[c, ly: uy, lx: ux])
+            for c in (take_channels if is_channels_augmented else range(take_channels[0], take_channels[1]))
+        ]
+        stacked_array = np.stack(resized_arrays, axis=0)
+        return stacked_array
 
     def _resize_to_output_size(self, img: np.ndarray):
         if img.shape[0] == img.shape[1] == self.output_crop_size:

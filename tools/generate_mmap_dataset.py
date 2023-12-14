@@ -31,15 +31,15 @@ def main():
                 # (c, h, w) to streamline conversion to torch
                 shape = [len(image_paths), image.shape[0], image.shape[1]]
                 mmap_array = create_mmap_array(output_dir / "image", shape, np.uint8)
-                mask_mmap_array = create_mmap_array(output_dir / "mask", shape, np.uint8)
-            mmap_array.data[i, :, :] = image
-            # fg_mask = get_foreground_mask(image)
+                mask_mmap_array = create_mmap_array(output_dir / "mask", shape, bool)
+            mmap_array.data[i, :, :] = image.astype(float)
+            fg_mask = get_foreground_mask(image)
             # if fg_mask.sum() == 0:
             #     print(f"0 mask found on {i}")
             # if fg_mask.mean() > 0.9:
             #     print(f"big mask found on {i}")
-            # mask_mmap_array.data[i, :, :] = fg_mask
-            mask_mmap_array.data[i, :, :] = 1
+            mask_mmap_array.data[i, :, :] = fg_mask
+            # mask_mmap_array.data[i, :, :] = 1
             print(f"done images: {i+1}/{len(image_paths)}: {image_path}")
         print(f"flushing images")
         if mmap_array is not None:

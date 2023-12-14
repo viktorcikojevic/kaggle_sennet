@@ -7,6 +7,7 @@ from typing import Dict, Any
 from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.optim
+from pathlib import Path
 
 
 class ThreeDSegmentationTask(pl.LightningModule):
@@ -39,11 +40,16 @@ class ThreeDSegmentationTask(pl.LightningModule):
 
     def on_validation_epoch_end(self) -> None:
         with torch.no_grad():
-            submission_df = generate_submission_df(
-                model=self.model,
-                data_loader=self.val_loader,
-                threshold=0.5
+            sub_out_dir = Path(self.logger.log_dir)
+            generate_submission_df(
+                self.model,
+                self.val_loader,
+                threshold=0.5,
+                sub_out_dir=sub_out_dir,
+                raw_pred_out_dir=None,
+                device="cuda",
             )
+            submission_df = pd.read_csv(sub_out_dir / "submission.csv")
             surface_dice_score = get_surface_dice_score(
                 solution=submission_df,
                 submission=self.val_rle_df,
@@ -57,7 +63,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             if surface_dice_score > self.best_surface_dice:
                 self.best_surface_dice = surface_dice_score
             self.log_dict({"surface_dice": surface_dice_score})
-            
+
     def configure_optimizers(self):
         optimiser = torch.optim.Adam(self.model.parameters(), **self.optimiser_spec["kwargs"])
         return {
