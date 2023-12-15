@@ -59,7 +59,6 @@ class MultiChannelDataset:
         Returns:
             list[dict]: All data info of dataset.
         """
-        metadata = []
         image_dir = self.folder / "image"
         mask_dir = self.folder / "mask"
         label_dir = self.folder / "label"
@@ -101,30 +100,27 @@ class MultiChannelDataset:
         take_indices = np.nonzero(take_masks)[0]
         print(f"taking {len(take_indices)}/{len(take_masks)} ({len(take_indices)/(len(take_masks) + 1e-6)*100:.2f})% for {self.folder}")
         print("generating indices")
-        # items = [
-        #     dict(
-        #         bbox=[
-        #             c_mins[i], j_mins[i], i_mins[i],
-        #             c_maxes[i], j_maxes[i], i_maxes[i],
-        #         ],
-        #         **md,
-        #     )
-        #     for i in tqdm(take_indices, desc="indexing", total=len(take_indices))
-        # ]
         self.bboxes = np.array([
             [
-                c, j, i,
-                c+self.n_take_channels, j+self.crop_size, i+self.crop_size,
+                c_mins[i], j_mins[i], i_mins[i],
+                c_maxes[i], j_maxes[i], i_maxes[i],
             ]
-            for c in range(self.n_half_take_channels, mask.shape[0]-self.n_half_take_channels, self.z_stride)
-            for i in range(self.half_crop_size, mask.shape[1]-self.half_crop_size, self.xy_stride)
-            for j in range(self.half_crop_size, mask.shape[2]-self.half_crop_size, self.xy_stride)
-            if (
-                (c+self.n_take_channels < mask.shape[0])
-                and (i+self.crop_size < mask.shape[1])
-                and (j+self.crop_size < mask.shape[2])
-            )
+            for i in tqdm(take_indices, desc="indexing", total=len(take_indices))
         ])
+        # self.bboxes = np.array([
+        #     [
+        #         c, j, i,
+        #         c+self.n_take_channels, j+self.crop_size, i+self.crop_size,
+        #     ]
+        #     for c in range(self.n_half_take_channels, mask.shape[0]-self.n_half_take_channels, self.z_stride)
+        #     for i in range(self.half_crop_size, mask.shape[1]-self.half_crop_size, self.xy_stride)
+        #     for j in range(self.half_crop_size, mask.shape[2]-self.half_crop_size, self.xy_stride)
+        #     if (
+        #         (c+self.n_take_channels < mask.shape[0])
+        #         and (i+self.crop_size < mask.shape[1])
+        #         and (j+self.crop_size < mask.shape[2])
+        #     )
+        # ])
         print("done generating indices")
 
 

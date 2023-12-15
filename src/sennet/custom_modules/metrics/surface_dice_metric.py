@@ -188,7 +188,8 @@ def score(
             assert df.loc[:, slice_id_column_name].is_monotonic_increasing
 
         group_mask_sol, group_mask_sub = [], []
-        height, width = df.loc[0, 'height'], df.loc[0, 'width']
+        height = int(df.loc[0, 'height'])
+        width = int(df.loc[0, 'width'])
         assert (df.loc[:, 'height'].nunique() == 1) and (df.loc[:, 'width'].nunique() == 1), \
             "Height and width must be constant within each group."
 
