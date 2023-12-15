@@ -1,9 +1,9 @@
 import pandas as pd
-from sennet.core.submission import generate_submission_df
+from sennet.core.submission import generate_submission_df, ParallelizationSettings
 from sennet.custom_modules.metrics.surface_dice_metric import score as get_surface_dice_score
 from sennet.environments.constants import PROCESSED_DATA_DIR
 import pytorch_lightning as pl
-from typing import Dict, Any
+from typing import Dict, Any, List
 from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.optim
@@ -15,12 +15,13 @@ class ThreeDSegmentationTask(pl.LightningModule):
             self,
             model: nn.Module,
             val_loader: DataLoader,
+            val_folders: List[str],
             optimiser_spec: Dict[str, Any],
     ):
         pl.LightningModule.__init__(self)
         self.model = model
         self.val_loader = val_loader
-        self.val_folders = self.val_loader.dataset.folders
+        self.val_folders = val_folders
         self.val_rle_df = []
         for f in self.val_folders:
             self.val_rle_df.append(pd.read_csv(PROCESSED_DATA_DIR / f / "rle.csv"))
@@ -45,6 +46,9 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 self.model,
                 self.val_loader,
                 threshold=0.5,
+                parallelization_settings=ParallelizationSettings(
+                    run_as_single_process=False,
+                ),
                 sub_out_dir=sub_out_dir,
                 raw_pred_out_dir=None,
                 device="cuda",

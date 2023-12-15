@@ -4,7 +4,7 @@ from sennet.core.three_d_segmentation_task import ThreeDSegmentationTask
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.environments.constants import MODEL_OUT_DIR
 from sennet.custom_modules.models import UNet3D
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
 from typing import Dict
@@ -19,16 +19,28 @@ def main(cfg: DictConfig):
 
     cfg_dict: Dict = OmegaConf.to_container(cfg, resolve=True)
     dataset_kwargs = cfg_dict["dataset"]["kwargs"]
-    train_dataset = ThreeDSegmentationDataset(
-        folders=cfg.train_folders,
-        substride=cfg.dataset.train_substride,
-        **dataset_kwargs,
-    )
+    train_dataset = ConcatDataset([
+        ThreeDSegmentationDataset(
+            folder=folder,
+            substride=cfg.dataset.train_substride,
+            **dataset_kwargs,
+        )
+        for folder in cfg.train_folders
+    ])
+    # TODO(Sumo): fix this so training works with multiple val sets
     val_dataset = ThreeDSegmentationDataset(
-        folders=cfg.val_folders,
+        folder=cfg.val_folders[0],
         substride=cfg.dataset.val_substride,
         **dataset_kwargs,
     )
+    # val_dataset = ConcatDataset([
+    #     ThreeDSegmentationDataset(
+    #         folder=folder,
+    #         substride=cfg.dataset.val_substride,
+    #         **dataset_kwargs,
+    #     )
+    #     for folder in cfg.val_folders
+    # ])
     train_loader = DataLoader(
         train_dataset,
         batch_size=cfg.batch_size,
@@ -39,7 +51,7 @@ def main(cfg: DictConfig):
     )
     val_loader = DataLoader(
         val_dataset,
-        batch_size=2*cfg.batch_size,
+        batch_size=1,
         shuffle=False,
         num_workers=0,
         pin_memory=True,
@@ -53,6 +65,7 @@ def main(cfg: DictConfig):
     task = ThreeDSegmentationTask(
         model,
         val_loader=val_loader,
+        val_folders=cfg.val_folders,
         optimiser_spec=cfg_dict["optimiser"],
         # **cfg_dict["task"]["kwargs"],
     )
