@@ -12,7 +12,6 @@ from tqdm import tqdm
 import numpy as np
 from line_profiler_pycharm import profile
 from datetime import datetime
-import shutil
 import pandas as pd
 import multiprocessing as mp
 from dataclasses import dataclass
@@ -158,6 +157,7 @@ def generate_submission_df(
         sub_out_dir: Union[str, Path] = "/tmp",
         out_dir: Optional[Union[str, Path]] = None,
         device: str = "cuda",
+        save_sub: bool = True,
 ) -> pd.DataFrame:
     ps = parallelization_settings
     if ps.run_as_single_process:
@@ -228,6 +228,8 @@ def generate_submission_df(
         s.join()
 
     df_out = generate_submission_df_from_one_chunked_inference(out_dir)
+    if save_sub:
+        df_out.to_csv(out_dir / "submission.csv")
     return df_out
 
 
