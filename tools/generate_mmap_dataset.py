@@ -32,7 +32,7 @@ def main():
                 shape = [len(image_paths), image.shape[0], image.shape[1]]
                 mmap_array = create_mmap_array(output_dir / "image", shape, np.uint8)
                 mask_mmap_array = create_mmap_array(output_dir / "mask", shape, bool)
-            mmap_array.data[i, :, :] = image.astype(float)
+            mmap_array.data[i, :, :] = image
             fg_mask = get_foreground_mask(image)
             # if fg_mask.sum() == 0:
             #     print(f"0 mask found on {i}")

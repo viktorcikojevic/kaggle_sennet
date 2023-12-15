@@ -1,14 +1,11 @@
 from typing import *
 import numpy as np
 from sennet.core.mmap_arrays import read_mmap_array, MmapArray
-# from mmseg.registry import TRANSFORMS as MMSEG_TRANSFORMS
-# from line_profiler_pycharm import profile
 from pathlib import Path
 import cv2
 from line_profiler_pycharm import profile
 
 
-# @MMSEG_TRANSFORMS.register_module()
 class LoadMultiChannelImageAndAnnotationsFromFile:
     def __init__(
             self,
@@ -87,10 +84,7 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         results["img"] = img
         results["img_shape"] = img.shape[:2]
         if seg is not None:
-            # processed_seg_map = process_seg_map(seg, results)
-            # results["gt_seg_map"] = processed_seg_map
             results["gt_seg_map"] = seg
-            results["seg_fields"].append("gt_seg_map")
         return results
 
     @profile
@@ -103,17 +97,17 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
     ):
         img_path = results["image_dir"]
         if img_path not in self.loaded_image_mmaps:
-            self.loaded_image_mmaps[img_path] = read_mmap_array(Path(img_path))
+            self.loaded_image_mmaps[img_path] = read_mmap_array(Path(img_path), mode="r")
         image_mmap = self.loaded_image_mmaps[img_path]
         img = self._get_3d_slice(image_mmap.data, crop_bbox, take_channels, is_channels_augmented)
-        # img = np.ascontiguousarray(img)
+        img = np.ascontiguousarray(img)
         if self.load_ann:
             seg_path = results["seg_dir"]
             if seg_path not in self.loaded_seg_mmaps:
-                self.loaded_seg_mmaps[seg_path] = read_mmap_array(Path(seg_path))
+                self.loaded_seg_mmaps[seg_path] = read_mmap_array(Path(seg_path), mode="r")
             seg_mmap = self.loaded_seg_mmaps[seg_path]
             seg_map = self._get_3d_slice(seg_mmap.data, crop_bbox, take_channels, is_channels_augmented)
-            # seg_map = np.ascontiguousarray(seg_map)
+            seg_map = np.ascontiguousarray(seg_map)
         else:
             seg_map = None
         return img, seg_map

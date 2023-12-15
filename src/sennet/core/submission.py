@@ -219,7 +219,7 @@ if __name__ == "__main__":
 
     _crop_size = 100
     _ds = ThreeDSegmentationDataset(
-        ["kidney_1_dense"],
+        "kidney_1_dense",
         _crop_size,
         _crop_size,
         output_crop_size=_crop_size,
@@ -237,7 +237,7 @@ if __name__ == "__main__":
         _dl,
         0.5,
         ParallelizationSettings(
-            run_as_single_process=True,
+            run_as_single_process=False,
         ),
         "/home/clay/",
         device="cuda",

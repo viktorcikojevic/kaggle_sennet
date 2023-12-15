@@ -12,7 +12,7 @@ from line_profiler_pycharm import profile
 class ThreeDSegmentationDataset(Dataset):
     def __init__(
             self,
-            folders: List[str],
+            folder: str,
             crop_size: int,
             n_take_channels: int,
             reduce_zero_label=True,
@@ -37,9 +37,8 @@ class ThreeDSegmentationDataset(Dataset):
         if output_crop_size is None:
             output_crop_size = crop_size
 
-        self.folders = folders
         self.dataset = MultiChannelDataset(
-            folders=folders,
+            folder=folder,
             crop_size=crop_size,
             n_take_channels=n_take_channels,
             reduce_zero_label=reduce_zero_label,
@@ -58,18 +57,17 @@ class ThreeDSegmentationDataset(Dataset):
             seg_fill_val=seg_fill_val,
             crop_location_noise=crop_location_noise,
         )
-        self.data_list = self.dataset.load_data_list()
 
         self.transforms = transforms
         if self.transforms is None:
             self.transforms = []
 
     def __len__(self):
-        return len(self.data_list)
+        return len(self.dataset)
 
     @profile
     def __getitem__(self, i: int):
-        data = self.data_list[i]
+        data = self.dataset[i]
         data = self.loader.transform(data)
         for t in self.transforms:
             data = t.transform(data)
@@ -78,30 +76,39 @@ class ThreeDSegmentationDataset(Dataset):
         if "gt_seg_map" in data:
             data["gt_seg_map"] = torch.from_numpy(data["gt_seg_map"]).unsqueeze(0)
 
-        # data["img"] = (data["img"] - 127.0) / 60.0
-        data["img"] = torch.from_numpy(data["img"])
-        data["img"] = data["img"].float()
-        data["img"] = (data["img"] - 127.0) / 60.0
-        data["img"] = data["img"].unsqueeze(0)  # TODO(Sumo): change to actual normalisation here
-        # data["bbox"] = torch.tensor(data["bbox"], dtype=torch.float)
+        data["img"] = torch.from_numpy(data["img"].astype(np.float32))
+        data["img"] -= 127.0
+        data["img"] /= 60.0
+        data["img"] = data["img"].unsqueeze(0)
         data["bbox"] = np.array(data["bbox"])
         return data
+        # return data["img"]
 
 
 if __name__ == "__main__":
     _ds = ThreeDSegmentationDataset(
-        ["kidney_1_dense"],
+        # ["kidney_1_dense", "kidney_3_sparse"],
+        "kidney_1_dense",
         64,
         64,
         output_crop_size=64,
         substride=1.0,
+        load_ann=False,
     )
+    print(f"{len(_ds) = }")
     _dl = DataLoader(
         _ds,
+        num_workers=0,
         batch_size=10,
         shuffle=True,
+        drop_last=True,
     )
     _item = _ds[100]
     for _batch in tqdm(_dl, total=len(_dl)):
         pass
-        # print(":D")
+    # for _ in range(10):
+    #     for _i in tqdm(_ds, total=len(_ds)):
+    #         pass
+
+    # _batch = next(iter(_dl))
+    print(":D")
