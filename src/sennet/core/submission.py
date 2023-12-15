@@ -2,7 +2,7 @@ from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.core.rles import rle_encode
 from sennet.core.mmap_arrays import create_mmap_array
 from sennet.environments.constants import TMP_SUB_MMAP_DIR
-from typing import Optional, Union, List, Dict
+from typing import Optional, Union, List, Dict, Tuple
 from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
@@ -64,7 +64,6 @@ class TensorReceivingProcess:
         self.sub_out_dir = sub_out_dir
         self.raw_pred_out_dir = raw_pred_out_dir
 
-        self.current_total_prob = None
         self.current_total_count = None
         self.current_mean_prob = None
         self.thresholded_prob = None
@@ -74,16 +73,21 @@ class TensorReceivingProcess:
         self.write_to_tmp_file = False
 
     def _finalise_image_if_holding_any(self):
-        if self.current_folder is not None and self.current_total_prob is not None and self.current_total_count is not None:
+        if self.current_folder is not None and self.current_mean_prob is not None and self.current_total_count is not None:
             image_paths = self.all_image_paths[self.current_folder]
             for c in tqdm(range(self.thresholded_prob.shape[0])):
-                self.current_mean_prob[c, ...] = self.current_total_prob[c, ...] / (self.current_total_count[c, ...] + 1e-6)
+                self.current_mean_prob[c, ...] /= (self.current_total_count[c, ...] + 1e-6)
                 self.thresholded_prob[c, ...] = self.current_mean_prob[c, ...] > self.threshold
-                self.current_mean_prob[c, ...].flush()
-                self.thresholded_prob[c, ...].flush()
 
                 prob_rle = rle_encode(self.thresholded_prob[c])
                 self.sub_file.add_line([image_paths[c], prob_rle])
+            print(f"flushing total count")
+            self.current_total_count.flush()
+            print(f"flushing mean prob")
+            self.current_mean_prob.flush()
+            print(f"flushing thresholded prob")
+            self.thresholded_prob.flush()
+            print(f"done")
 
     def start(self):
         # just appear as if it's a process for debugging
@@ -130,8 +134,7 @@ class TensorReceivingProcess:
 
                 self.current_folder = folder
                 folder_name = Path(folder).name
-                self.current_total_prob = create_mmap_array(self.raw_pred_out_dir / folder_name / "total_prob", [img_c, img_h, img_w], float).data
-                self.current_total_count = create_mmap_array(self.raw_pred_out_dir / folder_name / "total_count", [img_c, img_h, img_w], np.int64).data
+                self.current_total_count = create_mmap_array(self.raw_pred_out_dir / folder_name / "total_count", [img_c, img_h, img_w], np.uint8).data
                 self.current_mean_prob = create_mmap_array(self.raw_pred_out_dir / folder_name / "mean_prob", [img_c, img_h, img_w], float).data
                 self.thresholded_prob = create_mmap_array(self.raw_pred_out_dir / folder_name / "thresholded_prob", [img_c, img_h, img_w], bool).data
 
@@ -142,10 +145,8 @@ class TensorReceivingProcess:
             ux = bbox[4]
             uy = bbox[5]
 
-            self.current_total_prob[lc: uc, ly: uy, lx: ux] += pred
+            self.current_mean_prob[lc: uc, ly: uy, lx: ux] += pred
             self.current_total_count[lc: uc, ly: uy, lx: ux] += 1
-            self.current_total_prob[lc: uc, ly: uy, lx: ux].flush()
-            self.current_total_count[lc: uc, ly: uy, lx: ux].flush()
 
         return False
 
@@ -155,17 +156,22 @@ class TensorReceivingProcess:
             shutil.rmtree(self.raw_pred_out_dir)
 
 
+@dataclass
+class ParallelizationSettings:
+    run_as_single_process: bool = False
+
+
 @profile
 def generate_submission_df(
         model: nn.Module,
         data_loader: DataLoader,
         threshold: float,
+        parallelization_settings: ParallelizationSettings,
         sub_out_dir: Union[str, Path] = "/tmp",
         raw_pred_out_dir: Optional[Union[str, Path]] = None,
         device: str = "cuda",
-        run_as_single_process: bool = False,
 ) -> pd.DataFrame:
-    if run_as_single_process:
+    if parallelization_settings.run_as_single_process:
         data_queue = MockQueue()
     else:
         mp.set_start_method("spawn", force=True)
@@ -183,7 +189,7 @@ def generate_submission_df(
         sub_out_dir=str(sub_out_dir),
         raw_pred_out_dir=raw_pred_out_dir,
     )
-    if run_as_single_process:
+    if parallelization_settings.run_as_single_process:
         saver_process = tensor_receiving_process
     else:
         saver_process = mp.Process(
@@ -196,7 +202,7 @@ def generate_submission_df(
             pred_batch = model(batch["img"].to(device))[:, 0, :, :, :]
             pred_batch = torch.nn.functional.sigmoid(pred_batch)
             data_queue.put(Data(pred=pred_batch, batch=batch))
-            if run_as_single_process:
+            if parallelization_settings.run_as_single_process:
                 saver_process.spin_once()
     data_queue.put(Data(terminate=True,))
     saver_process.join()
@@ -222,7 +228,7 @@ if __name__ == "__main__":
     _dl = DataLoader(
         _ds,
         batch_size=2,
-        shuffle=True,
+        shuffle=True,   # deliberate
         pin_memory=True,
     )
     _model = UNet3D(1, 1)
@@ -230,7 +236,9 @@ if __name__ == "__main__":
         _model,
         _dl,
         0.5,
+        ParallelizationSettings(
+            run_as_single_process=True,
+        ),
         "/home/clay/",
         device="cuda",
-        run_as_single_process=False
     )
