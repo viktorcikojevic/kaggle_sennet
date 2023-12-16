@@ -16,6 +16,9 @@ import hydra
 def main(cfg: DictConfig):
     time_now = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     dir_name = f"model_{time_now}"
+    experiment_name = f"{str(cfg.model.type)}-{time_now}"
+    model_out_dir = MODEL_OUT_DIR / dir_name
+    model_out_dir.mkdir(exist_ok=True, parents=True)
 
     cfg_dict: Dict = OmegaConf.to_container(cfg, resolve=True)
     dataset_kwargs = cfg_dict["dataset"]["kwargs"]
@@ -61,8 +64,8 @@ def main(cfg: DictConfig):
     # ---------------------------------------
     model = UNet3D(1, 1, final_sigmoid=False)
     # ---------------------------------------
+    OmegaConf.save(cfg, model_out_dir / "config.yaml")
 
-    experiment_name = f"{str(cfg_dict['model']['type'])}-{time_now}"
     task = ThreeDSegmentationTask(
         model,
         val_loader=val_loader,
@@ -90,7 +93,7 @@ def main(cfg: DictConfig):
             mode="max"
         ),
         pl.callbacks.ModelCheckpoint(
-            dirpath=MODEL_OUT_DIR,
+            dirpath=model_out_dir,
             save_top_k=1,
             monitor="surface_dice",
             mode="max",

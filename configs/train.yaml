@@ -1,5 +1,5 @@
-#val_check_interval: 1000
-val_check_interval: 50
+val_check_interval: 1000
+#val_check_interval: 50
 batch_size: 2
 num_workers: 2
 dry_logger: false

@@ -61,16 +61,21 @@ class TensorReceivingProcess:
     def _finalise_image_if_holding_any(self):
         if self.current_folder is not None and self.current_mean_prob is not None and self.current_total_count is not None:
             # image_paths = self.all_image_paths[self.current_folder]
-            print(f"{self.chunk_boundary}: flushing total count")
-            self.current_total_count.flush()
             print(f"{self.chunk_boundary}: computing mean")
             self.current_mean_prob /= (self.current_total_count + 1e-6)
+
             print(f"{self.chunk_boundary}: flushing mean prob")
             self.current_mean_prob.flush()
 
+            print(f"{self.chunk_boundary}: flushing total count")
+            self.current_total_count.flush()
+
+            print(f"{self.chunk_boundary}: thresholding prob")
             self.thresholded_prob[:] = self.current_mean_prob > self.threshold
+
             print(f"{self.chunk_boundary}: flushing thresholded prob")
             self.thresholded_prob.flush()
+
             print(f"{self.chunk_boundary}: done")
 
     def start(self):
