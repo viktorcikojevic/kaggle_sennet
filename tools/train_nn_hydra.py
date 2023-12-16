@@ -62,17 +62,19 @@ def main(cfg: DictConfig):
     model = UNet3D(1, 1, final_sigmoid=False)
     # ---------------------------------------
 
+    experiment_name = f"{str(cfg_dict['model']['type'])}-{time_now}"
     task = ThreeDSegmentationTask(
         model,
         val_loader=val_loader,
         val_folders=cfg.val_folders,
         optimiser_spec=cfg_dict["optimiser"],
+        experiment_name=experiment_name
         # **cfg_dict["task"]["kwargs"],
     )
     if cfg.dry_logger:
         logger = None
     else:
-        logger = WandbLogger(project=cfg.exp_name, name=f"{str(cfg_dict['model']['type'])}-{time_now}")
+        logger = WandbLogger(project=cfg.exp_name, name=experiment_name)
         logger.experiment.config.update(OmegaConf.to_container(cfg, resolve=True))
         logger.experiment.config["dir_name"] = dir_name
     callbacks = [

@@ -26,19 +26,19 @@ def generate_submission_df_from_one_chunked_inference(
             data["rle"].append(rle)
             data["height"].append(int(pred.data.shape[1]))
             data["width"].append(int(pred.data.shape[2]))
-    df = pd.DataFrame(data)
-    df = df.set_index("id").sort_index()
+    df = pd.DataFrame(data).sort_values("id")
+    # df = df.set_index("id").sort_index()
     return df
 
 
 if __name__ == "__main__":
-    _root_dir = Path("/home/clay/research/kaggle/sennet/data_dumps/tmp_mmaps/sennet_tmp_2023-12-15-23-13-13")
-    # _df = generate_submission_df_from_one_chunked_inference(_root_dir)
+    _root_dir = Path("/home/clay/research/kaggle/sennet/data_dumps/tmp_mmaps/Resnet3D34-2023-12-16-10-06-40")
+    _df = generate_submission_df_from_one_chunked_inference(_root_dir)
     # _df.to_csv(_root_dir / "submission.csv")
 
-    _df = pd.read_csv(_root_dir / "submission.csv")
+    # _df = pd.read_csv(_root_dir / "submission.csv")
     _label = pd.read_csv(DATA_DIR / "train_rles.csv")
-    _filtered_label = _label.loc[_label["id"].isin(_df["id"])].copy()
+    _filtered_label = _label.loc[_label["id"].isin(_df["id"])].copy().sort_values("id").reset_index()
     _filtered_label["width"] = _df["width"]
     _filtered_label["height"] = _df["height"]
     _score = compute_surface_dice_score(

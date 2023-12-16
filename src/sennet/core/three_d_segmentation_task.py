@@ -1,7 +1,7 @@
 import pandas as pd
 from sennet.core.submission import generate_submission_df, ParallelizationSettings
-from sennet.custom_modules.metrics.surface_dice_metric import score as get_surface_dice_score
-from sennet.environments.constants import PROCESSED_DATA_DIR
+from sennet.custom_modules.metrics.surface_dice_metric import compute_surface_dice_score
+from sennet.environments.constants import PROCESSED_DATA_DIR, TMP_SUB_MMAP_DIR
 import pytorch_lightning as pl
 from typing import Dict, Any, List
 from torch.utils.data import DataLoader
@@ -17,6 +17,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             val_loader: DataLoader,
             val_folders: List[str],
             optimiser_spec: Dict[str, Any],
+            experiment_name: str,
     ):
         pl.LightningModule.__init__(self)
         self.model = model
@@ -28,6 +29,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.val_rle_df = pd.concat(self.val_rle_df, axis=0)
         self.optimiser_spec = optimiser_spec
         self.criterion = nn.BCEWithLogitsLoss(reduction="mean")
+        self.experiment_name = experiment_name
         self.best_surface_dice = 0.0
 
     def training_step(self, batch: Dict, batch_idx: int):
@@ -49,20 +51,15 @@ class ThreeDSegmentationTask(pl.LightningModule):
                     run_as_single_process=False,
                     n_chunks=5,
                 ),
-                sub_out_dir=sub_out_dir,
-                raw_pred_out_dir=None,
+                out_dir=TMP_SUB_MMAP_DIR / self.experiment_name,
                 device="cuda",
             )
-            submission_df = pd.read_csv(sub_out_dir / "submission.csv")
-            surface_dice_score = get_surface_dice_score(
-                solution=submission_df,
-                submission=self.val_rle_df,
-                row_id_column_name="id",
-                rle_column_name="rle",
-                tolerance=1.0,
-                image_id_column_name=None,
-                slice_id_column_name=None,
-                resize_fraction=1.0,
+            filtered_label = self.val_rle_df.loc[self.val_rle_df["id"].isin(sub_df["id"])].copy().sort_values("id").reset_index()
+            filtered_label["width"] = sub_df["width"]
+            filtered_label["height"] = sub_df["height"]
+            surface_dice_score = compute_surface_dice_score(
+                submit=sub_df,
+                label=filtered_label,
             )
             if surface_dice_score > self.best_surface_dice:
                 self.best_surface_dice = surface_dice_score

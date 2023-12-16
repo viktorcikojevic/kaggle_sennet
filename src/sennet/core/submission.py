@@ -45,12 +45,10 @@ class TensorReceivingProcess:
             data_queue: mp.Queue,
             threshold: float,
             chunk_boundary: Tuple[int, int],
-            sub_out_dir: str = "/tmp",
             out_dir: Optional[Union[str, Path]] = None,
     ):
         self.data_queue = data_queue
         self.threshold = threshold
-        self.sub_out_dir = sub_out_dir
         self.out_dir = out_dir
         self.chunk_boundary = chunk_boundary
 
@@ -154,7 +152,6 @@ def generate_submission_df(
         data_loader: DataLoader,
         threshold: float,
         parallelization_settings: ParallelizationSettings,
-        sub_out_dir: Union[str, Path] = "/tmp",
         out_dir: Optional[Union[str, Path]] = None,
         device: str = "cuda",
         save_sub: bool = True,
@@ -184,7 +181,6 @@ def generate_submission_df(
             data_queue=q,
             threshold=threshold,
             # all_image_paths=dataset.dataset.image_paths,
-            sub_out_dir=str(sub_out_dir),
             out_dir=out_dir / f"chunk_{str(i).zfill(2)}",
             chunk_boundary=cb
         )
