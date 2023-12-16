@@ -93,7 +93,7 @@ if __name__ == "__main__":
         64,
         output_crop_size=64,
         substride=1.0,
-        load_ann=False,
+        load_ann=True,
     )
     print(f"{len(_ds) = }")
     _dl = DataLoader(

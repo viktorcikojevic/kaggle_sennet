@@ -149,12 +149,14 @@ class TensorReceivingProcess:
 class ParallelizationSettings:
     run_as_single_process: bool = False
     n_chunks: int = 5
+    finalise_one_by_one: bool = True
 
 
 @dataclass
 class SubmissionOutput:
     submission_df: pd.DataFrame
     val_loss: float
+    f1_score: float
 
 
 @profile
@@ -208,21 +210,30 @@ def generate_submission_df(
         s.start()
 
     val_loss = 0.0
+    total_tp = 0
+    total_fp = 0
+    total_fn = 0
     val_loss_count = 0
     with torch.no_grad():
         for batch in tqdm(data_loader, total=len(data_loader)):
-            pred_batch = model(batch["img"].to(device))[:, 0, :, :, :]
+            raw_pred_batch = model(batch["img"].to(device))[:, 0, :, :, :]
+            pred_batch = torch.nn.functional.sigmoid(raw_pred_batch)
             if "gt_seg_map" in batch:
                 if compute_val_loss:
+                    gt_seg_map = batch["gt_seg_map"][:, 0, :, :, :].to(device).float()
                     val_loss += torch.nn.functional.binary_cross_entropy_with_logits(
-                        pred_batch,
-                        batch["gt_seg_map"][:, 0, :, :, :].to(device).float(),
+                        raw_pred_batch,
+                        gt_seg_map,
                         reduction="mean"
                     ).cpu().item()
+                    thresholded_gt = gt_seg_map > threshold
+                    thresholded_pred = pred_batch > threshold
+                    total_tp += (thresholded_pred & thresholded_gt).sum().cpu().item()
+                    total_fp += (thresholded_pred & ~thresholded_gt).sum().cpu().item()
+                    total_fn += (~thresholded_pred & thresholded_gt).sum().cpu().item()
                     val_loss_count += 1
                 batch.pop("gt_seg_map")
 
-            pred_batch = torch.nn.functional.sigmoid(pred_batch)
             batch.pop("img")  # no need to ship image across process
             for i, pred in enumerate(pred_batch):
                 chunked_tensors = distributor.distribute_tensor(
@@ -239,17 +250,33 @@ def generate_submission_df(
                                 if _q.has_val:
                                     s.spin_once()
 
-    for q, s in zip(data_queues, saver_processes):
+    if ps.finalise_one_by_one:
         # trigger stopping one-by-one to avoid ram exploding
-        q.put(Data(-1, terminate=True))
-        s.join()
+        for q, s in zip(data_queues, saver_processes):
+            q.put(Data(-1, terminate=True))
+            s.join()
+    else:
+        # all at once for speed up
+        for q in data_queues:
+            q.put(Data(-1, terminate=True))
+        for s in saver_processes:
+            s.join()
 
     df_out = generate_submission_df_from_one_chunked_inference(out_dir)
     if save_sub:
         df_out.to_csv(out_dir / "submission.csv")
+    if compute_val_loss:
+        val_loss = val_loss / (val_loss_count + 1e-6)
+        precision = total_tp / (total_tp + total_fp + 1e-6)
+        recall = total_tp / (total_tp + total_fn + 1e-6)
+        f1_score = 2 * (precision * recall) / (precision + recall)
+    else:
+        val_loss = -1
+        f1_score = -1
     return SubmissionOutput(
         submission_df=df_out,
-        val_loss=val_loss / (val_loss_count + 1e-6) if compute_val_loss else -1.0,
+        val_loss=val_loss,
+        f1_score=f1_score,
     )
 
 
@@ -270,7 +297,7 @@ if __name__ == "__main__":
         shuffle=True,   # deliberate
         pin_memory=True,
     )
-    _model = UNet3D(1, 1)
+    _model = UNet3D(1, 1, f_maps=32, is_segmentation=False)
     _sub = generate_submission_df(
         _model,
         _dl,
@@ -284,3 +311,4 @@ if __name__ == "__main__":
     )
     print(_sub.submission_df.shape)
     print(_sub.val_loss)
+    print(_sub.f1_score)

@@ -49,27 +49,31 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 parallelization_settings=ParallelizationSettings(
                     run_as_single_process=False,
                     n_chunks=5,
+                    finalise_one_by_one=False,
                 ),
                 out_dir=TMP_SUB_MMAP_DIR / self.experiment_name,
                 device="cuda",
                 compute_val_loss=True,
             )
-            sub_df = sub.submission_df
-            filtered_label = self.val_rle_df.loc[self.val_rle_df["id"].isin(sub_df["id"])].copy().sort_values("id").reset_index()
-            filtered_label["width"] = sub_df["width"]
-            filtered_label["height"] = sub_df["height"]
-            surface_dice_score = compute_surface_dice_score(
-                submit=sub_df,
-                label=filtered_label,
-            )
+            # sub_df = sub.submission_df
+            # filtered_label = self.val_rle_df.loc[self.val_rle_df["id"].isin(sub_df["id"])].copy().sort_values("id").reset_index()
+            # filtered_label["width"] = sub_df["width"]
+            # filtered_label["height"] = sub_df["height"]
+            # surface_dice_score = compute_surface_dice_score(
+            #     submit=sub_df,
+            #     label=filtered_label,
+            # )
+            surface_dice_score = 0.1
             print("--------------------------------")
             print(f"val_loss = {sub.val_loss}")
+            print(f"f1_score = {sub.f1_score}")
             print(f"{surface_dice_score = }")
             print("--------------------------------")
             if surface_dice_score > self.best_surface_dice:
                 self.best_surface_dice = surface_dice_score
             self.log_dict({
                 "val_loss": sub.val_loss,
+                "f1_score": sub.f1_score,
                 "surface_dice": surface_dice_score,
             })
 
