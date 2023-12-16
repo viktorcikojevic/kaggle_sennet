@@ -7,7 +7,6 @@ from typing import Dict, Any, List
 from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.optim
-from pathlib import Path
 
 
 class ThreeDSegmentationTask(pl.LightningModule):
@@ -43,7 +42,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
 
     def on_validation_epoch_end(self) -> None:
         with torch.no_grad():
-            sub_df = generate_submission_df(
+            sub = generate_submission_df(
                 self.model,
                 self.val_loader,
                 threshold=0.5,
@@ -53,7 +52,9 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 ),
                 out_dir=TMP_SUB_MMAP_DIR / self.experiment_name,
                 device="cuda",
+                compute_val_loss=True,
             )
+            sub_df = sub.submission_df
             filtered_label = self.val_rle_df.loc[self.val_rle_df["id"].isin(sub_df["id"])].copy().sort_values("id").reset_index()
             filtered_label["width"] = sub_df["width"]
             filtered_label["height"] = sub_df["height"]
@@ -61,12 +62,19 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 submit=sub_df,
                 label=filtered_label,
             )
+            print("--------------------------------")
+            print(f"val_loss = {sub.val_loss}")
+            print(f"{surface_dice_score = }")
+            print("--------------------------------")
             if surface_dice_score > self.best_surface_dice:
                 self.best_surface_dice = surface_dice_score
-            self.log_dict({"surface_dice": surface_dice_score})
+            self.log_dict({
+                "val_loss": sub.val_loss,
+                "surface_dice": surface_dice_score,
+            })
 
     def configure_optimizers(self):
-        optimiser = torch.optim.Adam(self.model.parameters(), **self.optimiser_spec["kwargs"])
+        optimiser = torch.optim.AdamW(self.model.parameters(), **self.optimiser_spec["kwargs"])
         return {
             "optimizer": optimiser,
         }

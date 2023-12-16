@@ -9,16 +9,17 @@ from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
 from typing import Dict
 import hydra
+import torch
 # import beepy
 
 
 @hydra.main(config_path="../configs", config_name="train", version_base="1.2")
 def main(cfg: DictConfig):
     time_now = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    dir_name = f"model_{time_now}"
     experiment_name = f"{str(cfg.model.type)}-{time_now}"
-    model_out_dir = MODEL_OUT_DIR / dir_name
+    model_out_dir = MODEL_OUT_DIR / experiment_name
     model_out_dir.mkdir(exist_ok=True, parents=True)
+    print(f"{model_out_dir = }")
 
     cfg_dict: Dict = OmegaConf.to_container(cfg, resolve=True)
     dataset_kwargs = cfg_dict["dataset"]["kwargs"]
@@ -62,7 +63,10 @@ def main(cfg: DictConfig):
     )
 
     # ---------------------------------------
-    model = UNet3D(1, 1, final_sigmoid=False)
+    model = UNet3D(**cfg_dict["model"]["kwargs"])
+    ckpt = torch.load("/home/clay/research/kaggle/sennet/data_dumps/pretrained_checkpoints/unet3d.pytorch")
+    load_res = model.load_state_dict(ckpt["model_state_dict"])
+    print(f"{load_res = }")
     # ---------------------------------------
     OmegaConf.save(cfg, model_out_dir / "config.yaml")
 
@@ -79,7 +83,7 @@ def main(cfg: DictConfig):
     else:
         logger = WandbLogger(project=cfg.exp_name, name=experiment_name)
         logger.experiment.config.update(OmegaConf.to_container(cfg, resolve=True))
-        logger.experiment.config["dir_name"] = dir_name
+        logger.experiment.config["experiment_name"] = experiment_name
     callbacks = [
         pl.callbacks.LearningRateMonitor(),
         # pl.callbacks.RichProgressBar(),

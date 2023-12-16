@@ -1,4 +1,4 @@
-val_check_interval: 1000
+val_check_interval: 250
 #val_check_interval: 50
 batch_size: 2
 num_workers: 2
@@ -10,29 +10,38 @@ max_epochs: 10
 
 model:
   type: Resnet3D34
+  kwargs:
+    in_channels: 1
+    out_channels: 1
+    num_groups: 8
+    f_maps: 32
+    final_sigmoid: false
+    is_segmentation: false
+    is3d: true
 
 
 optimiser:
   type: "AdamW"
   kwargs:
-    lr: 5e-4
+    lr: 1e-3
 
 
 train_folders:
   - kidney_1_dense
 
 val_folders:
-  - kidney_3_sparse
+  - kidney_1_dense
+#  - kidney_3_sparse
 
 
 dataset:
   train_substride: 0.1
   val_substride: 1.0
   kwargs:
-    crop_size: 64
-    n_take_channels: 64
-#    crop_size: 512
-#    n_take_channels: 512
+    crop_size: 128
+    n_take_channels: 128
+#    crop_size: 384
+#    n_take_channels: 10
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0

@@ -151,6 +151,12 @@ class ParallelizationSettings:
     n_chunks: int = 5
 
 
+@dataclass
+class SubmissionOutput:
+    submission_df: pd.DataFrame
+    val_loss: float
+
+
 @profile
 def generate_submission_df(
         model: nn.Module,
@@ -160,7 +166,8 @@ def generate_submission_df(
         out_dir: Optional[Union[str, Path]] = None,
         device: str = "cuda",
         save_sub: bool = True,
-) -> pd.DataFrame:
+        compute_val_loss: bool = False,
+) -> SubmissionOutput:
     ps = parallelization_settings
     if ps.run_as_single_process:
         data_queues = [MockQueue() for _ in range(ps.n_chunks)]
@@ -200,14 +207,23 @@ def generate_submission_df(
     for s in saver_processes:
         s.start()
 
+    val_loss = 0.0
+    val_loss_count = 0
     with torch.no_grad():
         for batch in tqdm(data_loader, total=len(data_loader)):
             pred_batch = model(batch["img"].to(device))[:, 0, :, :, :]
-            pred_batch = torch.nn.functional.sigmoid(pred_batch)
-            batch.pop("img")  # no need to ship image across process
             if "gt_seg_map" in batch:
+                if compute_val_loss:
+                    val_loss += torch.nn.functional.binary_cross_entropy_with_logits(
+                        pred_batch,
+                        batch["gt_seg_map"][:, 0, :, :, :].to(device).float(),
+                        reduction="mean"
+                    ).cpu().item()
+                    val_loss_count += 1
                 batch.pop("gt_seg_map")
 
+            pred_batch = torch.nn.functional.sigmoid(pred_batch)
+            batch.pop("img")  # no need to ship image across process
             for i, pred in enumerate(pred_batch):
                 chunked_tensors = distributor.distribute_tensor(
                     pred,
@@ -231,7 +247,10 @@ def generate_submission_df(
     df_out = generate_submission_df_from_one_chunked_inference(out_dir)
     if save_sub:
         df_out.to_csv(out_dir / "submission.csv")
-    return df_out
+    return SubmissionOutput(
+        submission_df=df_out,
+        val_loss=val_loss / (val_loss_count + 1e-6) if compute_val_loss else -1.0,
+    )
 
 
 if __name__ == "__main__":
@@ -252,7 +271,7 @@ if __name__ == "__main__":
         pin_memory=True,
     )
     _model = UNet3D(1, 1)
-    _df = generate_submission_df(
+    _sub = generate_submission_df(
         _model,
         _dl,
         0.5,
@@ -260,7 +279,8 @@ if __name__ == "__main__":
             run_as_single_process=False,
             n_chunks=5,
         ),
-        "/home/clay/",
         device="cuda",
+        compute_val_loss=True,
     )
-    print(_df.shape)
+    print(_sub.submission_df.shape)
+    print(_sub.val_loss)
