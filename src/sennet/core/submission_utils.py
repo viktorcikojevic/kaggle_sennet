@@ -1,4 +1,4 @@
-from sennet.custom_modules.metrics.surface_dice_metric import score as surface_dice_score
+from sennet.custom_modules.metrics.surface_dice_metric import compute_surface_dice_score
 from sennet.environments.constants import DATA_DIR
 from sennet.core.mmap_arrays import read_mmap_array
 from sennet.core.rles import rle_encode
@@ -27,19 +27,22 @@ def generate_submission_df_from_one_chunked_inference(
             data["height"].append(int(pred.data.shape[1]))
             data["width"].append(int(pred.data.shape[2]))
     df = pd.DataFrame(data)
+    df = df.set_index("id").sort_index()
     return df
 
 
 if __name__ == "__main__":
     _root_dir = Path("/home/clay/research/kaggle/sennet/data_dumps/tmp_mmaps/sennet_tmp_2023-12-15-23-13-13")
-    _df = generate_submission_df_from_one_chunked_inference(_root_dir)
-    _df.to_csv(_root_dir / "submission.csv")
+    # _df = generate_submission_df_from_one_chunked_inference(_root_dir)
+    # _df.to_csv(_root_dir / "submission.csv")
 
     _df = pd.read_csv(_root_dir / "submission.csv")
     _label = pd.read_csv(DATA_DIR / "train_rles.csv")
-    _score = surface_dice_score(
-        solution=_label,
-        submission=_df,
-        row_id_column_name="id",
-        rle_column_name="rle",
+    _filtered_label = _label.loc[_label["id"].isin(_df["id"])].copy()
+    _filtered_label["width"] = _df["width"]
+    _filtered_label["height"] = _df["height"]
+    _score = compute_surface_dice_score(
+        submit=_df,
+        label=_filtered_label,
     )
+    print(f"{_score = }")
