@@ -41,13 +41,13 @@ class ThreeDSegmentationTask(pl.LightningModule):
 
     def on_validation_epoch_end(self) -> None:
         with torch.no_grad():
-            sub_out_dir = Path(self.logger.log_dir)
-            generate_submission_df(
+            sub_df = generate_submission_df(
                 self.model,
                 self.val_loader,
                 threshold=0.5,
                 parallelization_settings=ParallelizationSettings(
                     run_as_single_process=False,
+                    n_chunks=5,
                 ),
                 sub_out_dir=sub_out_dir,
                 raw_pred_out_dir=None,
