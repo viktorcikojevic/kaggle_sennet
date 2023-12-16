@@ -9,7 +9,7 @@ max_epochs: 10
 
 
 model:
-  type: Resnet3D34
+  type: UNet3D
   kwargs:
     in_channels: 1
     out_channels: 1
@@ -46,6 +46,7 @@ dataset:
     assert_label_exists: True
     channel_start: 0
     channel_end: null
+    sample_with_mask: false
 
     crop_size_range: null
     output_crop_size: null
