@@ -3,7 +3,7 @@ import pytorch_lightning as pl
 from sennet.core.three_d_segmentation_task import ThreeDSegmentationTask
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.environments.constants import MODEL_OUT_DIR
-from sennet.custom_modules.models import UNet3D
+import sennet.custom_modules.models as models
 from torch.utils.data import DataLoader, ConcatDataset
 from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
@@ -61,14 +61,17 @@ def main(cfg: DictConfig):
         pin_memory=True,
         drop_last=False,
     )
+    
 
     # ---------------------------------------
-    model = UNet3D(**cfg_dict["model"]["kwargs"])
-    ckpt = torch.load("/home/clay/research/kaggle/sennet/data_dumps/pretrained_checkpoints/unet3d.pytorch")
-    load_res = model.load_state_dict(ckpt["model_state_dict"])
-    print(f"{load_res = }")
+    model = getattr(models, cfg.model.type)(**cfg_dict["model"]["kwargs"])
+    if "load_from_checkpoint" in cfg_dict["model"] and cfg_dict["model"]["load_from_checkpoint"] is not None:
+        ckpt_path = cfg_dict["model"]["load_from_checkpoint"]
+        checkpoint = torch.load(ckpt_path)
+        model.load_state_dict(checkpoint['state_dict'])    
     # ---------------------------------------
     OmegaConf.save(cfg, model_out_dir / "config.yaml")
+
 
     task = ThreeDSegmentationTask(
         model,
@@ -115,6 +118,7 @@ def main(cfg: DictConfig):
         log_every_n_steps=20,
         # gradient_clip_val=1.0,
         # gradient_clip_algorithm="norm",
+        accumulate_grad_batches=cfg.accumulate_grad_batches,
         callbacks=callbacks,
     )
     trainer.fit(
