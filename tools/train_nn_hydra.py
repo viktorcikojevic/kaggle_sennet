@@ -2,9 +2,10 @@ from pytorch_lightning.loggers import WandbLogger
 import pytorch_lightning as pl
 from sennet.core.three_d_segmentation_task import ThreeDSegmentationTask
 from sennet.core.dataset import ThreeDSegmentationDataset
-from sennet.environments.constants import MODEL_OUT_DIR
+from sennet.environments.constants import MODEL_OUT_DIR, PRETRAINED_DIR
 from sennet.custom_modules.models import UNet3D
 from torch.utils.data import DataLoader, ConcatDataset
+import sennet.custom_modules.models as models
 from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
 from typing import Dict
@@ -63,10 +64,14 @@ def main(cfg: DictConfig):
     )
 
     # ---------------------------------------
-    model = UNet3D(**cfg_dict["model"]["kwargs"])
-    ckpt = torch.load("/home/clay/research/kaggle/sennet/data_dumps/pretrained_checkpoints/unet3d.pytorch")
-    load_res = model.load_state_dict(ckpt["model_state_dict"])
-    print(f"{load_res = }")
+    model_class = getattr(models, cfg_dict["model"]["type"])
+    model = model_class(**cfg_dict["model"]["kwargs"])
+    if "pretrained" in cfg_dict["model"] and cfg_dict["model"]["pretrained"] is not None:
+        ckpt = torch.load(PRETRAINED_DIR / cfg_dict["model"]["pretrained"])
+        load_res = model.load_state_dict(ckpt["model_state_dict"])
+        print(f"{load_res = }")
+    else:
+        print("no pretrained model given")
     # ---------------------------------------
     OmegaConf.save(cfg, model_out_dir / "config.yaml")
 
