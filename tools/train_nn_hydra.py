@@ -120,6 +120,7 @@ def main(cfg: DictConfig):
         log_every_n_steps=20,
         # gradient_clip_val=1.0,
         # gradient_clip_algorithm="norm",
+        accumulate_grad_batches=cfg.accumulate_grad_batches,
         callbacks=callbacks,
     )
     trainer.fit(

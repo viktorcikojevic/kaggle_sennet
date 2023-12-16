@@ -1,9 +1,10 @@
-val_check_interval: 1000
-#val_check_interval: 50
-batch_size: 16
+val_check_interval: 500
+batch_size: 32
+accumulate_grad_batches: 1
 num_workers: 8
 dry_logger: false
 exp_name: three_d_seg
+group_name: null # maybe this would be useful for grouping experiments when we do hyperparameter search
 patience: 5
 max_epochs: 10
 
@@ -24,7 +25,7 @@ model:
 optimiser:
   type: "AdamW"
   kwargs:
-    lr: 1e-3
+    lr: 1e-4
 
 
 train_folders:
@@ -32,17 +33,15 @@ train_folders:
 
 val_folders:
   - kidney_1_dense
-#  - kidney_3_sparse
+  # - kidney_3_dense
 
 
 dataset:
-  train_substride: 0.1
+  train_substride: 0.25
   val_substride: 1.0
   kwargs:
     crop_size: 64
     n_take_channels: 64
-#    crop_size: 384
-#    n_take_channels: 10
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
