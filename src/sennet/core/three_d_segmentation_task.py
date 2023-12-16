@@ -66,7 +66,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             # )
             surface_dice_score = compute_surface_dice_score_fast(
                 submit=sub.submission_df,
-                label=self.val_rle_df,
+                label=filtered_label,
             )
             print("--------------------------------")
             print(f"val_loss = {sub.val_loss}")
