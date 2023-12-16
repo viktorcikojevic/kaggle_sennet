@@ -11,8 +11,11 @@ export MODE="train"
 source source.bash
 ```
 
+
+
 ## Generate dataset
 
+0. Note: copy imgs from kidney_3_sparse to kidney_3_dense, they're the same.
 
 1. create a file `src/sennet/environments/environments.py` with the following content:
 
@@ -39,7 +42,7 @@ python tools/generate_rle_labels.py --path "${DATASET_DIR}/train_rles.csv"
 ```
 
 
-## Generate debug dataset (optional)
+## Generate debug dataset (optional) (not working yet!)
 
 
 Create a debug dataset with 10 channels.
