@@ -50,7 +50,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 parallelization_settings=ParallelizationSettings(
                     run_as_single_process=False,
                     n_chunks=5,
-                    finalise_one_by_one=False,
+                    finalise_one_by_one=True,
                 ),
                 out_dir=TMP_SUB_MMAP_DIR / self.experiment_name,
                 device="cuda",
@@ -66,7 +66,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             # )
             surface_dice_score = compute_surface_dice_score_fast(
                 submit=sub.submission_df,
-                label=self.val_rle_df,
+                label=filtered_label,
             )
             print("--------------------------------")
             print(f"val_loss = {sub.val_loss}")

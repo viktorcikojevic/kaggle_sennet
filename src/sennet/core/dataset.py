@@ -20,6 +20,7 @@ class ThreeDSegmentationDataset(Dataset):
             substride: float = 0.25,
             channel_start: int = 0,
             channel_end: Optional[int] = None,
+            sample_with_mask: bool = False,
 
             crop_size_range: Optional[Tuple[int, int]] = None,
             output_crop_size: Optional[int] = None,
@@ -46,6 +47,7 @@ class ThreeDSegmentationDataset(Dataset):
             substride=substride,
             channel_start=channel_start,
             channel_end=channel_end,
+            sample_with_mask=sample_with_mask,
         )
         self.loader = LoadMultiChannelImageAndAnnotationsFromFile(
             crop_size_range=crop_size_range,

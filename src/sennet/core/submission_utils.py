@@ -1,10 +1,17 @@
 from sennet.custom_modules.metrics.surface_dice_metric import compute_surface_dice_score
+import sennet.custom_modules.models as models
+from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.environments.constants import DATA_DIR
 from sennet.core.mmap_arrays import read_mmap_array
 from sennet.core.rles import rle_encode
+from typing import Union, Tuple, Optional, Dict
 from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
+from torch.utils.data import DataLoader
+import yaml
+import torch
+from copy import deepcopy
 
 
 def generate_submission_df_from_one_chunked_inference(
@@ -29,6 +36,47 @@ def generate_submission_df_from_one_chunked_inference(
     df = pd.DataFrame(data).sort_values("id")
     # df = df.set_index("id").sort_index()
     return df
+
+
+def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[torch.nn.Module]]:
+    model_dir = Path(model_dir)
+    with open(model_dir / "config.yaml", "rb") as f:
+        cfg = yaml.load(f, yaml.FullLoader)
+    ckpt_path = list(model_dir.glob("*.ckpt"))[0]
+    model_class = getattr(models, cfg["model"]["type"])
+
+    ckpt = torch.load(ckpt_path)
+    state_dict = ckpt["state_dict"]
+    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict, prefix="model.")
+    model = model_class(**cfg["model"]["kwargs"])
+    load_status = model.load_state_dict(state_dict)
+    print(load_status)
+    model = model.eval()
+    return cfg, model
+
+
+def build_data_loader(folder: str, substride: float, cfg: Dict):
+    kwargs = deepcopy(cfg["dataset"]["kwargs"])
+    kwargs["crop_size_range"] = None
+    kwargs["channels_jitter"] = None
+    kwargs["p_channel_jitter"] = 0.0
+    kwargs["load_ann"] = False
+    kwargs["crop_location_noise"] = 0
+
+    dataset = ThreeDSegmentationDataset(
+        folder,
+        substride=substride,
+        **kwargs,
+    )
+    data_loader = DataLoader(
+        dataset,
+        batch_size=1,
+        shuffle=False,
+        num_workers=0,
+        pin_memory=True,
+        drop_last=False,
+    )
+    return data_loader
 
 
 if __name__ == "__main__":

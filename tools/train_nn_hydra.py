@@ -2,9 +2,10 @@ from pytorch_lightning.loggers import WandbLogger
 import pytorch_lightning as pl
 from sennet.core.three_d_segmentation_task import ThreeDSegmentationTask
 from sennet.core.dataset import ThreeDSegmentationDataset
-from sennet.environments.constants import MODEL_OUT_DIR
-import sennet.custom_modules.models as models
+from sennet.environments.constants import MODEL_OUT_DIR, PRETRAINED_DIR
+from sennet.custom_modules.models import UNet3D
 from torch.utils.data import DataLoader, ConcatDataset
+import sennet.custom_modules.models as models
 from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
 from typing import Dict
@@ -61,17 +62,18 @@ def main(cfg: DictConfig):
         pin_memory=True,
         drop_last=False,
     )
-    
 
     # ---------------------------------------
-    model = getattr(models, cfg.model.type)(**cfg_dict["model"]["kwargs"])
-    if "load_from_checkpoint" in cfg_dict["model"] and cfg_dict["model"]["load_from_checkpoint"] is not None:
-        ckpt_path = cfg_dict["model"]["load_from_checkpoint"]
-        checkpoint = torch.load(ckpt_path)
-        model.load_state_dict(checkpoint['state_dict'])    
+    model_class = getattr(models, cfg_dict["model"]["type"])
+    model = model_class(**cfg_dict["model"]["kwargs"])
+    if "pretrained" in cfg_dict["model"] and cfg_dict["model"]["pretrained"] is not None:
+        ckpt = torch.load(PRETRAINED_DIR / cfg_dict["model"]["pretrained"])
+        load_res = model.load_state_dict(ckpt["model_state_dict"])
+        print(f"{load_res = }")
+    else:
+        print("no pretrained model given")
     # ---------------------------------------
     OmegaConf.save(cfg, model_out_dir / "config.yaml")
-
 
     task = ThreeDSegmentationTask(
         model,
