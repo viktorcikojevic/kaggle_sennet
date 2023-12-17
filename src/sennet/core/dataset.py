@@ -96,6 +96,7 @@ if __name__ == "__main__":
         output_crop_size=64,
         substride=1.0,
         load_ann=True,
+        sample_with_mask=True,
     )
     print(f"{len(_ds) = }")
     _dl = DataLoader(
