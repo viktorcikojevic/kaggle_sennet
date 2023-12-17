@@ -1,6 +1,6 @@
 val_check_interval: 500
 batch_size: 32
-accumulate_grad_batches: 1
+accumulate_grad_batches: 2
 num_workers: 8
 dry_logger: false
 exp_name: three_d_seg
