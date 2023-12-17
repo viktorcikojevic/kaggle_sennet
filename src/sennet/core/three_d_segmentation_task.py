@@ -1,7 +1,7 @@
 import pandas as pd
 from sennet.core.submission import generate_submission_df, ParallelizationSettings
-from sennet.custom_modules.metrics.surface_dice_metric import compute_surface_dice_score
-from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score as compute_surface_dice_score_fast
+# from sennet.custom_modules.metrics.surface_dice_metric import compute_surface_dice_score
+from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score
 from sennet.environments.constants import PROCESSED_DATA_DIR, TMP_SUB_MMAP_DIR
 import pytorch_lightning as pl
 from typing import Dict, Any, List
@@ -54,17 +54,14 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 ),
                 out_dir=TMP_SUB_MMAP_DIR / self.experiment_name,
                 device="cuda",
+                save_sub=True,
                 compute_val_loss=True,
             )
             sub_df = sub.submission_df
             filtered_label = self.val_rle_df.loc[self.val_rle_df["id"].isin(sub_df["id"])].copy().sort_values("id").reset_index()
             filtered_label["width"] = sub_df["width"]
             filtered_label["height"] = sub_df["height"]
-            # surface_dice_score = compute_surface_dice_score(
-            #     submit=sub_df,
-            #     label=filtered_label,
-            # )
-            surface_dice_score = compute_surface_dice_score_fast(
+            surface_dice_score = compute_surface_dice_score(
                 submit=sub.submission_df,
                 label=filtered_label,
             )

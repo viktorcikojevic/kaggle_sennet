@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader, ConcatDataset
 import sennet.custom_modules.models as models
 from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
+from copy import deepcopy
 from typing import Dict
 import hydra
 import torch
@@ -33,10 +34,16 @@ def main(cfg: DictConfig):
         for folder in cfg.train_folders
     ])
     # TODO(Sumo): fix this so training works with multiple val sets
+
+    val_dataset_kwargs = deepcopy(dataset_kwargs)
+    val_dataset_kwargs["crop_size_range"] = None
+    val_dataset_kwargs["channels_jitter"] = None
+    val_dataset_kwargs["p_channel_jitter"] = 0.0
+    val_dataset_kwargs["crop_location_noise"] = 0
     val_dataset = ThreeDSegmentationDataset(
         folder=cfg.val_folders[0],
         substride=cfg.dataset.val_substride,
-        **dataset_kwargs,
+        **val_dataset_kwargs,
     )
     # val_dataset = ConcatDataset([
     #     ThreeDSegmentationDataset(
@@ -48,7 +55,7 @@ def main(cfg: DictConfig):
     # ])
     train_loader = DataLoader(
         train_dataset,
-        batch_size=cfg.batch_size,
+        batch_size=max(1, int(cfg.batch_size / cfg.accumulate_grad_batches)),
         shuffle=True,
         num_workers=cfg.num_workers,
         pin_memory=True,

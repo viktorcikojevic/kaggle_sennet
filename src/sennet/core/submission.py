@@ -1,3 +1,5 @@
+import shutil
+
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.core.submission_utils import generate_submission_df_from_one_chunked_inference
 from sennet.core.mp.tensor_distributor import TensorDistributor, TensorChunk
@@ -96,6 +98,11 @@ class TensorReceivingProcess:
 
     def setup(self):
         pass
+        # self.out_dir.mkdir(exist_ok=True, parents=True)
+        # for d in self.out_dir.glob("*"):
+        #     if d.is_dir():
+        #         print(f"removing {d.absolute().resolve()}")
+        #         shutil.rmtree(str(d.absolute().resolve()))
 
     @profile
     def spin_once(self) -> bool:
