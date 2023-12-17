@@ -11,17 +11,19 @@ class ForegroundSegmentationDataset(Dataset):
     def __init__(
             self,
             img_dir: Union[str, Path],
-            label_dir: Optional[Union[str, Path]] = None
+            label_dir: Optional[Union[str, Path]] = None,
+            stride: int = 4,
     ):
         self.img_dir = Path(img_dir)
         self.label_dir = Path(label_dir) if label_dir is not None else None
         self.img_paths = {p.stem: p for p in self.img_dir.glob("*")}
+        self.stride = stride
         if self.label_dir is None:
-            self.keys = sorted(list(self.img_paths.keys()))
             self.label_paths = None
+            self.keys = sorted(list(self.img_paths.keys()))
         else:
-            self.keys = sorted(list(set(self.img_paths.keys()).intersection(set(self.label_paths.keys()))))
             self.label_paths = {p.stem: p for p in self.label_dir.glob("*")}
+            self.keys = sorted(list(set(self.img_paths.keys()).intersection(set(self.label_paths.keys()))))
 
     def __len__(self):
         return len(self.keys)
@@ -30,6 +32,7 @@ class ForegroundSegmentationDataset(Dataset):
         k = self.keys[i]
         img_path = self.img_paths[k]
         img = cv2.imread(str(img_path), 0).astype(np.float32)
+        img = img[::self.stride, ::self.stride]
         img -= 127.0
         img /= 60.0
         data = {
