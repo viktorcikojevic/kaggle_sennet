@@ -1,0 +1,36 @@
+val_check_interval: 1000
+batch_size: 2
+accumulate_grad_batches: 10
+num_workers: 8
+dry_logger: false
+exp_name: fg_seg
+group_name: null # maybe this would be useful for grouping experiments when we do hyperparameter search
+patience: 5
+max_epochs: 100
+
+
+model:
+  type: UNet2D
+#  pretrained: "unet3d.pytorch"
+  kwargs:
+    in_channels: 1
+    out_channels: 1
+    num_groups: 8
+    f_maps: 32
+    final_sigmoid: false
+    is_segmentation: false
+
+
+optimiser:
+  type: "AdamW"
+  kwargs:
+    lr: 1e-4
+
+
+dataset:
+  train_kwargs:
+    - img_dir: "/home/clay/research/kaggle/sennet/data/blood-vessel-segmentation/train/kidney_1_dense/images"
+      label_dir: "/home/clay/research/kaggle/sennet/data/labeled_masks/kidney_1_dense"
+  val_kwargs:
+    - img_dir: "/home/clay/research/kaggle/sennet/data/blood-vessel-segmentation/train/kidney_3_sparse/images"
+      label_dir: "/home/clay/research/kaggle/sennet/data/labeled_masks/kidney_3_dense"

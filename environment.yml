@@ -36,3 +36,4 @@ dependencies:
     - numba
     - ipympl
     - ipywidgets
+    - torchvision

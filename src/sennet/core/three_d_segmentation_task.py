@@ -33,6 +33,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.best_surface_dice = 0.0
 
     def training_step(self, batch: Dict, batch_idx: int):
+        self.model = self.model.train()
         preds = self.model(batch["img"])
         loss = self.criterion(preds, batch["gt_seg_map"].float())
         self.log("train_loss", loss, prog_bar=True)

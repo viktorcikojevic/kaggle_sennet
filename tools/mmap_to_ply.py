@@ -7,7 +7,8 @@ import numpy as np
 
 @profile
 def main():
-    data_dir = Path("/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_1_dense")
+    # data_dir = Path("/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_1_dense")
+    data_dir = Path("/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_2")
     # data_dir = Path("/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_3_sparse")
     image_mmap = read_mmap_array(data_dir / "image")
     mask_mmap = read_mmap_array(data_dir / "mask")
