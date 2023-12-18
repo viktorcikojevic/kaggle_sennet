@@ -29,8 +29,13 @@ optimiser:
 
 dataset:
   train_kwargs:
-    - img_dir: "/home/clay/research/kaggle/sennet/data/blood-vessel-segmentation/train/kidney_1_dense/images"
-      label_dir: "/home/clay/research/kaggle/sennet/data/labeled_masks/kidney_1_dense"
-  val_kwargs:
     - img_dir: "/home/clay/research/kaggle/sennet/data/blood-vessel-segmentation/train/kidney_3_sparse/images"
       label_dir: "/home/clay/research/kaggle/sennet/data/labeled_masks/kidney_3_dense"
+    - img_dir: "/home/clay/research/kaggle/sennet/data/blood-vessel-segmentation/train/kidney_2/images"
+      label_dir: "/home/clay/research/kaggle/sennet/data/labeled_masks/kidney_2"
+  val_kwargs:
+    - img_dir: "/home/clay/research/kaggle/sennet/data/blood-vessel-segmentation/train/kidney_1_dense/images"
+      label_dir: "/home/clay/research/kaggle/sennet/data/labeled_masks/kidney_1_dense"
+  kwargs:
+    stride: 4
+    aug: true

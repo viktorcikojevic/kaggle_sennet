@@ -8,6 +8,7 @@ import sennet.custom_modules.models as models
 from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
 from typing import Dict
+from copy import deepcopy
 import hydra
 import torch
 # import beepy
@@ -23,11 +24,13 @@ def main(cfg: DictConfig):
 
     cfg_dict: Dict = OmegaConf.to_container(cfg, resolve=True)
     train_dataset = ConcatDataset([
-        ForegroundSegmentationDataset(**kwargs)
+        ForegroundSegmentationDataset(**kwargs, **cfg_dict["dataset"]["kwargs"])
         for kwargs in cfg.dataset.train_kwargs
     ])
+    general_val_kwargs = deepcopy(cfg_dict["dataset"]["kwargs"])
+    general_val_kwargs["aug"] = False
     val_dataset = ConcatDataset([
-        ForegroundSegmentationDataset(**kwargs)
+        ForegroundSegmentationDataset(**kwargs, **general_val_kwargs)
         for kwargs in cfg.dataset.val_kwargs
     ])
 

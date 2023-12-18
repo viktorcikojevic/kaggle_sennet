@@ -6,6 +6,7 @@ from tqdm import tqdm
 import numpy as np
 import argparse
 import torch
+import torchvision.transforms.functional as tvf
 import cv2
 
 
@@ -21,7 +22,9 @@ def main():
     output_dir = Path(args.output_dir)
 
     cfg, model = load_model_from_dir(model_dir)
-    dataset = ForegroundSegmentationDataset(data_path)
+    dataset_kwargs = cfg["dataset"].get("kwargs", {})
+    dataset_kwargs["aug"] = False
+    dataset = ForegroundSegmentationDataset(data_path, **dataset_kwargs)
     data_loader = DataLoader(
         dataset,
         batch_size=1,
@@ -33,9 +36,10 @@ def main():
     model = model.to(device).eval()
     with torch.no_grad():
         for batch in tqdm(data_loader, total=len(data_loader)):
-            model_out = torch.nn.functional.sigmoid(model(batch["img"].to(device)))[:, 0, :, :]
-            for i in range(model_out.shape[0]):
-                pred = ((model_out[i] > 0.5).cpu().numpy() * 255).astype(np.uint8)
+            pred_prob = torch.nn.functional.sigmoid(model(batch["img"].to(device)))[:, 0, :, :]
+            resized_pred_prob = tvf.resize(pred_prob, [batch["img_h"][0], batch["img_w"][0]])
+            for i in range(resized_pred_prob.shape[0]):
+                pred = ((resized_pred_prob[i] > 0.5).cpu().numpy() * 255).astype(np.uint8)
                 img_path = batch["img_path"][i]
                 out_path = output_dir / f"{Path(img_path).stem}_mask.png"
                 cv2.imwrite(str(out_path), pred)
