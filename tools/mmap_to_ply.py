@@ -1,15 +1,19 @@
+from src.sennet.environments.constants import PROCESSED_DATA_DIR
 from src.sennet.core.mmap_arrays import read_mmap_array
 from pathlib import Path
 from tqdm import tqdm
 from line_profiler_pycharm import profile
 import numpy as np
+import argparse
 
 
 @profile
 def main():
-    # data_dir = Path("/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_1_dense")
-    data_dir = Path("/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_2")
-    # data_dir = Path("/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_3_sparse")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-f", "--folder", required=True, type=str)
+    args, _ = parser.parse_known_args()
+
+    data_dir = PROCESSED_DATA_DIR / args.folder
     image_mmap = read_mmap_array(data_dir / "image")
     mask_mmap = read_mmap_array(data_dir / "mask")
     label_mmap = read_mmap_array(data_dir / "label")
