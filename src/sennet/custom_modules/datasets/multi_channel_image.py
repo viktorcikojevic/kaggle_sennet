@@ -5,8 +5,35 @@ from typing import *
 import numpy as np
 
 
-# @MMSEG_DATASETS.register_module()
-# class MultiChannelDataset(BaseSegDataset):
+def generate_crop_bboxes(
+        crop_size: int,
+        n_take_channels: int,
+        xy_stride: int,
+        z_stride: int,
+        shape: Tuple[int, int, int],
+        mask: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    half_crop_size = int(crop_size / 2)
+    n_half_take_channels = int(n_take_channels / 2)
+    bboxes = []
+    for c in range(n_half_take_channels, shape[0] - n_half_take_channels, z_stride):
+        if c + n_take_channels >= shape[0]:
+            continue
+        for i in range(half_crop_size, shape[1] - half_crop_size, xy_stride):
+            if i + crop_size >= shape[1]:
+                continue
+            for j in range(half_crop_size, shape[2] - half_crop_size, xy_stride):
+                if j + crop_size >= shape[2]:
+                    continue
+                if (mask is not None) and (not np.any(mask[c:c+n_take_channels, i:i+crop_size, j:j+crop_size])):
+                    continue
+                bboxes.append([
+                    c, j, i,
+                    c + n_take_channels, j + crop_size, i + crop_size,
+                ])
+    return np.array(bboxes)
+
+
 class MultiChannelDataset:
     DUMMY_COLOR = (0, 0, 0)
     METAINFO = dict(
@@ -82,37 +109,14 @@ class MultiChannelDataset:
         )
         self.image_paths = [f"{p.parent.parent.stem}_{p.stem}" for p in image_paths]
         print("generating indices")
-        if self.sample_with_mask:
-            self.bboxes = np.array([
-                [
-                    c, j, i,
-                    c+self.n_take_channels, j+self.crop_size, i+self.crop_size,
-                ]
-                for c in range(self.n_half_take_channels, mask.shape[0]-self.n_half_take_channels, self.z_stride)
-                for i in range(self.half_crop_size, mask.shape[1]-self.half_crop_size, self.xy_stride)
-                for j in range(self.half_crop_size, mask.shape[2]-self.half_crop_size, self.xy_stride)
-                if (
-                    (c+self.n_take_channels < mask.shape[0])
-                    and (i+self.crop_size < mask.shape[1])
-                    and (j+self.crop_size < mask.shape[2])
-                    and (np.any(mask.data[c:c+self.n_take_channels, i:i+self.crop_size, j:j+self.crop_size]))
-                )
-            ])
-        else:
-            self.bboxes = np.array([
-                [
-                    c, j, i,
-                    c+self.n_take_channels, j+self.crop_size, i+self.crop_size,
-                ]
-                for c in range(self.n_half_take_channels, mask.shape[0]-self.n_half_take_channels, self.z_stride)
-                for i in range(self.half_crop_size, mask.shape[1]-self.half_crop_size, self.xy_stride)
-                for j in range(self.half_crop_size, mask.shape[2]-self.half_crop_size, self.xy_stride)
-                if (
-                    (c+self.n_take_channels < mask.shape[0])
-                    and (i+self.crop_size < mask.shape[1])
-                    and (j+self.crop_size < mask.shape[2])
-                )
-            ])
+        self.bboxes = generate_crop_bboxes(
+            crop_size=self.crop_size,
+            n_take_channels=self.n_take_channels,
+            xy_stride=self.xy_stride,
+            z_stride=self.z_stride,
+            shape=(mask.shape[0], mask.shape[1], mask.shape[2]),
+            mask=mask.data if self.sample_with_mask else None
+        )
         print(f"{self.folder}: bboxes={len(self.bboxes)}")
         print("done generating indices")
 
