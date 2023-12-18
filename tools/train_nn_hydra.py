@@ -18,7 +18,7 @@ import torch
 @hydra.main(config_path="../configs", config_name="train", version_base="1.2")
 def main(cfg: DictConfig):
     time_now = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    experiment_name = f"{str(cfg.model.type)}-{time_now}"
+    experiment_name = f"{str(cfg.model.type)}-c{cfg.dataset.kwargs.crop_size}x{cfg.dataset.kwargs.n_take_channels}-{time_now}"
     model_out_dir = MODEL_OUT_DIR / experiment_name
     model_out_dir.mkdir(exist_ok=True, parents=True)
     print(f"{model_out_dir = }")
@@ -116,7 +116,7 @@ def main(cfg: DictConfig):
             filename=f"{cfg.model.type}" + "-{epoch:02d}-{surface_dice:.2f}",
         ),
     ]
-    val_check_interval = float(cfg.val_check_interval) / len(train_loader)
+    val_check_interval = min(float(cfg.val_check_interval) / len(train_loader), 1.0)
     trainer = pl.Trainer(
         num_sanity_val_steps=0,
         accelerator="gpu",

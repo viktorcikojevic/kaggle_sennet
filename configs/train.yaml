@@ -1,7 +1,7 @@
-val_check_interval: 500
+val_check_interval: 1000
 batch_size: 32
-accumulate_grad_batches: 2
-num_workers: 8
+accumulate_grad_batches: 32
+num_workers: 16
 dry_logger: false
 exp_name: three_d_seg
 group_name: null # maybe this would be useful for grouping experiments when we do hyperparameter search
@@ -41,8 +41,8 @@ dataset:
   train_substride: 0.25
   val_substride: 1.0
   kwargs:
-    crop_size: 64
-    n_take_channels: 64
+    crop_size: 100
+    n_take_channels: 100
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
