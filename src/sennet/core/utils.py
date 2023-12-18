@@ -2,6 +2,11 @@ import torch
 from typing import Tuple
 
 
+DEPTH_ALONG_CHANNEL = 0
+DEPTH_ALONG_HEIGHT = 1
+DEPTH_ALONG_WIDTH = 2
+
+
 def resize_3d_image(img: torch.Tensor, new_whd: Tuple[int, int, int]):
     out_w, out_h, out_d = new_whd
     batch_size, _c, in_d, in_h, in_w = img.shape

@@ -1,3 +1,4 @@
+from sennet.core.utils import DEPTH_ALONG_CHANNEL, DEPTH_ALONG_WIDTH, DEPTH_ALONG_HEIGHT
 from sennet.environments.constants import PROCESSED_DATA_DIR
 from sennet.core.mmap_arrays import read_mmap_array
 from pathlib import Path
@@ -8,29 +9,39 @@ import numpy as np
 def generate_crop_bboxes(
         crop_size: int,
         n_take_channels: int,
-        xy_stride: int,
-        z_stride: int,
+        substride: float,
         shape: Tuple[int, int, int],
         mask: Optional[np.ndarray] = None,
+        depth_mode: int = DEPTH_ALONG_CHANNEL,
 ) -> np.ndarray:
-    half_crop_size = int(crop_size / 2)
-    n_half_take_channels = int(n_take_channels / 2)
+    # bbox is always [channel_lb, x_lb, y_lb, channel_ub, x_ub, y_ub]
     bboxes = []
-    for c in range(n_half_take_channels, shape[0] - n_half_take_channels, z_stride):
-        if c + n_take_channels >= shape[0]:
-            continue
-        for i in range(half_crop_size, shape[1] - half_crop_size, xy_stride):
-            if i + crop_size >= shape[1]:
-                continue
-            for j in range(half_crop_size, shape[2] - half_crop_size, xy_stride):
-                if j + crop_size >= shape[2]:
+
+    crop_stride = max(1, int(substride * crop_size))
+    channel_stride = max(1, int(substride * n_take_channels))
+
+    c_stride = channel_stride if depth_mode == DEPTH_ALONG_CHANNEL else crop_stride
+    c_take_range = n_take_channels if depth_mode == DEPTH_ALONG_CHANNEL else crop_size
+
+    y_stride = channel_stride if depth_mode == DEPTH_ALONG_HEIGHT else crop_stride
+    y_take_range = n_take_channels if depth_mode == DEPTH_ALONG_HEIGHT else crop_size
+
+    x_stride = channel_stride if depth_mode == DEPTH_ALONG_WIDTH else crop_stride
+    x_take_range = n_take_channels if depth_mode == DEPTH_ALONG_WIDTH else crop_size
+
+    for c in range(0, shape[0] - c_take_range, c_stride):
+        for i in range(0, shape[1] - y_take_range, y_stride):
+            for j in range(0, shape[2] - x_take_range, x_stride):
+                lc = c
+                lx = j
+                ly = i
+                uc = c + c_take_range
+                ux = j + x_take_range
+                uy = i + y_take_range
+                box = [lc, lx, ly, uc, ux, uy]
+                if (mask is not None) and (not np.any(mask[lc:uc, ly:uy, lx:ux])):
                     continue
-                if (mask is not None) and (not np.any(mask[c:c+n_take_channels, i:i+crop_size, j:j+crop_size])):
-                    continue
-                bboxes.append([
-                    c, j, i,
-                    c + n_take_channels, j + crop_size, i + crop_size,
-                ])
+                bboxes.append(box)
     return np.array(bboxes)
 
 
@@ -54,22 +65,24 @@ class MultiChannelDataset:
             channel_start: int = 0,
             channel_end: Optional[int] = None,
             sample_with_mask: bool = False,
+            add_depth_along_channel: bool = True,
+            add_depth_along_width: bool = False,
+            add_depth_along_height: bool = False,
     ) -> None:
         self.folder = PROCESSED_DATA_DIR / folder
         print(f"reading from the following folder: {self.folder}")
         self.crop_size = crop_size
-        self.half_crop_size = int(self.crop_size / 2)
         self.n_take_channels = n_take_channels
-        self.n_half_take_channels = int(self.n_take_channels / 2)
         self.substride = substride
-        self.xy_stride = max(1, int(self.substride * crop_size))
-        self.z_stride = max(1, int(self.substride * n_take_channels))
         self.assert_label_exists = assert_label_exists
         self.channel_start = channel_start
         self.channel_end = channel_end
         self.reduce_zero_label = reduce_zero_label
         self.sample_with_mask = sample_with_mask
         self.image_paths = {}
+        self.add_depth_along_channel = add_depth_along_channel
+        self.add_depth_along_width = add_depth_along_width
+        self.add_depth_along_height = add_depth_along_height
         self._load_data_list()
 
     def __len__(self):
@@ -78,7 +91,8 @@ class MultiChannelDataset:
     def __getitem__(self, i):
         return dict(
             bbox=self.bboxes[i],
-            **self.general_metadata
+            bbox_type=self.bbox_types[i],
+            **self.general_metadata,
         )
 
     def _load_data_list(self):
@@ -109,14 +123,25 @@ class MultiChannelDataset:
         )
         self.image_paths = [f"{p.parent.parent.stem}_{p.stem}" for p in image_paths]
         print("generating indices")
-        self.bboxes = generate_crop_bboxes(
-            crop_size=self.crop_size,
-            n_take_channels=self.n_take_channels,
-            xy_stride=self.xy_stride,
-            z_stride=self.z_stride,
-            shape=(mask.shape[0], mask.shape[1], mask.shape[2]),
-            mask=mask.data if self.sample_with_mask else None
-        )
+        self.bboxes = np.zeros((0, 6), dtype=int)
+        self.bbox_types = np.zeros(0, dtype=int)
+        for (flag, bbox_type, msg) in (
+                (self.add_depth_along_channel, DEPTH_ALONG_CHANNEL, "channel"),
+                (self.add_depth_along_channel, DEPTH_ALONG_WIDTH, "width"),
+                (self.add_depth_along_channel, DEPTH_ALONG_HEIGHT, "height"),
+        ):
+            new_bboxes = generate_crop_bboxes(
+                crop_size=self.crop_size,
+                n_take_channels=self.n_take_channels,
+                substride=self.substride,
+                shape=(mask.shape[0], mask.shape[1], mask.shape[2]),
+                mask=mask.data if self.sample_with_mask else None,
+                depth_mode=bbox_type,
+            )
+            new_bbox_types = np.full(len(new_bboxes), bbox_type)
+            print(f"adding depth along {msg}: {len(new_bboxes)}")
+            self.bboxes = np.concatenate((self.bboxes, new_bboxes), axis=0)
+            self.bbox_types = np.concatenate((self.bbox_types, new_bbox_types))
         print(f"{self.folder}: bboxes={len(self.bboxes)}")
         print("done generating indices")
 
@@ -127,4 +152,6 @@ if __name__ == "__main__":
         512,
         20,
         substride=0.5,
+        add_depth_along_height=True,
+        add_depth_along_width=True,
     )

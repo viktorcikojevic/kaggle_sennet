@@ -1,6 +1,7 @@
 from typing import *
 import numpy as np
 from sennet.core.mmap_arrays import read_mmap_array, MmapArray
+from sennet.core.utils import DEPTH_ALONG_CHANNEL, DEPTH_ALONG_HEIGHT, DEPTH_ALONG_WIDTH
 from pathlib import Path
 import cv2
 from line_profiler_pycharm import profile
@@ -38,6 +39,7 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         channel_end = results["bbox"][3]
         num_channels = results["img_c"]
         if self.p_channel_jitter > 1e-3 and np.random.binomial(n=1, p=self.p_channel_jitter):
+            # NOTE: I don't think I need this, the scanning machine is pretty precise and won't have this noise
             min_jitter_val = -min(channel_start, self.channels_jitter)
             max_jitter_val = min(num_channels-channel_end, self.channels_jitter)
             channel_jitter = np.random.randint(min_jitter_val, max_jitter_val)
@@ -49,6 +51,8 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
 
     # @profile
     def _get_pixel_bbox(self, results: Dict) -> Tuple[int, int, int, int]:
+        # TODO(Sumo): you'll need to account for the fact that different bbox type has
+        #  different location of "x" and "y" wrt their bboxes
         lx = results["bbox"][1]
         ly = results["bbox"][2]
         ux = results["bbox"][4]
@@ -100,16 +104,46 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             self.loaded_image_mmaps[img_path] = read_mmap_array(Path(img_path), mode="r")
         image_mmap = self.loaded_image_mmaps[img_path]
         img = self._get_3d_slice(image_mmap.data, crop_bbox, take_channels, is_channels_augmented)
-        img = np.ascontiguousarray(img)
         if self.load_ann:
             seg_path = results["seg_dir"]
             if seg_path not in self.loaded_seg_mmaps:
                 self.loaded_seg_mmaps[seg_path] = read_mmap_array(Path(seg_path), mode="r")
             seg_mmap = self.loaded_seg_mmaps[seg_path]
             seg_map = self._get_3d_slice(seg_mmap.data, crop_bbox, take_channels, is_channels_augmented)
-            seg_map = np.ascontiguousarray(seg_map)
         else:
             seg_map = None
+
+        # molding crops so they look the same for the model
+        bbox_type = results["bbox_type"]
+        if bbox_type == DEPTH_ALONG_CHANNEL:
+            # we're stacking along channel by default
+            img = np.ascontiguousarray(img)
+            if seg_map is not None:
+                seg_map = np.ascontiguousarray(seg_map)
+        elif bbox_type == DEPTH_ALONG_HEIGHT:
+            # (c, d, c) -> (d, c, c)
+            img = np.ascontiguousarray(np.stack([
+                img[:, c, :]
+                for c in range(img.shape[1])
+            ], axis=0))
+            if seg_map is not None:
+                seg_map = np.ascontiguousarray(np.stack([
+                    seg_map[:, c, :]
+                    for c in range(seg_map.shape[1])
+                ], axis=0))
+        elif bbox_type == DEPTH_ALONG_WIDTH:
+            # (c, c, d) -> (d, c, c)
+            img = np.ascontiguousarray(np.stack([
+                img[:, :, c]
+                for c in range(img.shape[2])
+            ], axis=0))
+            if seg_map is not None:
+                seg_map = np.ascontiguousarray(np.stack([
+                    seg_map[:, :, c]
+                    for c in range(seg_map.shape[2])
+                ], axis=0))
+        else:
+            print(f"unknown {bbox_type=}")
         return img, seg_map
 
     @profile
@@ -120,18 +154,23 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             take_channels,
             is_channels_augmented: bool = False,
     ) -> np.ndarray:
+        # TODO(Sumo): revive when crop bbox jitter is back (or just move 3d augmentations out really)
         lx, ly, ux, uy = crop_bbox
-        if ux-lx == self.output_crop_size and uy-ly == self.output_crop_size:
-            if is_channels_augmented:
-                return full_array[take_channels, ly: uy, lx: ux]
-            else:
-                return full_array[take_channels[0]: take_channels[1], ly: uy, lx: ux]
-        resized_arrays = [
-            self._resize_to_output_size(full_array[c, ly: uy, lx: ux])
-            for c in (take_channels if is_channels_augmented else range(take_channels[0], take_channels[1]))
-        ]
-        stacked_array = np.stack(resized_arrays, axis=0)
-        return stacked_array
+        take_img = full_array[take_channels[0]: take_channels[1], ly: uy, lx: ux]
+        expected_img_shape = take_channels[1] - take_channels[0], uy-ly, ux-lx
+        assert take_img.shape == expected_img_shape, f"{take_img.shape=} != {expected_img_shape=}"
+        return take_img
+        # if ux-lx == self.output_crop_size and uy-ly == self.output_crop_size:
+        #     if is_channels_augmented:
+        #         return full_array[take_channels, ly: uy, lx: ux]
+        #     else:
+        #         return full_array[take_channels[0]: take_channels[1], ly: uy, lx: ux]
+        # resized_arrays = [
+        #     self._resize_to_output_size(full_array[c, ly: uy, lx: ux])
+        #     for c in (take_channels if is_channels_augmented else range(take_channels[0], take_channels[1]))
+        # ]
+        # stacked_array = np.stack(resized_arrays, axis=0)
+        # return stacked_array
 
     def _resize_to_output_size(self, img: np.ndarray):
         if img.shape[0] == img.shape[1] == self.output_crop_size:

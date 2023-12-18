@@ -4,7 +4,7 @@ from sennet.core.mp.tensor_distributor import TensorDistributor, TensorChunk
 from sennet.core.mmap_arrays import create_mmap_array
 from sennet.custom_modules.models import Base3DSegmentor, SegmentorOutput
 from sennet.environments.constants import TMP_SUB_MMAP_DIR
-from sennet.core.utils import resize_3d_image
+from sennet.core.utils import resize_3d_image, DEPTH_ALONG_WIDTH, DEPTH_ALONG_HEIGHT, DEPTH_ALONG_CHANNEL
 from typing import Optional, Union, Dict, Tuple
 from pathlib import Path
 import torch
@@ -20,10 +20,13 @@ from dataclasses import dataclass
 
 @dataclass
 class Data:
-    idx: int
+    terminate: bool = False
+    idx: Optional[int] = None
     pred: Optional[TensorChunk] = None
     batch: Optional[Dict[str, torch.Tensor]] = None
-    terminate: bool = False
+    bbox_type: Optional[int] = None
+    model_start_idx: Optional[int] = None
+    model_end_idx: Optional[int] = None
 
 
 class MockQueue:
@@ -110,16 +113,42 @@ class TensorReceivingProcess:
         pred_chunk = data.pred
         batch = data.batch
         terminate = data.terminate
+        bbox_type = data.bbox_type
 
         if terminate:
             return True
 
         assert pred_chunk is not None, f"pred can't be None if terminate is False"
-        lc = pred_chunk.fill_start
-        uc = pred_chunk.fill_end
+        assert bbox_type is not None, f"bbox_type be None if terminate is False"
+        assert data.model_start_idx is not None, f"data.model_start_idx be None if terminate is False"
+        assert data.model_end_idx is not None, f"data.model_end_idx be None if terminate is False"
         pred = pred_chunk.tensor.cpu().numpy()
         bbox = batch["bbox"][i].cpu().numpy()
         folder = batch["folder"][i]
+
+        if bbox_type == DEPTH_ALONG_CHANNEL:
+            lc = pred_chunk.fill_start
+            uc = pred_chunk.fill_end
+            lx = bbox[1]
+            ux = bbox[4]
+            ly = bbox[2]
+            uy = bbox[5]
+        elif bbox_type == DEPTH_ALONG_WIDTH:
+            lc = pred_chunk.fill_start
+            uc = pred_chunk.fill_end
+            lx = bbox[1] + data.model_start_idx
+            ux = bbox[1] + data.model_end_idx
+            ly = bbox[2]
+            uy = bbox[5]
+        elif bbox_type == DEPTH_ALONG_HEIGHT:
+            lc = pred_chunk.fill_start
+            uc = pred_chunk.fill_end
+            lx = bbox[1]
+            ux = bbox[4]
+            ly = bbox[2] + data.model_start_idx
+            uy = bbox[2] + data.model_end_idx
+        else:
+            raise RuntimeError(f"unknown bbox type at {self.__class__.__name__}: {bbox_type=}")
 
         if self.current_folder is None:
             img_h = int(batch["img_h"][i])
@@ -133,13 +162,6 @@ class TensorReceivingProcess:
             self.thresholded_prob = create_mmap_array(self.out_dir / "thresholded_prob", [img_c, img_h, img_w], bool).data
         else:
             assert self.current_folder == folder, f"can't handle more than one folder: {self.current_folder=}, {folder=}"
-
-        # lc = bbox[0]
-        lx = bbox[1]
-        ly = bbox[2]
-        # uc = bbox[3]
-        ux = bbox[4]
-        uy = bbox[5]
 
         self.current_mean_prob[lc: uc, ly: uy, lx: ux] += pred
         self.current_total_count[lc: uc, ly: uy, lx: ux] += 1
@@ -226,15 +248,48 @@ def generate_submission_df(
 
             batch.pop("img")  # no need to ship image across process
             for i, pred in enumerate(pred_batch):
-                chunked_tensors = distributor.distribute_tensor(
-                    pred,
-                    batch["bbox"][i, 0] + seg_pred.take_indices_start,
-                    batch["bbox"][i, 0] + seg_pred.take_indices_end,
-                )
+                # pred = (c, h, w)
+                bbox_type = batch["bbox_type"][i].cpu().item()
+
+                if bbox_type == DEPTH_ALONG_CHANNEL:
+                    chunked_tensors = distributor.distribute_tensor(
+                        pred,
+                        batch["bbox"][i, 0] + seg_pred.take_indices_start,
+                        batch["bbox"][i, 0] + seg_pred.take_indices_end,
+                    )
+                elif bbox_type == DEPTH_ALONG_HEIGHT:
+                    permuted_pred = torch.concat([
+                        pred[c, :, :].unsqueeze(1)
+                        for c in range(pred.shape[0])
+                    ], dim=1)
+                    chunked_tensors = distributor.distribute_tensor(
+                        permuted_pred,
+                        batch["bbox"][i, 0],
+                        batch["bbox"][i, 3],
+                    )
+                elif bbox_type == DEPTH_ALONG_WIDTH:
+                    permuted_pred = torch.concat([
+                        pred[c, :, :].unsqueeze(2)
+                        for c in range(pred.shape[0])
+                    ], dim=2)
+                    chunked_tensors = distributor.distribute_tensor(
+                        permuted_pred,
+                        batch["bbox"][i, 0],
+                        batch["bbox"][i, 3],
+                    )
+                else:
+                    raise RuntimeError(f"unknown {bbox_type=}")
 
                 for q, c in zip(data_queues, chunked_tensors):
                     if c is not None:
-                        q.put(Data(i, pred=c, batch=batch))
+                        q.put(Data(
+                            idx=i,
+                            pred=c,
+                            batch=batch,
+                            bbox_type=bbox_type,
+                            model_start_idx=seg_pred.take_indices_start,
+                            model_end_idx=seg_pred.take_indices_end,
+                        ))
                         if ps.run_as_single_process:
                             for _q, s in zip(data_queues, saver_processes):
                                 if _q.has_val:
@@ -243,12 +298,12 @@ def generate_submission_df(
     if ps.finalise_one_by_one:
         # trigger stopping one-by-one to avoid ram exploding
         for q, s in zip(data_queues, saver_processes):
-            q.put(Data(-1, terminate=True))
+            q.put(Data(terminate=True))
             s.join()
     else:
         # all at once for speed up
         for q in data_queues:
-            q.put(Data(-1, terminate=True))
+            q.put(Data(terminate=True))
         for s in saver_processes:
             s.join()
 
@@ -264,11 +319,12 @@ if __name__ == "__main__":
     # from sennet.custom_modules.models import UNet3D
     from sennet.custom_modules.models import WrappedUNet3D
 
-    _crop_size = 64
+    _crop_size = 512
+    _n_take_channels = 12
     _ds = ThreeDSegmentationDataset(
         "kidney_1_dense",
-        _crop_size,
-        _crop_size,
+        crop_size=_crop_size,
+        n_take_channels=_n_take_channels,
         output_crop_size=_crop_size,
         substride=1.0,
         sample_with_mask=True,
@@ -286,9 +342,9 @@ if __name__ == "__main__":
         0.5,
         ParallelizationSettings(
             run_as_single_process=False,
+            # run_as_single_process=True,
             n_chunks=5,
         ),
         device="cuda",
-        compute_val_loss=True,
     )
     print(_sub.submission_df.shape)

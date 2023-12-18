@@ -21,6 +21,9 @@ class ThreeDSegmentationDataset(Dataset):
             channel_start: int = 0,
             channel_end: Optional[int] = None,
             sample_with_mask: bool = False,
+            add_depth_along_channel: bool = True,
+            add_depth_along_width: bool = False,
+            add_depth_along_height: bool = False,
 
             crop_size_range: Optional[Tuple[int, int]] = None,
             output_crop_size: Optional[int] = None,
@@ -48,6 +51,9 @@ class ThreeDSegmentationDataset(Dataset):
             channel_start=channel_start,
             channel_end=channel_end,
             sample_with_mask=sample_with_mask,
+            add_depth_along_channel=add_depth_along_channel,
+            add_depth_along_width=add_depth_along_width,
+            add_depth_along_height=add_depth_along_height,
         )
         self.loader = LoadMultiChannelImageAndAnnotationsFromFile(
             crop_size_range=crop_size_range,
@@ -91,12 +97,15 @@ if __name__ == "__main__":
     _ds = ThreeDSegmentationDataset(
         # ["kidney_1_dense", "kidney_3_sparse"],
         "kidney_1_dense",
-        64,
-        64,
-        output_crop_size=64,
+        512,
+        12,
+        output_crop_size=512,
         substride=1.0,
         load_ann=True,
         sample_with_mask=True,
+        add_depth_along_channel=True,
+        add_depth_along_height=True,
+        add_depth_along_width=True,
     )
     print(f"{len(_ds) = }")
     _dl = DataLoader(
