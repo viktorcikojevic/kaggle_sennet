@@ -18,6 +18,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             val_folders: List[str],
             optimiser_spec: Dict[str, Any],
             experiment_name: str,
+            criterion: nn.Module
     ):
         pl.LightningModule.__init__(self)
         self.model = model
@@ -28,7 +29,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             self.val_rle_df.append(pd.read_csv(PROCESSED_DATA_DIR / f / "rle.csv"))
         self.val_rle_df = pd.concat(self.val_rle_df, axis=0)
         self.optimiser_spec = optimiser_spec
-        self.criterion = nn.BCEWithLogitsLoss(reduction="mean")
+        self.criterion = criterion
         self.experiment_name = experiment_name
         self.best_surface_dice = 0.0
 
@@ -79,6 +80,8 @@ class ThreeDSegmentationTask(pl.LightningModule):
             })
 
     def configure_optimizers(self):
+        if self.optimiser_spec["kwargs"]["lr"] is None:
+            self.optimiser_spec["kwargs"]["lr"] = 10 ** self.optimiser_spec["log_lr"]
         optimiser = torch.optim.AdamW(self.model.parameters(), **self.optimiser_spec["kwargs"])
         return {
             "optimizer": optimiser,

@@ -4,12 +4,14 @@ from sennet.core.three_d_segmentation_task import ThreeDSegmentationTask
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.environments.constants import MODEL_OUT_DIR, PRETRAINED_DIR
 from sennet.custom_modules.models import UNet3D
+from sennet.custom_modules.losses.loss import CombinedLoss
 from torch.utils.data import DataLoader, ConcatDataset
 import sennet.custom_modules.models as models
 from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
 from copy import deepcopy
 from typing import Dict
+from hydra.core.hydra_config import HydraConfig
 import hydra
 import torch
 # import beepy
@@ -82,12 +84,15 @@ def main(cfg: DictConfig):
     # ---------------------------------------
     OmegaConf.save(cfg, model_out_dir / "config.yaml")
 
+    criterion = CombinedLoss(cfg_dict)
+
     task = ThreeDSegmentationTask(
         model,
         val_loader=val_loader,
         val_folders=cfg.val_folders,
         optimiser_spec=cfg_dict["optimiser"],
-        experiment_name=experiment_name
+        experiment_name=experiment_name,
+        criterion=criterion
         # **cfg_dict["task"]["kwargs"],
     )
     if cfg.dry_logger:
