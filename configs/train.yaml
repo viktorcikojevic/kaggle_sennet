@@ -1,9 +1,10 @@
 defaults:
+  - _self_
+  - model: unet3d
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
-  - _self_
 
-val_check_interval: 1000
+val_check_interval: 5000
 batch_size: 32
 accumulate_grad_batches: 32
 num_workers: 16
@@ -11,20 +12,7 @@ dry_logger: false
 exp_name: three_d_seg
 group_name: null # maybe this would be useful for grouping experiments when we do hyperparameter search
 patience: 5
-max_epochs: 10
-
-
-model:
-  type: WrappedUNet3D
-  kwargs:
-    in_channels: 1
-    out_channels: 1
-    pretrained: "unet3d.pytorch"
-    num_groups: 8
-    f_maps: 32
-    final_sigmoid: false
-    is_segmentation: false
-    is3d: true
+max_epochs: 100
 
 
 optimiser:
@@ -38,14 +26,14 @@ optimiser:
 loss:
   - type: BCELoss
     weight: 1.0
-  - type: DiceLoss
-    weight: 1.0
-    kwargs:
-      smooth: 0.0001
-  - type: FocalLoss
-    weight: 1.0
-    kwargs:
-      gamma: 2.0
+#  - type: DiceLoss
+#    weight: 1.0
+#    kwargs:
+#      smooth: 0.0001
+#  - type: FocalLoss
+#    weight: 1.0
+#    kwargs:
+#      gamma: 2.0
 
 
 train_folders:

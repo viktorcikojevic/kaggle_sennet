@@ -1,0 +1,8 @@
+type: WrappedMedicalNetResnet3D
+kwargs:
+  version: resnet18
+  pretrained: "medical_nets/resnet_18.pth"
+  num_seg_classes: 1
+  shortcut_type: A
+
+# https://github.com/Tencent/MedicalNet/tree/master
