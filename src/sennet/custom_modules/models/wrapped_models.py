@@ -71,11 +71,16 @@ class WrappedMedicalNetResnet3D(Base3DSegmentor):
 
 if __name__ == "__main__":
     _device = "cuda"
+    # _model = WrappedMedicalNetResnet3D(
+    #     "resnet18",
+    #     "medical_nets/resnet_18.pth",
+    #     num_seg_classes=1,
+    #     shortcut_type="A",
+    # ).to(_device)
     _model = WrappedMedicalNetResnet3D(
-        "resnet18",
-        "medical_nets/resnet_18.pth",
+        "resnet200",
+        None,
         num_seg_classes=1,
-        shortcut_type="A",
     ).to(_device)
     _data = torch.randn((2, 1, 16, 512, 512)).to(_device)
     _out = _model.predict(_data)

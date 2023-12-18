@@ -55,7 +55,6 @@ def main():
             out_dir=data_out_dir,
             device="cuda",
             save_sub=True,
-            compute_val_loss=False,
         )
     # TODO(Sumo): something around aggregating csvs together here
 

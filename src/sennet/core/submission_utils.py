@@ -1,7 +1,5 @@
-from sennet.custom_modules.metrics.surface_dice_metric import compute_surface_dice_score
 import sennet.custom_modules.models as models
 from sennet.core.dataset import ThreeDSegmentationDataset
-from sennet.environments.constants import DATA_DIR
 from sennet.core.mmap_arrays import read_mmap_array
 from sennet.core.rles import rle_encode
 from typing import Union, Tuple, Optional, Dict

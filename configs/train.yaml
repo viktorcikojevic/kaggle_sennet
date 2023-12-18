@@ -50,7 +50,7 @@ dataset:
   val_substride: 1.0
   kwargs:
     crop_size: 512
-    n_take_channels: 10
+    n_take_channels: 12
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
