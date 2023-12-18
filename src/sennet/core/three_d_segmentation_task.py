@@ -1,6 +1,6 @@
 import pandas as pd
 from sennet.core.submission import generate_submission_df, ParallelizationSettings
-# from sennet.custom_modules.metrics.surface_dice_metric import compute_surface_dice_score
+from sennet.core.utils import resize_3d_image
 from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score
 from sennet.environments.constants import PROCESSED_DATA_DIR, TMP_SUB_MMAP_DIR
 from sennet.custom_modules.models import Base3DSegmentor
@@ -38,8 +38,12 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.model = self.model.train()
         seg_pred = self.model.predict(batch["img"])
         preds = seg_pred.pred
-        gt_seg_map = batch["gt_seg_map"].float()[:, 0, :, :, :]
-        loss = self.criterion(preds, gt_seg_map[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
+        gt_seg_map = batch["gt_seg_map"].float()
+
+        _, pred_d, pred_h, pred_w = preds.shape
+        resized_gt = resize_3d_image(gt_seg_map, (pred_w, pred_h, pred_d))[:, 0, :, :, :]
+
+        loss = self.criterion(preds, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
         self.log("train_loss", loss, prog_bar=True)
         return loss
 

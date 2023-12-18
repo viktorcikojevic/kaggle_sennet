@@ -4,6 +4,7 @@ from sennet.core.mp.tensor_distributor import TensorDistributor, TensorChunk
 from sennet.core.mmap_arrays import create_mmap_array
 from sennet.custom_modules.models import Base3DSegmentor, SegmentorOutput
 from sennet.environments.constants import TMP_SUB_MMAP_DIR
+from sennet.core.utils import resize_3d_image
 from typing import Optional, Union, Dict, Tuple
 from pathlib import Path
 import torch
@@ -223,18 +224,27 @@ def generate_submission_df(
         for batch in tqdm(data_loader, total=len(data_loader)):
             seg_pred: SegmentorOutput = model.predict(batch["img"].to(device))
             raw_pred_batch = seg_pred.pred
-            pred_batch = torch.nn.functional.sigmoid(raw_pred_batch)
+            un_reshaped_pred_batch = torch.nn.functional.sigmoid(raw_pred_batch)
+
+            # reshape pred to original image size for submission
+            _, _, img_d, img_h, img_w = batch["img"].shape
+            pred_batch = resize_3d_image(un_reshaped_pred_batch.unsqueeze(1), (img_w, img_h, img_d))[:, 0, :, :, :]
             if "gt_seg_map" in batch:
                 if compute_val_loss:
-                    gt_seg_map = batch["gt_seg_map"][:, 0, :, :, :].to(device).float()
-                    gt_seg_map = gt_seg_map[seg_pred.take_indices_start: seg_pred.take_indices_end, :, :]
+                    # reshape gt to model's native size for evaluation
+                    # note: we should move these computes out to final sub <-> gt level instead
+
+                    gt_seg_map = batch["gt_seg_map"].to(device).float()
+                    _, pred_d, pred_h, pred_w = un_reshaped_pred_batch.shape
+                    gt_seg_map = resize_3d_image(gt_seg_map, (pred_w, pred_h, pred_d))[:, 0, :, :, :]
+
                     val_loss += torch.nn.functional.binary_cross_entropy_with_logits(
                         raw_pred_batch,
-                        gt_seg_map,
+                        gt_seg_map[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :],
                         reduction="mean"
                     ).cpu().item()
                     thresholded_gt = gt_seg_map > threshold
-                    thresholded_pred = pred_batch > threshold
+                    thresholded_pred = un_reshaped_pred_batch > threshold
                     total_tp += (thresholded_pred & thresholded_gt).sum().cpu().item()
                     total_fp += (thresholded_pred & ~thresholded_gt).sum().cpu().item()
                     total_fn += (~thresholded_pred & thresholded_gt).sum().cpu().item()
@@ -276,7 +286,7 @@ def generate_submission_df(
         val_loss = val_loss / (val_loss_count + 1e-6)
         precision = total_tp / (total_tp + total_fp + 1e-6)
         recall = total_tp / (total_tp + total_fn + 1e-6)
-        f1_score = 2 * (precision * recall) / (precision + recall)
+        f1_score = 2 * (precision * recall) / (precision + recall + 1e-6)
     else:
         val_loss = -1
         f1_score = -1

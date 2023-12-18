@@ -7,24 +7,6 @@ from pathlib import Path
 import torch
 
 
-def resize_3d_image(img: torch.Tensor, new_whd: Tuple[int, int, int]):
-    out_w, out_h, out_d = new_whd
-    batch_size, _c, in_d, in_h, in_w = img.shape
-    mesh_z, mesh_y, mesh_x = torch.meshgrid([
-        torch.linspace(-1.0, 1.0, out_d),
-        torch.linspace(-1.0, 1.0, out_h),
-        torch.linspace(-1.0, 1.0, out_w),
-    ])
-    grid = torch.stack((mesh_x, mesh_y, mesh_z), 3).tile((batch_size, 1, 1, 1, 1)).to(img.device)
-    out = torch.nn.functional.grid_sample(
-        img,
-        grid,
-        mode="bilinear",
-        align_corners=True
-    )
-    return out
-
-
 class WrappedUNet3D(Base3DSegmentor):
     def __init__(self, pretrained: Optional[Union[str, Path]] = None, **kw):
         Base3DSegmentor.__init__(self)
@@ -79,9 +61,7 @@ class WrappedMedicalNetResnet3D(Base3DSegmentor):
 
     def predict(self, img: torch.Tensor) -> SegmentorOutput:
         # note: resnets give downsampled results: we need to sample them back up
-        batch_size, _c, in_d, in_h, in_w = img.shape
-        down_sampled_model_out = self.model(img)
-        model_out = resize_3d_image(down_sampled_model_out, (in_w, in_h, in_d))
+        model_out = self.model(img)
         return SegmentorOutput(
             pred=model_out[:, 0, :, :, :],
             take_indices_start=0,
