@@ -1,3 +1,8 @@
+defaults:
+  - override hydra/sweeper: optuna
+  - override hydra/sweeper/sampler: tpe
+  - _self_
+
 val_check_interval: 1000
 batch_size: 32
 accumulate_grad_batches: 32
@@ -24,8 +29,23 @@ model:
 
 optimiser:
   type: "AdamW"
+  log_lr: -4 # sets lr = 10^{-log_lr}. If ls is not null, then it is used instead of log_lr
   kwargs:
-    lr: 1e-4
+    lr: null
+
+
+
+loss:
+  - type: BCELoss
+    weight: 1.0
+  - type: DiceLoss
+    weight: 1.0
+    kwargs:
+      smooth: 0.0001
+  - type: FocalLoss
+    weight: 1.0
+    kwargs:
+      gamma: 2.0
 
 
 train_folders:
@@ -58,3 +78,15 @@ dataset:
     seg_fill_val: 0
     crop_location_noise: 100
 
+
+
+hydra:
+  sweeper:
+    sampler:
+      seed: 42
+    direction: maximize
+    storage: null
+    n_trials: 20
+    n_jobs: 1
+    params:
+      optimiser.log_lr: range(-4, -3, 1)
