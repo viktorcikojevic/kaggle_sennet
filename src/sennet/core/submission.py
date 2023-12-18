@@ -161,8 +161,6 @@ class ParallelizationSettings:
 @dataclass
 class SubmissionOutput:
     submission_df: pd.DataFrame
-    val_loss: float
-    f1_score: float
 
 
 @profile
@@ -174,7 +172,6 @@ def generate_submission_df(
         out_dir: Optional[Union[str, Path]] = None,
         device: str = "cuda",
         save_sub: bool = True,
-        compute_val_loss: bool = False,
 ) -> SubmissionOutput:
     ps = parallelization_settings
     if ps.run_as_single_process:
@@ -215,11 +212,6 @@ def generate_submission_df(
     for s in saver_processes:
         s.start()
 
-    val_loss = 0.0
-    total_tp = 0
-    total_fp = 0
-    total_fn = 0
-    val_loss_count = 0
     with torch.no_grad():
         for batch in tqdm(data_loader, total=len(data_loader)):
             seg_pred: SegmentorOutput = model.predict(batch["img"].to(device))
@@ -230,25 +222,6 @@ def generate_submission_df(
             _, _, img_d, img_h, img_w = batch["img"].shape
             pred_batch = resize_3d_image(un_reshaped_pred_batch.unsqueeze(1), (img_w, img_h, img_d))[:, 0, :, :, :]
             if "gt_seg_map" in batch:
-                if compute_val_loss:
-                    # reshape gt to model's native size for evaluation
-                    # note: we should move these computes out to final sub <-> gt level instead
-
-                    gt_seg_map = batch["gt_seg_map"].to(device).float()
-                    _, pred_d, pred_h, pred_w = un_reshaped_pred_batch.shape
-                    gt_seg_map = resize_3d_image(gt_seg_map, (pred_w, pred_h, pred_d))[:, 0, :, :, :]
-
-                    val_loss += torch.nn.functional.binary_cross_entropy_with_logits(
-                        raw_pred_batch,
-                        gt_seg_map[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :],
-                        reduction="mean"
-                    ).cpu().item()
-                    thresholded_gt = gt_seg_map > threshold
-                    thresholded_pred = un_reshaped_pred_batch > threshold
-                    total_tp += (thresholded_pred & thresholded_gt).sum().cpu().item()
-                    total_fp += (thresholded_pred & ~thresholded_gt).sum().cpu().item()
-                    total_fn += (~thresholded_pred & thresholded_gt).sum().cpu().item()
-                    val_loss_count += 1
                 batch.pop("gt_seg_map")
 
             batch.pop("img")  # no need to ship image across process
@@ -282,18 +255,8 @@ def generate_submission_df(
     df_out = generate_submission_df_from_one_chunked_inference(out_dir)
     if save_sub:
         df_out.to_csv(out_dir / "submission.csv")
-    if compute_val_loss:
-        val_loss = val_loss / (val_loss_count + 1e-6)
-        precision = total_tp / (total_tp + total_fp + 1e-6)
-        recall = total_tp / (total_tp + total_fn + 1e-6)
-        f1_score = 2 * (precision * recall) / (precision + recall + 1e-6)
-    else:
-        val_loss = -1
-        f1_score = -1
     return SubmissionOutput(
         submission_df=df_out,
-        val_loss=val_loss,
-        f1_score=f1_score,
     )
 
 
@@ -329,5 +292,3 @@ if __name__ == "__main__":
         compute_val_loss=True,
     )
     print(_sub.submission_df.shape)
-    print(_sub.val_loss)
-    print(_sub.f1_score)

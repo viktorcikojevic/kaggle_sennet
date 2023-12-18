@@ -1,4 +1,5 @@
 import pandas as pd
+from sennet.core.submission_utils import evaluate_chunked_inference
 from sennet.core.submission import generate_submission_df, ParallelizationSettings
 from sennet.core.utils import resize_3d_image
 from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score
@@ -52,6 +53,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
 
     def on_validation_epoch_end(self) -> None:
         with torch.no_grad():
+            out_dir = TMP_SUB_MMAP_DIR / self.experiment_name
             sub = generate_submission_df(
                 self.model,
                 self.val_loader,
@@ -61,10 +63,9 @@ class ThreeDSegmentationTask(pl.LightningModule):
                     n_chunks=5,
                     finalise_one_by_one=True,
                 ),
-                out_dir=TMP_SUB_MMAP_DIR / self.experiment_name,
+                out_dir=out_dir,
                 device="cuda",
                 save_sub=True,
-                compute_val_loss=True,
             )
             sub_df = sub.submission_df
             filtered_label = self.val_rle_df.loc[self.val_rle_df["id"].isin(sub_df["id"])].copy().sort_values("id").reset_index()
@@ -74,16 +75,18 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 submit=sub.submission_df,
                 label=filtered_label,
             )
+            f1_score = evaluate_chunked_inference(
+                root_dir=out_dir,
+                label_dir=PROCESSED_DATA_DIR / self.val_folders[0]  # TODO(Sumo): adjust this so we can eval more folders
+            )
             print("--------------------------------")
-            print(f"val_loss = {sub.val_loss}")
-            print(f"f1_score = {sub.f1_score}")
+            print(f"f1_score = {f1_score}")
             print(f"{surface_dice_score = }")
             print("--------------------------------")
             if surface_dice_score > self.best_surface_dice:
                 self.best_surface_dice = surface_dice_score
             self.log_dict({
-                "val_loss": sub.val_loss,
-                "f1_score": sub.f1_score,
+                "f1_score": f1_score,
                 "surface_dice": surface_dice_score,
             })
 

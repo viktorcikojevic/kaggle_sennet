@@ -38,6 +38,33 @@ def generate_submission_df_from_one_chunked_inference(
     return df
 
 
+def evaluate_chunked_inference(
+        root_dir: Union[str, Path],
+        label_dir: Union[str, Path],
+) -> float:
+    root_dir = Path(root_dir)
+    label_dir = Path(label_dir)
+    total_tp = 0
+    total_fp = 0
+    total_fn = 0
+    count = 0
+    i = 0
+    chunk_dirs = sorted(list(root_dir.glob("chunk*")))
+    label = read_mmap_array(label_dir / "label", mode="r")
+    for d in tqdm(chunk_dirs, position=0):
+        pred = read_mmap_array(d / "thresholded_prob", mode="r")
+        for c in tqdm(range(pred.shape[0]), position=1, leave=False):
+            total_tp += (pred.data[c, :, :] & label.data[i, :, :]).sum()
+            total_fp += (pred.data[c, :, :] & ~label.data[i, :, :]).sum()
+            total_fn += (~pred.data[c, :, :] & label.data[i, :, :]).sum()
+            count += (pred.data[c, :, :].shape[0] * pred.data[c, :, :].shape[1])
+            i += 1
+    precision = total_tp / (total_tp + total_fp + 1e-6)
+    recall = total_tp / (total_tp + total_fn + 1e-6)
+    f1_score = 2 * (precision * recall) / (precision + recall + 1e-6)
+    return f1_score
+
+
 def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[models.Base3DSegmentor]]:
     model_dir = Path(model_dir)
     with open(model_dir / "config.yaml", "rb") as f:
@@ -82,17 +109,23 @@ def build_data_loader(folder: str, substride: float, cfg: Dict):
 
 
 if __name__ == "__main__":
-    _root_dir = Path("/home/clay/research/kaggle/sennet/data_dumps/tmp_mmaps/Resnet3D34-2023-12-16-10-06-40")
-    _df = generate_submission_df_from_one_chunked_inference(_root_dir)
-    # _df.to_csv(_root_dir / "submission.csv")
+    # _root_dir = Path("/home/clay/research/kaggle/sennet/data_dumps/tmp_mmaps/Resnet3D34-2023-12-16-10-06-40")
+    # _df = generate_submission_df_from_one_chunked_inference(_root_dir)
+    # # _df.to_csv(_root_dir / "submission.csv")
+    #
+    # # _df = pd.read_csv(_root_dir / "submission.csv")
+    # _label = pd.read_csv(DATA_DIR / "train_rles.csv")
+    # _filtered_label = _label.loc[_label["id"].isin(_df["id"])].copy().sort_values("id").reset_index()
+    # _filtered_label["width"] = _df["width"]
+    # _filtered_label["height"] = _df["height"]
+    # _score = compute_surface_dice_score(
+    #     submit=_df,
+    #     label=_filtered_label,
+    # )
+    # print(f"{_score = }")
 
-    # _df = pd.read_csv(_root_dir / "submission.csv")
-    _label = pd.read_csv(DATA_DIR / "train_rles.csv")
-    _filtered_label = _label.loc[_label["id"].isin(_df["id"])].copy().sort_values("id").reset_index()
-    _filtered_label["width"] = _df["width"]
-    _filtered_label["height"] = _df["height"]
-    _score = compute_surface_dice_score(
-        submit=_df,
-        label=_filtered_label,
+    _score = evaluate_chunked_inference(
+        "/home/clay/research/kaggle/sennet/data_dumps/tmp_mmaps/WrappedUNet2D-c512x1-2023-12-18-17-16-31",
+        "/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_3_sparse",
     )
     print(f"{_score = }")

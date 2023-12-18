@@ -41,8 +41,8 @@ train_folders:
 
 val_folders:
 #  - kidney_1_dense
-#   - kidney_3_dense
-   - kidney_3_sparse
+   - kidney_3_dense
+#   - kidney_3_sparse
 
 
 dataset:
