@@ -3,6 +3,7 @@ from sennet.core.submission import generate_submission_df, ParallelizationSettin
 # from sennet.custom_modules.metrics.surface_dice_metric import compute_surface_dice_score
 from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score
 from sennet.environments.constants import PROCESSED_DATA_DIR, TMP_SUB_MMAP_DIR
+from sennet.custom_modules.models import Base3DSegmentor
 import pytorch_lightning as pl
 from typing import Dict, Any, List
 from torch.utils.data import DataLoader
@@ -13,7 +14,7 @@ import torch.optim
 class ThreeDSegmentationTask(pl.LightningModule):
     def __init__(
             self,
-            model: nn.Module,
+            model: Base3DSegmentor,
             val_loader: DataLoader,
             val_folders: List[str],
             optimiser_spec: Dict[str, Any],
@@ -35,8 +36,10 @@ class ThreeDSegmentationTask(pl.LightningModule):
 
     def training_step(self, batch: Dict, batch_idx: int):
         self.model = self.model.train()
-        preds = self.model(batch["img"])
-        loss = self.criterion(preds, batch["gt_seg_map"].float())
+        seg_pred = self.model.predict(batch["img"])
+        preds = seg_pred.pred
+        gt_seg_map = batch["gt_seg_map"].float()[:, 0, :, :, :]
+        loss = self.criterion(preds, gt_seg_map[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
         self.log("train_loss", loss, prog_bar=True)
         return loss
 

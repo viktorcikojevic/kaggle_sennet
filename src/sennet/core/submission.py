@@ -1,15 +1,13 @@
-import shutil
-
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.core.submission_utils import generate_submission_df_from_one_chunked_inference
 from sennet.core.mp.tensor_distributor import TensorDistributor, TensorChunk
 from sennet.core.mmap_arrays import create_mmap_array
+from sennet.custom_modules.models import Base3DSegmentor, SegmentorOutput
 from sennet.environments.constants import TMP_SUB_MMAP_DIR
 from typing import Optional, Union, Dict, Tuple
 from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
-import torch.nn as nn
 from tqdm import tqdm
 import numpy as np
 from line_profiler_pycharm import profile
@@ -168,7 +166,7 @@ class SubmissionOutput:
 
 @profile
 def generate_submission_df(
-        model: nn.Module,
+        model: Base3DSegmentor,
         data_loader: DataLoader,
         threshold: float,
         parallelization_settings: ParallelizationSettings,
@@ -223,11 +221,13 @@ def generate_submission_df(
     val_loss_count = 0
     with torch.no_grad():
         for batch in tqdm(data_loader, total=len(data_loader)):
-            raw_pred_batch = model(batch["img"].to(device))[:, 0, :, :, :]
+            seg_pred: SegmentorOutput = model.predict(batch["img"].to(device))
+            raw_pred_batch = seg_pred.pred
             pred_batch = torch.nn.functional.sigmoid(raw_pred_batch)
             if "gt_seg_map" in batch:
                 if compute_val_loss:
                     gt_seg_map = batch["gt_seg_map"][:, 0, :, :, :].to(device).float()
+                    gt_seg_map = gt_seg_map[seg_pred.take_indices_start: seg_pred.take_indices_end, :, :]
                     val_loss += torch.nn.functional.binary_cross_entropy_with_logits(
                         raw_pred_batch,
                         gt_seg_map,
@@ -245,8 +245,8 @@ def generate_submission_df(
             for i, pred in enumerate(pred_batch):
                 chunked_tensors = distributor.distribute_tensor(
                     pred,
-                    batch["bbox"][i, 0],
-                    batch["bbox"][i, 3],
+                    batch["bbox"][i, 0] + seg_pred.take_indices_start,
+                    batch["bbox"][i, 0] + seg_pred.take_indices_end,
                 )
 
                 for q, c in zip(data_queues, chunked_tensors):
@@ -288,7 +288,8 @@ def generate_submission_df(
 
 
 if __name__ == "__main__":
-    from sennet.custom_modules.models import UNet3D
+    # from sennet.custom_modules.models import UNet3D
+    from sennet.custom_modules.models import WrappedUNet3D
 
     _crop_size = 64
     _ds = ThreeDSegmentationDataset(
@@ -297,6 +298,7 @@ if __name__ == "__main__":
         _crop_size,
         output_crop_size=_crop_size,
         substride=1.0,
+        sample_with_mask=True,
     )
     _dl = DataLoader(
         _ds,
@@ -304,7 +306,7 @@ if __name__ == "__main__":
         shuffle=True,   # deliberate
         pin_memory=True,
     )
-    _model = UNet3D(1, 1, f_maps=32, is_segmentation=False)
+    _model = WrappedUNet3D(in_channels=1, out_channels=1, f_maps=32, is_segmentation=False)
     _sub = generate_submission_df(
         _model,
         _dl,

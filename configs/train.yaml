@@ -15,11 +15,11 @@ max_epochs: 10
 
 
 model:
-  type: UNet3D
-  pretrained: "unet3d.pytorch"
+  type: WrappedUNet3D
   kwargs:
     in_channels: 1
     out_channels: 1
+    pretrained: "unet3d.pytorch"
     num_groups: 8
     f_maps: 32
     final_sigmoid: false
@@ -61,8 +61,8 @@ dataset:
   train_substride: 0.25
   val_substride: 1.0
   kwargs:
-    crop_size: 100
-    n_take_channels: 100
+    crop_size: 512
+    n_take_channels: 10
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0

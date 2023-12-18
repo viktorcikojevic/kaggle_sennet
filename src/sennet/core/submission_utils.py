@@ -38,7 +38,7 @@ def generate_submission_df_from_one_chunked_inference(
     return df
 
 
-def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[torch.nn.Module]]:
+def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[models.Base3DSegmentor]]:
     model_dir = Path(model_dir)
     with open(model_dir / "config.yaml", "rb") as f:
         cfg = yaml.load(f, yaml.FullLoader)
@@ -48,6 +48,8 @@ def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[tor
     ckpt = torch.load(ckpt_path)
     state_dict = ckpt["state_dict"]
     torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict, prefix="model.")
+    if "pretrained" in cfg["model"]["kwargs"]:
+        cfg["model"]["kwargs"]["pretrained"] = None
     model = model_class(**cfg["model"]["kwargs"])
     load_status = model.load_state_dict(state_dict)
     print(load_status)

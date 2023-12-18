@@ -3,7 +3,6 @@ import pytorch_lightning as pl
 from sennet.core.three_d_segmentation_task import ThreeDSegmentationTask
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.environments.constants import MODEL_OUT_DIR, PRETRAINED_DIR
-from sennet.custom_modules.models import UNet3D
 from sennet.custom_modules.losses.loss import CombinedLoss
 from torch.utils.data import DataLoader, ConcatDataset
 import sennet.custom_modules.models as models
