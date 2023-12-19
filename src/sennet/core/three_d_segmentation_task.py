@@ -20,7 +20,8 @@ class ThreeDSegmentationTask(pl.LightningModule):
             val_folders: List[str],
             optimiser_spec: Dict[str, Any],
             experiment_name: str,
-            criterion: nn.Module
+            criterion: nn.Module,
+            eval_threshold: float = 0.2,
     ):
         pl.LightningModule.__init__(self)
         self.model = model
@@ -33,6 +34,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.optimiser_spec = optimiser_spec
         self.criterion = criterion
         self.experiment_name = experiment_name
+        self.eval_threshold = eval_threshold
         self.best_surface_dice = 0.0
 
     def training_step(self, batch: Dict, batch_idx: int):
@@ -57,7 +59,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             sub = generate_submission_df(
                 self.model,
                 self.val_loader,
-                threshold=0.5,
+                threshold=self.eval_threshold,
                 parallelization_settings=ParallelizationSettings(
                     run_as_single_process=False,
                     n_chunks=5,

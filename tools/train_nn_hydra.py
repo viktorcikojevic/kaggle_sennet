@@ -97,8 +97,8 @@ def main(cfg: DictConfig):
         val_folders=cfg.val_folders,
         optimiser_spec=cfg_dict["optimiser"],
         experiment_name=experiment_name,
-        criterion=criterion
-        # **cfg_dict["task"]["kwargs"],
+        criterion=criterion,
+        **cfg_dict["task"]["kwargs"],
     )
     if cfg.dry_logger:
         logger = None
