@@ -44,7 +44,11 @@ class ThreeDSegmentationTask(pl.LightningModule):
         gt_seg_map = batch["gt_seg_map"].float()
 
         _, pred_d, pred_h, pred_w = preds.shape
-        resized_gt = resize_3d_image(gt_seg_map, (pred_w, pred_h, pred_d))[:, 0, :, :, :]
+        _, _, gt_d, gt_h, gt_w = gt_seg_map.shape
+        if (gt_d != pred_d) or (gt_h != pred_h) or (gt_w != pred_w):
+            resized_gt = resize_3d_image(gt_seg_map, (pred_w, pred_h, pred_d))[:, 0, :, :, :]
+        else:
+            resized_gt = gt_seg_map[:, 0, :, :, :]
 
         loss = self.criterion(preds, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
         self.log("train_loss", loss, prog_bar=True)
