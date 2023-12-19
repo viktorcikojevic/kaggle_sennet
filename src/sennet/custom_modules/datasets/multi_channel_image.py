@@ -44,9 +44,13 @@ def generate_crop_bboxes(
                     continue
                 bboxes.append(box)
     bboxes = np.array(bboxes)
-    assert np.all((bboxes[:, 3] - bboxes[:, 0]) == c_take_range), f"invalid bbox c sizes"
-    assert np.all((bboxes[:, 4] - bboxes[:, 1]) == y_take_range), f"invalid bbox x sizes"
-    assert np.all((bboxes[:, 5] - bboxes[:, 2]) == x_take_range), f"invalid bbox y sizes"
+
+    c_ranges = bboxes[:, 3] - bboxes[:, 0]
+    x_ranges = bboxes[:, 4] - bboxes[:, 1]
+    y_ranges = bboxes[:, 5] - bboxes[:, 2]
+    assert np.all(c_ranges == c_take_range), f"invalid bbox c sizes: {c_ranges[c_ranges != c_take_range]}, {depth_mode=}, expecting:{c_take_range}"
+    assert np.all(x_ranges == x_take_range), f"invalid bbox x sizes: {x_ranges[x_ranges != x_take_range]}, {depth_mode=}, expecting:{x_take_range}"
+    assert np.all(y_ranges == y_take_range), f"invalid bbox y sizes: {y_ranges[y_ranges != y_take_range]}, {depth_mode=}, expecting:{y_take_range}"
     return bboxes
 
 
@@ -158,10 +162,10 @@ if __name__ == "__main__":
     _ds = MultiChannelDataset(
         "kidney_1_dense",
         512,
-        20,
-        substride=0.5,
+        12,
+        substride=0.25,
         sample_with_mask=True,
-        add_depth_along_channel=True,
+        add_depth_along_channel=False,
         add_depth_along_height=True,
-        add_depth_along_width=True,
+        add_depth_along_width=False,
     )
