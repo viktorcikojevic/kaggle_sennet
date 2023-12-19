@@ -39,18 +39,31 @@ def generate_crop_bboxes(
                 lc = uc - c_take_range
                 ly = uy - y_take_range
                 lx = ux - x_take_range
+                if lc < 0:
+                    continue
+                if ly < 0:
+                    continue
+                if lx < 0:
+                    continue
                 box = [lc, lx, ly, uc, ux, uy]
                 if (mask is not None) and (not np.any(mask[lc:uc, ly:uy, lx:ux])):
                     continue
                 bboxes.append(box)
-    bboxes = np.array(bboxes)
-
+    if len(bboxes) == 0:
+        return np.zeros((0, 4), dtype=int)
+    bboxes = np.array(bboxes, dtype=int)
     c_ranges = bboxes[:, 3] - bboxes[:, 0]
     x_ranges = bboxes[:, 4] - bboxes[:, 1]
     y_ranges = bboxes[:, 5] - bboxes[:, 2]
     assert np.all(c_ranges == c_take_range), f"invalid bbox c sizes: {c_ranges[c_ranges != c_take_range]}, {depth_mode=}, expecting:{c_take_range}"
     assert np.all(x_ranges == x_take_range), f"invalid bbox x sizes: {x_ranges[x_ranges != x_take_range]}, {depth_mode=}, expecting:{x_take_range}"
     assert np.all(y_ranges == y_take_range), f"invalid bbox y sizes: {y_ranges[y_ranges != y_take_range]}, {depth_mode=}, expecting:{y_take_range}"
+    assert np.all(bboxes[:, 0] >= 0), f"invalid bbox c lb: {bboxes[bboxes[:, 0] < 0, 0]}, {depth_mode=}"
+    assert np.all(bboxes[:, 1] >= 0), f"invalid bbox x lb: {bboxes[bboxes[:, 1] < 0, 1]}, {depth_mode=}"
+    assert np.all(bboxes[:, 2] >= 0), f"invalid bbox y lb: {bboxes[bboxes[:, 2] < 0, 2]}, {depth_mode=}"
+    assert np.all(bboxes[:, 3] <= shape[0]), f"invalid bbox c ub: {bboxes[bboxes[:, 3] > shape[0], 3]}, {depth_mode=}, {shape[0]=}"
+    assert np.all(bboxes[:, 4] <= shape[2]), f"invalid bbox x ub: {bboxes[bboxes[:, 4] > shape[2], 4]}, {depth_mode=}, {shape[2]=}"
+    assert np.all(bboxes[:, 5] <= shape[1]), f"invalid bbox y ub: {bboxes[bboxes[:, 5] > shape[1], 5]}, {depth_mode=}, {shape[1]=}"
     return bboxes
 
 
@@ -160,7 +173,7 @@ class MultiChannelDataset:
 
 if __name__ == "__main__":
     _ds = MultiChannelDataset(
-        "kidney_1_dense",
+        "kidney_3_dense",
         512,
         12,
         substride=0.25,

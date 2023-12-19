@@ -62,7 +62,7 @@ def main(cfg: DictConfig):
     # ])
     train_loader = DataLoader(
         train_dataset,
-        batch_size=max(1, int(cfg.batch_size / cfg.accumulate_grad_batches)),
+        batch_size=cfg.apparent_batch_size,
         shuffle=True,
         num_workers=cfg.num_workers,
         pin_memory=True,
@@ -127,6 +127,8 @@ def main(cfg: DictConfig):
         ),
     ]
     val_check_interval = min(float(cfg.val_check_interval) / len(train_loader), 1.0)
+    accumulate_grad_batches = max(1, int(cfg.batch_size / cfg.apparent_batch_size))
+    print(f"{accumulate_grad_batches = }")
     trainer = pl.Trainer(
         num_sanity_val_steps=0,
         accelerator="gpu",
@@ -137,7 +139,7 @@ def main(cfg: DictConfig):
         log_every_n_steps=20,
         # gradient_clip_val=1.0,
         # gradient_clip_algorithm="norm",
-        accumulate_grad_batches=cfg.accumulate_grad_batches,
+        accumulate_grad_batches=accumulate_grad_batches,
         callbacks=callbacks,
     )
     trainer.fit(

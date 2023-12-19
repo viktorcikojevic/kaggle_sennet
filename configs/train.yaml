@@ -4,9 +4,9 @@ defaults:
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 5000
-batch_size: 32
-accumulate_grad_batches: 32
+val_check_interval: 500
+batch_size: 2
+apparent_batch_size: 1
 num_workers: 16
 dry_logger: false
 exp_name: three_d_seg
@@ -16,17 +16,17 @@ max_epochs: 100
 
 optimiser:
   type: "AdamW"
-  log_lr: -4 # sets lr = 10^{-log_lr}. If ls is not null, then it is used instead of log_lr
+  log_lr: -3 # sets lr = 10^{-log_lr}. If ls is not null, then it is used instead of log_lr
   kwargs:
     lr: null
 
 loss:
   - type: BCELoss
     weight: 1.0
-  - type: DiceLoss
-    weight: 1.0
-    kwargs:
-      smooth: 0.0001
+#  - type: DiceLoss
+#    weight: 1.0
+#    kwargs:
+#      smooth: 0.0001
 #  - type: FocalLoss
 #    weight: 1.0
 #    kwargs:
