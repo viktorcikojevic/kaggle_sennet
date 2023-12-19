@@ -29,20 +29,25 @@ def generate_crop_bboxes(
     x_stride = channel_stride if depth_mode == DEPTH_ALONG_WIDTH else crop_stride
     x_take_range = n_take_channels if depth_mode == DEPTH_ALONG_WIDTH else crop_size
 
-    for c in range(0, shape[0] - c_take_range, c_stride):
-        for i in range(0, shape[1] - y_take_range, y_stride):
-            for j in range(0, shape[2] - x_take_range, x_stride):
-                lc = c
-                lx = j
-                ly = i
-                uc = c + c_take_range
-                ux = j + x_take_range
-                uy = i + y_take_range
+    for c in range(0, shape[0], c_stride):
+        for i in range(0, shape[1], y_stride):
+            for j in range(0, shape[2], x_stride):
+                # this clips the bboxes against the max sides
+                uc = min(c + c_take_range, shape[0])
+                uy = min(i + y_take_range, shape[1])
+                ux = min(j + x_take_range, shape[2])
+                lc = uc - c_take_range
+                ly = uy - y_take_range
+                lx = ux - x_take_range
                 box = [lc, lx, ly, uc, ux, uy]
                 if (mask is not None) and (not np.any(mask[lc:uc, ly:uy, lx:ux])):
                     continue
                 bboxes.append(box)
-    return np.array(bboxes)
+    bboxes = np.array(bboxes)
+    assert np.all((bboxes[:, 3] - bboxes[:, 0]) == c_take_range), f"invalid bbox c sizes"
+    assert np.all((bboxes[:, 4] - bboxes[:, 1]) == y_take_range), f"invalid bbox x sizes"
+    assert np.all((bboxes[:, 5] - bboxes[:, 2]) == x_take_range), f"invalid bbox y sizes"
+    return bboxes
 
 
 class MultiChannelDataset:

@@ -24,7 +24,7 @@ DATA_DUMPS_DIR = "/home/viktor/Documents/kaggle/kaggle_sennet/data_dumps/"
 ```
 or wherever you want to store the data dumps.
 
-2. run this to creat numpy arrays from tiff files:
+2. run this to create numpy arrays from tiff files:
 
 ```bash
 parallel --jobs 10 -k --lb --eta --bar --progress \
@@ -32,6 +32,10 @@ parallel --jobs 10 -k --lb --eta --bar --progress \
   --path {} \
   --output-dir "${PROCESSED_DATA_DIR}" \
   ::: $(ls -d "${DATASET_DIR}/${MODE}/"*)
+
+python3 tools/predict.py --out-dir "${DATA_DUMP_ROOT}/predicted"
+#python3 tools/pred_to_ply.py --path "${DATA_DUMP_ROOT}/predicted/ensembled/kidney_3_dense"
+python3 tools/evaluate.py
 ```
 
 

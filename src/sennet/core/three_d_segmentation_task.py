@@ -47,10 +47,13 @@ class ThreeDSegmentationTask(pl.LightningModule):
         _, _, gt_d, gt_h, gt_w = gt_seg_map.shape
         if (gt_d != pred_d) or (gt_h != pred_h) or (gt_w != pred_w):
             resized_gt = resize_3d_image(gt_seg_map, (pred_w, pred_h, pred_d))[:, 0, :, :, :]
+            # resized_pred = resize_3d_image(preds.unsqueeze(1), (gt_w, gt_h, gt_d))[:, 0, :, :, :]
         else:
             resized_gt = gt_seg_map[:, 0, :, :, :]
+            # resized_pred = preds
 
         loss = self.criterion(preds, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
+        # loss = self.criterion(resized_pred, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
@@ -59,7 +62,8 @@ class ThreeDSegmentationTask(pl.LightningModule):
 
     def on_validation_epoch_end(self) -> None:
         with torch.no_grad():
-            out_dir = TMP_SUB_MMAP_DIR / self.experiment_name
+            # out_dir = TMP_SUB_MMAP_DIR / self.experiment_name
+            out_dir = TMP_SUB_MMAP_DIR / "training_tmp"  # prevent me forgetting to remove tmp dirs
             sub = generate_submission_df(
                 self.model,
                 self.val_loader,

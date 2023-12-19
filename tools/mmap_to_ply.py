@@ -17,7 +17,7 @@ def main():
     image_mmap = read_mmap_array(data_dir / "image")
     mask_mmap = read_mmap_array(data_dir / "mask")
     label_mmap = read_mmap_array(data_dir / "label")
-    stride = 2
+    stride = 1
     image = image_mmap.data[::stride, ::stride, ::stride]
     mask = mask_mmap.data[::stride, ::stride, ::stride] > 0
     label = label_mmap.data[::stride, ::stride, ::stride] > 0
@@ -70,9 +70,9 @@ def main():
                 mask_channel = mask[c, :, :].ravel()
                 merged_array = np.ascontiguousarray(
                     np.concatenate((
-                        xs[mask_channel, ...],
-                        ys[mask_channel, ...],
-                        zs[mask_channel, ...],
+                        xs[mask_channel, ...] * stride,
+                        ys[mask_channel, ...] * stride,
+                        zs[mask_channel, ...] * stride,
                         intensities[:, None][mask_channel, ...]
                     ), axis=1)
                 )
@@ -84,9 +84,9 @@ def main():
                 mask_channel = mask[c, :, :].ravel() & (label_intensities > 0)
                 label_merged_array = np.ascontiguousarray(
                     np.concatenate((
-                        xs[mask_channel, ...],
-                        ys[mask_channel, ...],
-                        zs[mask_channel, ...],
+                        xs[mask_channel, ...] * stride,
+                        ys[mask_channel, ...] * stride,
+                        zs[mask_channel, ...] * stride,
                         np.full((mask_channel.sum(), 1), 255, dtype=np.uint8)
                     ), axis=1)
                 )
