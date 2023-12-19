@@ -95,16 +95,16 @@ class ThreeDSegmentationDataset(Dataset):
 
 if __name__ == "__main__":
     _ds = ThreeDSegmentationDataset(
-        # ["kidney_1_dense", "kidney_3_sparse"],
         "kidney_1_dense",
+        # "kidney_3_dense",
         512,
         12,
         output_crop_size=512,
         substride=1.0,
         load_ann=True,
         sample_with_mask=True,
-        add_depth_along_channel=True,
-        add_depth_along_height=True,
+        add_depth_along_channel=False,
+        add_depth_along_height=False,
         add_depth_along_width=True,
     )
     print(f"{len(_ds) = }")

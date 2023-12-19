@@ -1,10 +1,13 @@
 from pathlib import Path
-from .environments import DATA_DUMPS_DIR, DATA_DIR
+from sennet.environments.environments import DATA_DUMPS_DIR, DATA_DIR
 
 
 # example code for environments.py
 # DATA_DIR = "/home/clay/research/kaggle/sennet/data"
 # DATA_DUMPS_DIR = "/home/clay/research/kaggle/sennet/data_dumps"
+
+
+REPO_DIR = Path(__file__).absolute().resolve().parent.parent.parent.parent
 
 
 DATA_DIR = Path(DATA_DIR)
@@ -15,3 +18,8 @@ AUG_DUMP_DIR = DATA_DUMPS_DIR / "aug_dump"
 MODEL_OUT_DIR = DATA_DUMPS_DIR / "models"
 TMP_SUB_MMAP_DIR = DATA_DUMPS_DIR / "tmp_mmaps"
 PRETRAINED_DIR = DATA_DUMPS_DIR / "pretrained_checkpoints"
+CONFIG_DIR = REPO_DIR / "configs"
+
+
+if __name__ == "__main__":
+    pass

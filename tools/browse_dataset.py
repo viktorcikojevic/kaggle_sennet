@@ -1,7 +1,7 @@
 from sennet.custom_modules import *
 from sennet.environments.constants import AUG_DUMP_DIR
 from sennet.core.dataset import ThreeDSegmentationDataset
-
+from tqdm import tqdm
 from omegaconf import DictConfig
 import hydra
 

@@ -19,7 +19,13 @@ import torch
 @hydra.main(config_path="../configs", config_name="train", version_base="1.2")
 def main(cfg: DictConfig):
     time_now = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    experiment_name = f"{str(cfg.model.type)}-c{cfg.dataset.kwargs.crop_size}x{cfg.dataset.kwargs.n_take_channels}-{time_now}"
+    experiment_name = (
+        f"{str(cfg.model.type)}"
+        f"-c{cfg.dataset.kwargs.crop_size}x{cfg.dataset.kwargs.n_take_channels}"
+        f"-t{int(cfg.dataset.kwargs.add_depth_along_channel)}{int(cfg.dataset.kwargs.add_depth_along_width)}{int(cfg.dataset.kwargs.add_depth_along_height)}"
+        f"-sm{int(cfg.dataset.kwargs.sample_with_mask)}"
+        f"-{time_now}"
+    )
     model_out_dir = MODEL_OUT_DIR / experiment_name
     model_out_dir.mkdir(exist_ok=True, parents=True)
     print(f"{model_out_dir = }")

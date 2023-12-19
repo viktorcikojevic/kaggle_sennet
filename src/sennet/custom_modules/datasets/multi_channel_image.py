@@ -127,9 +127,11 @@ class MultiChannelDataset:
         self.bbox_types = np.zeros(0, dtype=int)
         for (flag, bbox_type, msg) in (
                 (self.add_depth_along_channel, DEPTH_ALONG_CHANNEL, "channel"),
-                (self.add_depth_along_channel, DEPTH_ALONG_WIDTH, "width"),
-                (self.add_depth_along_channel, DEPTH_ALONG_HEIGHT, "height"),
+                (self.add_depth_along_width, DEPTH_ALONG_WIDTH, "width"),
+                (self.add_depth_along_height, DEPTH_ALONG_HEIGHT, "height"),
         ):
+            if not flag:
+                continue
             new_bboxes = generate_crop_bboxes(
                 crop_size=self.crop_size,
                 n_take_channels=self.n_take_channels,
@@ -139,9 +141,10 @@ class MultiChannelDataset:
                 depth_mode=bbox_type,
             )
             new_bbox_types = np.full(len(new_bboxes), bbox_type)
-            print(f"adding depth along {msg}: {len(new_bboxes)}")
-            self.bboxes = np.concatenate((self.bboxes, new_bboxes), axis=0)
-            self.bbox_types = np.concatenate((self.bbox_types, new_bbox_types))
+            print(f"adding depth along {msg}: {new_bboxes.shape[0]}")
+            if new_bboxes.shape[0] > 0:
+                self.bboxes = np.concatenate((self.bboxes, new_bboxes), axis=0)
+                self.bbox_types = np.concatenate((self.bbox_types, new_bbox_types))
         print(f"{self.folder}: bboxes={len(self.bboxes)}")
         print("done generating indices")
 
@@ -152,6 +155,8 @@ if __name__ == "__main__":
         512,
         20,
         substride=0.5,
+        sample_with_mask=True,
+        add_depth_along_channel=True,
         add_depth_along_height=True,
         add_depth_along_width=True,
     )

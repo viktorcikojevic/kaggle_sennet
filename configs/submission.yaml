@@ -1,0 +1,7 @@
+predictors:
+  n_chunks: 5
+  threshold: 0.5
+  substride: 1.0
+  models:
+    - WrappedUNet3D-c512x12-t111-2023-12-19-01-54-01
+    - WrappedUNet2D-c512x1-t100-2023-12-19-00-25-31

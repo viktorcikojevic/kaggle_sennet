@@ -64,8 +64,11 @@ dataset:
     p_channel_jitter: 0.0
     load_ann: true
     seg_fill_val: 0
-    crop_location_noise: 100
+    crop_location_noise: 0
 
+    add_depth_along_channel: true
+    add_depth_along_width: true
+    add_depth_along_height: true
 
 
 hydra:

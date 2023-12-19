@@ -10,6 +10,7 @@ class MmapArray:
     data: np.memmap
     shape: List[int]
     metadata: Dict
+    dtype: type
 
 
 def read_mmap_array(
@@ -38,6 +39,7 @@ def read_mmap_array(
         data=data,
         shape=shape,
         metadata=read_json,
+        dtype=dtype,
     )
     return arr
 
@@ -63,5 +65,6 @@ def create_mmap_array(
         data=data,
         shape=shape,
         metadata=metadata,
+        dtype=dtype,
     )
     return arr
