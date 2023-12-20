@@ -23,7 +23,6 @@ class MultiChannelAugmentation:
         
         if self.random_3d_rotate:
             
-            
             out = self.random_3d_rotate_transform(image=img, mask=gt_seg_map)
             img_augmented, gt_seg_map_augmented = out["image"], out["mask"]
             # flip x and y axes and do it again
@@ -34,7 +33,10 @@ class MultiChannelAugmentation:
         
             img = img_augmented
             gt_seg_map = gt_seg_map_augmented
-            
+        
+        
+        
+        
         data["img"] = img
         data["gt_seg_map"] = gt_seg_map
         

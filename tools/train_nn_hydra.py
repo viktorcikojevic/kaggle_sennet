@@ -4,6 +4,7 @@ from sennet.core.three_d_segmentation_task import ThreeDSegmentationTask
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.environments.constants import MODEL_OUT_DIR, PRETRAINED_DIR
 from sennet.custom_modules.losses.loss import CombinedLoss
+from sennet.custom_modules.datasets.transforms.batch_transforms import BatchTransform
 from torch.utils.data import DataLoader, ConcatDataset
 import sennet.custom_modules.models as models
 from datetime import datetime
@@ -93,6 +94,10 @@ def main(cfg: DictConfig):
 
     criterion = CombinedLoss(cfg_dict)
 
+    # create batch transforms
+    batch_transform = BatchTransform(**cfg_dict["batch_transform"]["kwargs"]) if "batch_transform" in cfg_dict else None
+    
+
     task = ThreeDSegmentationTask(
         model,
         val_loader=val_loader,
@@ -100,6 +105,7 @@ def main(cfg: DictConfig):
         optimiser_spec=cfg_dict["optimiser"],
         experiment_name=experiment_name,
         criterion=criterion,
+        batch_transform=batch_transform,
         **cfg_dict["task"]["kwargs"],
     )
     if cfg.dry_logger:

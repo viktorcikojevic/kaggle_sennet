@@ -74,6 +74,12 @@ dataset:
     random_crop: true # random_crop augmentation
     random_3d_rotate: true # random_3d_rotate augmentation
 
+batch_transform:
+  kwargs:
+    alpha_cutmix: 0.4
+    alpha_mixup: 0.4
+    cutmix_prob: 0.5
+    mixup_prob: 0.5
 
 
 
