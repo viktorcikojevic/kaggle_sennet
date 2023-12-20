@@ -20,7 +20,7 @@ import torch
 def main(cfg: DictConfig):
     time_now = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     experiment_name = (
-        f"{str(cfg.model.type)}"
+        f"{str(cfg.model.kwargs.version)}"
         f"-c{cfg.dataset.kwargs.crop_size}x{cfg.dataset.kwargs.n_take_channels}"
         f"-t{int(cfg.dataset.kwargs.add_depth_along_channel)}{int(cfg.dataset.kwargs.add_depth_along_width)}{int(cfg.dataset.kwargs.add_depth_along_height)}"
         f"-sm{int(cfg.dataset.kwargs.sample_with_mask)}"
@@ -109,7 +109,7 @@ def main(cfg: DictConfig):
     callbacks = [
         pl.callbacks.LearningRateMonitor(),
         # pl.callbacks.RichProgressBar(),
-        pl.callbacks.RichModelSummary(max_depth=2),
+        pl.callbacks.RichModelSummary(max_depth=3),
     ]
     callbacks += [
         pl.callbacks.EarlyStopping(

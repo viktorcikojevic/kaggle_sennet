@@ -1,4 +1,4 @@
-from sennet.custom_modules.models.unet3d.model import UNet3D, UNet2D
+from sennet.custom_modules.models.unet3d import model as unet_model
 from sennet.custom_modules.models.base_model import Base3DSegmentor, SegmentorOutput
 from sennet.custom_modules.models import medical_net_resnet3d as resnet3ds
 from sennet.environments.constants import PRETRAINED_DIR
@@ -8,9 +8,11 @@ import torch
 
 
 class WrappedUNet3D(Base3DSegmentor):
-    def __init__(self, pretrained: Optional[Union[str, Path]] = None, **kw):
+    def __init__(self, version: str = "UNet3D", pretrained: Optional[Union[str, Path]] = None, **kw):
         Base3DSegmentor.__init__(self)
-        self.model = UNet3D(**kw)
+        self.version = version
+        constructor = getattr(unet_model, self.version)
+        self.model = constructor(**kw)
         self.pretrained = pretrained
         if self.pretrained is not None:
             ckpt = torch.load(PRETRAINED_DIR / self.pretrained)
@@ -29,7 +31,7 @@ class WrappedUNet3D(Base3DSegmentor):
 class WrappedUNet2D(Base3DSegmentor):
     def __init__(self, pretrained: Optional[Union[str, Path]] = None, **kw):
         Base3DSegmentor.__init__(self)
-        self.model = UNet2D(**kw)
+        self.model = unet_model.UNet2D(**kw)
         self.pretrained = pretrained
         if self.pretrained is not None:
             ckpt = torch.load(PRETRAINED_DIR / self.pretrained)
@@ -77,11 +79,22 @@ if __name__ == "__main__":
     #     num_seg_classes=1,
     #     shortcut_type="A",
     # ).to(_device)
-    _model = WrappedMedicalNetResnet3D(
-        "resnet200",
+    _model = WrappedUNet3D(
+        "ResidualUNet3D",
         None,
-        num_seg_classes=1,
+        in_channels=1,
+        out_channels=1,
+        num_groups=8,
+        f_maps=32,
+        final_sigmoid=False,
+        is_segmentation=False,
+        is3d=True,
     ).to(_device)
+    # _model = WrappedMedicalNetResnet3D(
+    #     "resnet200",
+    #     None,
+    #     num_seg_classes=1,
+    # ).to(_device)
     _data = torch.randn((2, 1, 16, 512, 512)).to(_device)
     _out = _model.predict(_data)
-    print(":D")
+    print(f"{_out.pred.shape = }")

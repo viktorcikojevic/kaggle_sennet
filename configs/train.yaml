@@ -11,7 +11,7 @@ num_workers: 16
 dry_logger: false
 exp_name: three_d_seg
 group_name: null # maybe this would be useful for grouping experiments when we do hyperparameter search
-patience: 5
+patience: 2
 max_epochs: 100
 
 optimiser:
@@ -38,6 +38,7 @@ task:
 
 train_folders:
   - kidney_1_dense
+#  - kidney_3_dense
 
 val_folders:
 #  - kidney_1_dense
@@ -49,7 +50,7 @@ dataset:
   val_substride: 1.0
   kwargs:
     crop_size: 512
-    n_take_channels: 12
+    n_take_channels: 16
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
