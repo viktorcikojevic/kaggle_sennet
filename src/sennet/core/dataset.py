@@ -2,6 +2,7 @@ import numpy as np
 
 from sennet.custom_modules.datasets.multi_channel_image import MultiChannelDataset
 from sennet.custom_modules.datasets.transforms.loading import LoadMultiChannelImageAndAnnotationsFromFile
+from sennet.custom_modules.datasets.transforms.multi_channel_augm import MultiChannelAugmentation
 from typing import List, Optional, Tuple
 from torch.utils.data import Dataset, DataLoader
 import torch
@@ -25,6 +26,7 @@ class ThreeDSegmentationDataset(Dataset):
             add_depth_along_width: bool = False,
             add_depth_along_height: bool = False,
             random_crop: bool = False,
+            random_3d_rotate: bool = False,
 
             crop_size_range: Optional[Tuple[int, int]] = None,
             output_crop_size: Optional[int] = None,
@@ -67,6 +69,9 @@ class ThreeDSegmentationDataset(Dataset):
             seg_fill_val=seg_fill_val,
             crop_location_noise=crop_location_noise,
         )
+        self.augmenter_3d = MultiChannelAugmentation(
+            random_3d_rotate=random_3d_rotate,
+        )
 
         self.transforms = transforms
         if self.transforms is None:
@@ -79,6 +84,7 @@ class ThreeDSegmentationDataset(Dataset):
     def __getitem__(self, i: int):
         data = self.dataset[i]
         data = self.loader.transform(data)
+        data = self.augmenter_3d.transform(data)
         for t in self.transforms:
             data = t.transform(data)
 

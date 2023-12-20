@@ -8,7 +8,7 @@ val_check_interval: 500
 batch_size: 2
 apparent_batch_size: 1
 num_workers: 16
-dry_logger: false
+dry_logger: true
 exp_name: three_d_seg
 group_name: null # maybe this would be useful for grouping experiments when we do hyperparameter search
 patience: 5 # stops if (val_check_interval * patience) steps have passed without improvement in the metric
@@ -72,6 +72,11 @@ dataset:
 
 
     random_crop: true # random_crop augmentation
+    random_3d_rotate: true # random_3d_rotate augmentation
+
+
+
+
 
 hydra:
   sweeper:
