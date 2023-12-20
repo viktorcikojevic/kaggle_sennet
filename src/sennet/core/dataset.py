@@ -36,6 +36,7 @@ class ThreeDSegmentationDataset(Dataset):
             load_ann: bool = True,
             seg_fill_val: int = 255,
             crop_location_noise: int = 0,
+            augmentations: any = None,
 
             transforms: Optional[List] = None,
     ):
@@ -71,6 +72,7 @@ class ThreeDSegmentationDataset(Dataset):
         )
         self.augmenter_3d = MultiChannelAugmentation(
             random_3d_rotate=random_3d_rotate,
+            augmentations=augmentations
         )
 
         self.transforms = transforms

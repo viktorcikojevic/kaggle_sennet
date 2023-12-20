@@ -37,6 +37,7 @@ def main(cfg: DictConfig):
         ThreeDSegmentationDataset(
             folder=folder,
             substride=cfg.dataset.train_substride,
+            augmentations=cfg.augmentations if 'augmentations' in cfg else None,
             **dataset_kwargs,
         )
         for folder in cfg.train_folders
@@ -50,6 +51,7 @@ def main(cfg: DictConfig):
     val_dataset_kwargs["crop_location_noise"] = 0
     val_dataset_kwargs["random_crop"] = False
     val_dataset_kwargs["random_3d_rotate"] = False
+    val_dataset_kwargs["augmentations"] = None
     val_dataset = ThreeDSegmentationDataset(
         folder=cfg.val_folders[0],
         substride=cfg.dataset.val_substride,

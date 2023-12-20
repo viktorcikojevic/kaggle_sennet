@@ -74,6 +74,26 @@ dataset:
     random_crop: true # random_crop augmentation
     random_3d_rotate: true # random_3d_rotate augmentation
 
+augmentations:
+  random_brightness_contrast:
+    p: 0.5
+    brightness_limit: 0.2
+    contrast_limit: 0.2
+  affine:
+    scale: [0.8, 1.2]
+    translate_percent: [0.1, 0.1]
+    p: 0.25
+  channel_dropout:
+    channel_drop_range: [1, 4]
+    p: 0.2
+  one_of:
+    gaussian_blur: {}
+    motion_blur: {}
+    p: 0.1
+  pixel_dropout:
+    per_channel: true
+    p: 0.1
+
 batch_transform:
   kwargs:
     alpha_cutmix: 0.4
