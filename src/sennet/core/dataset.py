@@ -24,6 +24,7 @@ class ThreeDSegmentationDataset(Dataset):
             add_depth_along_channel: bool = True,
             add_depth_along_width: bool = False,
             add_depth_along_height: bool = False,
+            random_crop: bool = False,
 
             crop_size_range: Optional[Tuple[int, int]] = None,
             output_crop_size: Optional[int] = None,
@@ -54,6 +55,7 @@ class ThreeDSegmentationDataset(Dataset):
             add_depth_along_channel=add_depth_along_channel,
             add_depth_along_width=add_depth_along_width,
             add_depth_along_height=add_depth_along_height,
+            random_crop=random_crop,
         )
         self.loader = LoadMultiChannelImageAndAnnotationsFromFile(
             crop_size_range=crop_size_range,

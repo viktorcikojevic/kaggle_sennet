@@ -13,6 +13,7 @@ def generate_crop_bboxes(
         shape: Tuple[int, int, int],
         mask: Optional[np.ndarray] = None,
         depth_mode: int = DEPTH_ALONG_CHANNEL,
+        num_random_crops: Optional[int] = None,
 ) -> np.ndarray:
     # bbox is always [channel_lb, x_lb, y_lb, channel_ub, x_ub, y_ub]
     bboxes = []
@@ -29,6 +30,26 @@ def generate_crop_bboxes(
     x_stride = channel_stride if depth_mode == DEPTH_ALONG_WIDTH else crop_stride
     x_take_range = n_take_channels if depth_mode == DEPTH_ALONG_WIDTH else crop_size
 
+    # generate random crops (note: this will not prolong the training, because patience (in Trainer) only counts the number of validation checks, not epochs)
+    if num_random_crops is not None:
+        for _ in range(num_random_crops): 
+            
+            uc = min(np.random.randint(0, shape[0] - c_take_range), shape[0])
+            uy = min(np.random.randint(0, shape[1] - y_take_range), shape[1])
+            ux = min(np.random.randint(0, shape[2] - x_take_range), shape[2])
+            
+            lc = uc - c_take_range
+            ly = uy - y_take_range
+            lx = ux - x_take_range
+            
+            if lc < 0 or ly < 0 or lx < 0:
+                continue
+            
+            box = [lc, lx, ly, uc, ux, uy]
+            if (mask is not None) and (not np.any(mask[lc:uc, ly:uy, lx:ux])):
+                continue
+            bboxes.append(box)
+
     for c in range(0, shape[0], c_stride):
         for i in range(0, shape[1], y_stride):
             for j in range(0, shape[2], x_stride):
@@ -39,11 +60,7 @@ def generate_crop_bboxes(
                 lc = uc - c_take_range
                 ly = uy - y_take_range
                 lx = ux - x_take_range
-                if lc < 0:
-                    continue
-                if ly < 0:
-                    continue
-                if lx < 0:
+                if lc < 0 or ly < 0 or lx < 0:
                     continue
                 box = [lc, lx, ly, uc, ux, uy]
                 if (mask is not None) and (not np.any(mask[lc:uc, ly:uy, lx:ux])):
@@ -90,6 +107,7 @@ class MultiChannelDataset:
             add_depth_along_channel: bool = True,
             add_depth_along_width: bool = False,
             add_depth_along_height: bool = False,
+            random_crop: bool = False,
     ) -> None:
         self.folder = PROCESSED_DATA_DIR / folder
         print(f"reading from the following folder: {self.folder}")
@@ -105,6 +123,7 @@ class MultiChannelDataset:
         self.add_depth_along_channel = add_depth_along_channel
         self.add_depth_along_width = add_depth_along_width
         self.add_depth_along_height = add_depth_along_height
+        self.random_crop = random_crop
         self._load_data_list()
 
     def __len__(self):
@@ -161,6 +180,7 @@ class MultiChannelDataset:
                 shape=(mask.shape[0], mask.shape[1], mask.shape[2]),
                 mask=mask.data if self.sample_with_mask else None,
                 depth_mode=bbox_type,
+                num_random_crops=200 if self.random_crop else None,
             )
             new_bbox_types = np.full(len(new_bboxes), bbox_type)
             print(f"adding depth along {msg}: {new_bboxes.shape[0]}")

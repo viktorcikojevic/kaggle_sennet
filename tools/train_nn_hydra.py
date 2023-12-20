@@ -47,6 +47,7 @@ def main(cfg: DictConfig):
     val_dataset_kwargs["channels_jitter"] = None
     val_dataset_kwargs["p_channel_jitter"] = 0.0
     val_dataset_kwargs["crop_location_noise"] = 0
+    val_dataset_kwargs["random_crop"] = False
     val_dataset = ThreeDSegmentationDataset(
         folder=cfg.val_folders[0],
         substride=cfg.dataset.val_substride,
