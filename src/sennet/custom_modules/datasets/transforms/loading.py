@@ -17,7 +17,8 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             p_channel_jitter: float = 0.0,
             load_ann: bool = True,
             seg_fill_val: int = 255,
-            crop_location_noise: int = 0
+            crop_location_noise: int = 0,
+            random_crop: bool = False,
     ):
         if crop_size_range is not None:
             assert crop_size_range[0] <= crop_size_range[1], f"{crop_size_range=}"
@@ -31,6 +32,7 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         self.crop_location_noise = crop_location_noise
         self.loaded_image_mmaps: Dict[str, MmapArray] = {}
         self.loaded_seg_mmaps: Dict[str, MmapArray] = {}
+        self.random_crop = random_crop
 
     @profile
     def _get_take_channels(self, results: Dict) -> Tuple[bool, Union[Tuple[int, int], np.ndarray]]:
@@ -76,7 +78,30 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         return lx, ly, ux, uy
 
     @profile
+    def _random_crop(self, results: Dict) -> Dict:
+        # Img and the seg map are taken from bbox. Make a random shift of the bbox to simulate the random crop.
+        lc, lx, ly, uc, ux, uy = results["bbox"]
+        width, height, depth = results["img_w"], results["img_h"], results["img_c"]
+        
+        take_channels = uc - lc
+        take_x = ux - lx
+        take_y = uy - ly
+        
+        # perform random crop
+        lx = np.random.randint(0, width - take_x)
+        ly = np.random.randint(0, height - take_y)
+        lc = np.random.randint(0, depth - take_channels)
+        ux = lx + take_x
+        uy = ly + take_y
+        uc = lc + take_channels
+        
+        results["bbox"] = [lc, lx, ly, uc, ux, uy]
+        return results
+        
+    @profile
     def transform(self, results: Dict) -> Optional[Dict]:
+        if self.random_crop:
+            results = self._random_crop(results)
         crop_bbox = self._get_pixel_bbox(results)
         is_channels_augmented, take_channels = self._get_take_channels(results)
         img, seg = self._read_image_and_seg(

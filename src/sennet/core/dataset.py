@@ -58,7 +58,6 @@ class ThreeDSegmentationDataset(Dataset):
             add_depth_along_channel=add_depth_along_channel,
             add_depth_along_width=add_depth_along_width,
             add_depth_along_height=add_depth_along_height,
-            random_crop=random_crop,
         )
         self.loader = LoadMultiChannelImageAndAnnotationsFromFile(
             crop_size_range=crop_size_range,
@@ -69,6 +68,7 @@ class ThreeDSegmentationDataset(Dataset):
             load_ann=load_ann,
             seg_fill_val=seg_fill_val,
             crop_location_noise=crop_location_noise,
+            random_crop=random_crop,
         )
         self.augmenter_3d = MultiChannelAugmentation(
             random_3d_rotate=random_3d_rotate,
