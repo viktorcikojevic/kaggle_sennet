@@ -1,9 +1,10 @@
 import numpy as np
-
+from sennet.custom_modules.datasets.transforms.normalisation import Normalise
 from sennet.custom_modules.datasets.multi_channel_image import MultiChannelDataset
 from sennet.custom_modules.datasets.transforms.loading import LoadMultiChannelImageAndAnnotationsFromFile
 from sennet.custom_modules.datasets.transforms.multi_channel_augm import MultiChannelAugmentation
 from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 from torch.utils.data import Dataset, DataLoader
 import torch
 from tqdm import tqdm
@@ -39,6 +40,7 @@ class ThreeDSegmentationDataset(Dataset):
             augmentations: any = None,
 
             transforms: Optional[List] = None,
+            normalisation_kwargs: Optional[Dict] = None,
     ):
         Dataset.__init__(self)
 
@@ -76,8 +78,11 @@ class ThreeDSegmentationDataset(Dataset):
         )
 
         self.transforms = transforms
+        self.normalisation_kwargs = normalisation_kwargs
         if self.transforms is None:
             self.transforms = []
+        if self.normalisation_kwargs is not None:
+            self.transforms.append(Normalise(**self.normalisation_kwargs))
 
     def __len__(self):
         return len(self.dataset)

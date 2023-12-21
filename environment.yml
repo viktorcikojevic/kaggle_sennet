@@ -37,3 +37,4 @@ dependencies:
     - ipympl
     - ipywidgets
     - torchvision
+    - segmentation_models_pytorch

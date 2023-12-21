@@ -4,6 +4,7 @@ from sennet.core.mmap_arrays import read_mmap_array
 from pathlib import Path
 from typing import *
 import numpy as np
+import json
 
 
 def generate_crop_bboxes(
@@ -124,9 +125,11 @@ class MultiChannelDataset:
         image_dir = self.folder / "image"
         mask_dir = self.folder / "mask"
         label_dir = self.folder / "label"
+        stats_path = self.folder / "stats.json"
         image_paths = [Path(p) for p in Path(self.folder / "image_paths").read_text().split("\n")]
         assert image_dir.is_dir(), f"{image_dir=} doesn't exist"
         assert mask_dir.is_dir(), f"{mask_dir=} doesn't exist"
+        stats = json.loads(Path(stats_path).read_text())
         if self.assert_label_exists:
             assert label_dir.is_dir(), f"{label_dir=} doesn't exist but {self.assert_label_exists=}"
         # not really sure if loading all non_zero indices is the best idea, also with all these channels
@@ -141,6 +144,8 @@ class MultiChannelDataset:
             reduce_zero_label=self.reduce_zero_label,
             seg_fields=[],
         )
+        for p, v in stats["percentiles"].items():
+            self.general_metadata[f"percentile_{p}"] = v
         self.image_paths = [f"{p.parent.parent.stem}_{p.stem}" for p in image_paths]
         print("generating indices")
         self.bboxes = np.zeros((0, 6), dtype=int)
@@ -171,12 +176,13 @@ class MultiChannelDataset:
 
 if __name__ == "__main__":
     _ds = MultiChannelDataset(
-        "kidney_3_dense",
+        "kidney_1_dense",
         512,
         12,
-        substride=0.25,
+        substride=1.0,
         sample_with_mask=True,
         add_depth_along_channel=False,
         add_depth_along_height=True,
         add_depth_along_width=False,
     )
+    print(":D")

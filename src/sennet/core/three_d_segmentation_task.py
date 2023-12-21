@@ -39,6 +39,12 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.best_surface_dice = 0.0
         self.batch_transform = batch_transform
 
+        self.total_tp = 0
+        self.total_fp = 0
+        self.total_fn = 0
+        self.total_val_loss = 0.0
+        self.val_count = 0
+
     def training_step(self, batch: Dict, batch_idx: int):
         if self.batch_transform is not None:
             batch = self.batch_transform(batch)
@@ -62,10 +68,34 @@ class ThreeDSegmentationTask(pl.LightningModule):
         return loss
 
     def validation_step(self, batch: Dict, batch_idx: int):
-        pass
+        with torch.no_grad():
+            self.model = self.model.eval()
+            seg_pred = self.model.predict(batch["img"])
+            preds = torch.nn.functional.sigmoid(seg_pred.pred) > 0.2
+            gt_seg_map = batch["gt_seg_map"][:, 0, :, :, :] > 0.2
+            loss = self.criterion(seg_pred.pred, batch["gt_seg_map"][:, 0, :, :, :].float())
+            # print(f"{seg_pred.pred.max()=}, {seg_pred.pred.min()=}")
+
+            self.total_val_loss += loss.cpu().item()
+            self.val_count += 1
+            self.total_tp += (preds & gt_seg_map).sum().cpu().item()
+            self.total_fp += (preds & ~gt_seg_map).sum().cpu().item()
+            self.total_fn += (~preds & gt_seg_map).sum().cpu().item()
 
     def on_validation_epoch_end(self) -> None:
         with torch.no_grad():
+            # these metrics are meant to sanity-check the eval process as they're very unlikely to have bug
+            # otherwise they're to be ignored during model selection
+            crude_precision = self.total_tp / (self.total_tp + self.total_fp + 1e-6)
+            crude_recall = self.total_tp / (self.total_tp + self.total_fn + 1e-6)
+            crude_f1 = 2 * crude_precision * crude_recall / (crude_precision + crude_recall + 1e-6)
+            crude_val_loss = self.total_val_loss / self.val_count
+            self.total_tp = 0
+            self.total_fp = 0
+            self.total_fn = 0
+            self.total_val_loss = 0.0
+            self.val_count = 0
+
             # out_dir = TMP_SUB_MMAP_DIR / self.experiment_name
             out_dir = TMP_SUB_MMAP_DIR / "training_tmp"  # prevent me forgetting to remove tmp dirs
             sub = generate_submission_df(
@@ -94,14 +124,18 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 label_dir=PROCESSED_DATA_DIR / self.val_folders[0]  # TODO(Sumo): adjust this so we can eval more folders
             )
             print("--------------------------------")
-            print(f"f1_score = {f1_score}")
+            print(f"{f1_score = }")
             print(f"{surface_dice_score = }")
+            print(f"{crude_f1 = }")
+            print(f"{crude_val_loss = }")
             print("--------------------------------")
             if surface_dice_score > self.best_surface_dice:
                 self.best_surface_dice = surface_dice_score
             self.log_dict({
                 "f1_score": f1_score,
                 "surface_dice": surface_dice_score,
+                "crude_f1": crude_f1,
+                "crude_val_loss": crude_val_loss,
             })
 
     def configure_optimizers(self):

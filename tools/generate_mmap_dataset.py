@@ -1,3 +1,5 @@
+import json
+
 from sennet.core.mmap_arrays import create_mmap_array, MmapArray
 from sennet.environments.constants import PROCESSED_DATA_DIR
 from sennet.core.foreground_extraction import get_foreground_mask
@@ -42,6 +44,22 @@ def main():
             # mask_mmap_array.data[i, :, :] = 1
             print(f"done images: {i+1}/{len(image_paths)}: {image_path}")
         print(f"flushing images")
+
+        p = 1
+        channel_margin = 0.2
+        channel_lb = int(channel_margin * mmap_array.data.shape[0])
+        channel_ub = int((1 - channel_margin) * mmap_array.data.shape[0])
+        global_percentile = np.percentile(mmap_array.data[channel_lb: channel_ub, :], [p, 100 - p])
+        Path(output_dir / "stats.json").write_text(json.dumps(
+            {
+                "percentiles": {
+                    1: float(global_percentile[0]),
+                    99: float(global_percentile[1]),
+                },
+            },
+            indent=4,
+        ))
+
         if mmap_array is not None:
             mmap_array.data.flush()
         if mask_mmap_array is not None:
