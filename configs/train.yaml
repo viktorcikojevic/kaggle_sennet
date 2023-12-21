@@ -11,7 +11,7 @@ num_workers: 16
 dry_logger: false
 exp_name: three_d_seg
 group_name: null # maybe this would be useful for grouping experiments when we do hyperparameter search
-patience: 2
+patience: 5
 max_epochs: 100
 
 optimiser:

@@ -72,11 +72,11 @@ class ThreeDSegmentationTask(pl.LightningModule):
             loss = self.criterion(seg_pred.pred, batch["gt_seg_map"][:, 0, :, :, :].float())
             # print(f"{seg_pred.pred.max()=}, {seg_pred.pred.min()=}")
 
-            self.total_val_loss += loss
+            self.total_val_loss += loss.cpu().item()
             self.val_count += 1
-            self.total_tp += (preds & gt_seg_map).sum()
-            self.total_fp += (preds & ~gt_seg_map).sum()
-            self.total_fn += (~preds & gt_seg_map).sum()
+            self.total_tp += (preds & gt_seg_map).sum().cpu().item()
+            self.total_fp += (preds & ~gt_seg_map).sum().cpu().item()
+            self.total_fn += (~preds & gt_seg_map).sum().cpu().item()
 
     def on_validation_epoch_end(self) -> None:
         with torch.no_grad():
