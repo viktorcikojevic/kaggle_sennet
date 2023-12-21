@@ -1,0 +1,9 @@
+type: WrappedUNet2P5D
+kwargs:
+  in_channels: 16
+  out_channels: 16
+  pretrained: null
+  num_groups: 8
+  f_maps: 32
+  final_sigmoid: false
+  is_segmentation: false

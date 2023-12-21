@@ -14,6 +14,13 @@ class Base3DSegmentor(ABC, torch.nn.Module):
     def __init__(self):
         torch.nn.Module.__init__(self)
 
+    def get_name(self) -> str:
+        """
+
+        :return: str, name of the model to be logged on wandb
+        """
+        pass
+
     def predict(self, img: torch.Tensor) -> SegmentorOutput:
         """
 
