@@ -3,7 +3,6 @@ from sennet.custom_modules.datasets.transforms.normalisation import Normalise
 from sennet.custom_modules.datasets.multi_channel_image import MultiChannelDataset
 from sennet.custom_modules.datasets.transforms.loading import LoadMultiChannelImageAndAnnotationsFromFile
 from sennet.custom_modules.datasets.transforms.multi_channel_augm import MultiChannelAugmentation
-from typing import List, Optional, Tuple
 from typing import List, Optional, Tuple, Dict
 from torch.utils.data import Dataset, DataLoader
 import torch
@@ -92,7 +91,6 @@ class ThreeDSegmentationDataset(Dataset):
         data = self.dataset[i]
         data = self.loader.transform(data)
         data = self.augmenter_3d.transform(data)
-        data = self.augmenter_3d.per_channel_normalization(data)
         for t in self.transforms:
             data = t.transform(data)
 
