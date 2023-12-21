@@ -74,3 +74,23 @@ class MultiChannelAugmentation:
         return data
             
         
+    def per_channel_normalization(self, data):
+        
+        img = data["img"]
+        
+        shape = img.shape
+        # find the axis with the smallest size
+        min_axis = np.argmin(shape)
+        
+        axes = [0, 1, 2]
+        # remove the axis with the smallest size
+        axes.remove(min_axis)
+        
+        img_mean_per_channel = np.mean(img, axis=tuple(axes), keepdims=True)
+        img_std_per_channel = np.std(img, axis=tuple(axes), keepdims=True)
+        
+        img = (img - img_mean_per_channel) / (img_std_per_channel + 1e-8)
+        
+        data["img"] = img
+        
+        return data

@@ -87,6 +87,7 @@ class ThreeDSegmentationDataset(Dataset):
         data = self.dataset[i]
         data = self.loader.transform(data)
         data = self.augmenter_3d.transform(data)
+        data = self.augmenter_3d.per_channel_normalization(data)
         for t in self.transforms:
             data = t.transform(data)
 
@@ -95,8 +96,6 @@ class ThreeDSegmentationDataset(Dataset):
             data["gt_seg_map"] = torch.from_numpy(data["gt_seg_map"]).unsqueeze(0)
 
         data["img"] = torch.from_numpy(data["img"].astype(np.float32))
-        data["img"] -= 127.0
-        data["img"] /= 60.0
         data["img"] = data["img"].unsqueeze(0)
         data["bbox"] = np.array(data["bbox"])
         return data
