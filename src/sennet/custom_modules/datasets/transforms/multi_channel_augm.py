@@ -42,6 +42,9 @@ class MultiChannelAugmentation:
                     p=self.augmentations["pixel_dropout"]["p"]
                 ),
             ])
+            
+            self.channel_inversion_params = self.augmentations["channel_inversion"] if "channel_inversion" in self.augmentations else None
+            
         
         
     def transform(self, data):
@@ -66,6 +69,10 @@ class MultiChannelAugmentation:
             # apply augmentations
             out = self.img_augmentations(image=img, mask=gt_seg_map)
             img, gt_seg_map = out["image"], out["mask"]
+            
+            # perform channel inversion
+            if self.channel_inversion_params is not None:
+                img, gt_seg_map = self.channel_inversion(img, gt_seg_map)
 
         
         data["img"] = img
@@ -73,6 +80,19 @@ class MultiChannelAugmentation:
         
         return data
             
+        
+    def channel_inversion(self, img, mask):   
+        shape = img.shape
+        # find the axis with the smallest size
+        min_axis = np.argmin(shape)
+        
+        # randomly invert a min_axis
+        if np.random.rand() < self.channel_inversion_params["p"]:
+            img = np.flip(img, axis=min_axis).copy()
+            mask = np.flip(mask, axis=min_axis).copy()
+        
+        return img, mask
+
         
     def per_channel_normalization(self, data):
         

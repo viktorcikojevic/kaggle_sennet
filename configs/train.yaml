@@ -93,6 +93,8 @@ augmentations:
   pixel_dropout:
     per_channel: true
     p: 0.1
+  channel_inversion:
+    p: 0.1
 
 batch_transform:
   kwargs:
