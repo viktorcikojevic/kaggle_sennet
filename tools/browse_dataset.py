@@ -20,7 +20,7 @@ def main(cfg: DictConfig):
     save_imgs = True
     mid_section = int(cfg.dataset.kwargs.n_take_channels / 2)
     for i, item in tqdm(enumerate(dataset), total=len(dataset)):
-        img = item["img"][0, [mid_section, mid_section+1, mid_section+2], ...].permute(1, 2, 0).numpy()
+        img = item["img"][0, [mid_section, mid_section, mid_section], ...].permute(1, 2, 0).numpy()
         seg_map = item["gt_seg_map"][0, mid_section, ...].numpy()
         seg_count = np.sum(seg_map)
         if seg_count == 0:
@@ -30,7 +30,8 @@ def main(cfg: DictConfig):
             seg_map,
             np.zeros_like(seg_map),
         ], axis=2)
-        annotated_img = cv2.addWeighted(np.clip(img * 60 + 127, 0, 255).astype(np.uint8), 0.5, seg_map * 255, 0.5, 0.0)
+        # annotated_img = cv2.addWeighted(np.clip(img * 60 + 127, 0, 255).astype(np.uint8), 0.5, seg_map * 255, 0.5, 0.0)
+        annotated_img = cv2.addWeighted(np.clip((img * 0.235 + 0.5)*255, 0, 255).astype(np.uint8), 0.5, seg_map * 255, 0.5, 0.0)
         if save_imgs:
             cv2.imwrite(str(save_dir / f"{str(i).zfill(3)}_{str(seg_count).zfill(8)}.png"), annotated_img)
         print("dumped image")

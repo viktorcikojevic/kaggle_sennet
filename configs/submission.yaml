@@ -3,5 +3,5 @@ predictors:
   threshold: 0.5
   substride: 1.0
   models:
-    - WrappedUNet3D-c512x12-t111-2023-12-19-01-54-01
-#    - WrappedUNet3D-c512x12-t100-sm0-2023-12-19-17-47-52
+    - SMP(Unet_resnet34_imagenet)-c512x1-bs32-llr-3-t111-sm0-2023-12-20-15-09-34
+#    - WrappedUNet3D-c512x12-t111-2023-12-19-01-54-01

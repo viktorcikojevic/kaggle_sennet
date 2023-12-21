@@ -4,6 +4,7 @@ from sennet.core.three_d_segmentation_task import ThreeDSegmentationTask
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.environments.constants import MODEL_OUT_DIR, PRETRAINED_DIR
 from sennet.custom_modules.losses.loss import CombinedLoss
+from sennet.custom_modules.models.base_model import Base3DSegmentor
 from torch.utils.data import DataLoader, ConcatDataset
 import sennet.custom_modules.models as models
 from datetime import datetime
@@ -19,9 +20,24 @@ import torch
 @hydra.main(config_path="../configs", config_name="train", version_base="1.2")
 def main(cfg: DictConfig):
     time_now = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    cfg_dict: Dict = OmegaConf.to_container(cfg, resolve=True)
+
+    # ---------------------------------------
+    model_class = getattr(models, cfg_dict["model"]["type"])
+    model: Base3DSegmentor = model_class(**cfg_dict["model"]["kwargs"])
+    if "pretrained" in cfg_dict["model"] and cfg_dict["model"]["pretrained"] is not None:
+        ckpt = torch.load(PRETRAINED_DIR / cfg_dict["model"]["pretrained"])
+        load_res = model.load_state_dict(ckpt["model_state_dict"])
+        print(f"{load_res = }")
+    else:
+        print("no pretrained model given")
+    # ---------------------------------------
+
     experiment_name = (
-        f"{str(cfg.model.type)}"
+        f"{model.get_name()}"
         f"-c{cfg.dataset.kwargs.crop_size}x{cfg.dataset.kwargs.n_take_channels}"
+        f"-bs{cfg.batch_size}"
+        f"-llr{cfg.optimiser.log_lr}"
         f"-t{int(cfg.dataset.kwargs.add_depth_along_channel)}{int(cfg.dataset.kwargs.add_depth_along_width)}{int(cfg.dataset.kwargs.add_depth_along_height)}"
         f"-sm{int(cfg.dataset.kwargs.sample_with_mask)}"
         f"-{time_now}"
@@ -30,7 +46,6 @@ def main(cfg: DictConfig):
     model_out_dir.mkdir(exist_ok=True, parents=True)
     print(f"{model_out_dir = }")
 
-    cfg_dict: Dict = OmegaConf.to_container(cfg, resolve=True)
     dataset_kwargs = cfg_dict["dataset"]["kwargs"]
     train_dataset = ConcatDataset([
         ThreeDSegmentationDataset(
@@ -77,16 +92,6 @@ def main(cfg: DictConfig):
         drop_last=False,
     )
 
-    # ---------------------------------------
-    model_class = getattr(models, cfg_dict["model"]["type"])
-    model = model_class(**cfg_dict["model"]["kwargs"])
-    if "pretrained" in cfg_dict["model"] and cfg_dict["model"]["pretrained"] is not None:
-        ckpt = torch.load(PRETRAINED_DIR / cfg_dict["model"]["pretrained"])
-        load_res = model.load_state_dict(ckpt["model_state_dict"])
-        print(f"{load_res = }")
-    else:
-        print("no pretrained model given")
-    # ---------------------------------------
     OmegaConf.save(cfg, model_out_dir / "config.yaml")
 
     criterion = CombinedLoss(cfg_dict)
@@ -109,7 +114,7 @@ def main(cfg: DictConfig):
     callbacks = [
         pl.callbacks.LearningRateMonitor(),
         # pl.callbacks.RichProgressBar(),
-        pl.callbacks.RichModelSummary(max_depth=2),
+        pl.callbacks.RichModelSummary(max_depth=3),
     ]
     callbacks += [
         pl.callbacks.EarlyStopping(
@@ -135,7 +140,7 @@ def main(cfg: DictConfig):
         logger=logger,
         val_check_interval=val_check_interval,
         max_epochs=cfg.max_epochs,
-        precision=16,
+        precision="16-mixed",
         log_every_n_steps=20,
         # gradient_clip_val=1.0,
         # gradient_clip_algorithm="norm",

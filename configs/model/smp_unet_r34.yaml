@@ -1,0 +1,7 @@
+type: SMPModel
+kwargs:
+    version: "Unet"
+    encoder_name: "resnet34"
+    encoder_weights: "imagenet"
+    in_channels: 16
+    classes: 16

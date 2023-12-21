@@ -1,8 +1,8 @@
 import numpy as np
-
+from sennet.custom_modules.datasets.transforms.normalisation import Normalise
 from sennet.custom_modules.datasets.multi_channel_image import MultiChannelDataset
 from sennet.custom_modules.datasets.transforms.loading import LoadMultiChannelImageAndAnnotationsFromFile
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 from torch.utils.data import Dataset, DataLoader
 import torch
 from tqdm import tqdm
@@ -35,6 +35,7 @@ class ThreeDSegmentationDataset(Dataset):
             crop_location_noise: int = 0,
 
             transforms: Optional[List] = None,
+            normalisation_kwargs: Optional[Dict] = None,
     ):
         Dataset.__init__(self)
 
@@ -67,8 +68,11 @@ class ThreeDSegmentationDataset(Dataset):
         )
 
         self.transforms = transforms
+        self.normalisation_kwargs = normalisation_kwargs
         if self.transforms is None:
             self.transforms = []
+        if self.normalisation_kwargs is not None:
+            self.transforms.append(Normalise(**self.normalisation_kwargs))
 
     def __len__(self):
         return len(self.dataset)
@@ -85,8 +89,6 @@ class ThreeDSegmentationDataset(Dataset):
             data["gt_seg_map"] = torch.from_numpy(data["gt_seg_map"]).unsqueeze(0)
 
         data["img"] = torch.from_numpy(data["img"].astype(np.float32))
-        data["img"] -= 127.0
-        data["img"] /= 60.0
         data["img"] = data["img"].unsqueeze(0)
         data["bbox"] = np.array(data["bbox"])
         return data
