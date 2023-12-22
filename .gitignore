@@ -17,3 +17,4 @@ multirun/
 *.db
 src/sennet/environments/environments.py
 debug.ipynb
+nohup.out
