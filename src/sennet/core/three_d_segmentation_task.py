@@ -22,12 +22,14 @@ class ThreeDSegmentationTask(pl.LightningModule):
             experiment_name: str,
             criterion: nn.Module,
             eval_threshold: float = 0.2,
+            compute_crude_metrics: bool = False,
     ):
         pl.LightningModule.__init__(self)
         self.model = model
         self.val_loader = val_loader
         self.val_folders = val_folders
         self.val_rle_df = []
+        self.compute_crude_metrics = compute_crude_metrics
         for f in self.val_folders:
             self.val_rle_df.append(pd.read_csv(PROCESSED_DATA_DIR / f / "rle.csv"))
         self.val_rle_df = pd.concat(self.val_rle_df, axis=0)
@@ -64,6 +66,8 @@ class ThreeDSegmentationTask(pl.LightningModule):
         return loss
 
     def validation_step(self, batch: Dict, batch_idx: int):
+        if not self.compute_crude_metrics:
+            return
         with torch.no_grad():
             self.model = self.model.eval()
             seg_pred = self.model.predict(batch["img"])

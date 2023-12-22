@@ -35,6 +35,7 @@ loss:
 task:
   kwargs:
     eval_threshold: 0.2
+    compute_crude_metrics: false
 
 train_folders:
   - kidney_1_dense
