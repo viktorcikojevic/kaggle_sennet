@@ -102,6 +102,8 @@ augmentations:
     p: 0.1
   channel_inversion:
     p: 0.1
+  clahe:
+    p: 0.5
 
 batch_transform:
   kwargs:

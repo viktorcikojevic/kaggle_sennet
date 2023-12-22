@@ -41,6 +41,9 @@ class MultiChannelAugmentation:
                     per_channel=self.augmentations["pixel_dropout"]["per_channel"], 
                     p=self.augmentations["pixel_dropout"]["p"]
                 ),
+                A.CLAHE(
+                    p=self.augmentations["clahe"]["p"]
+                ),
             ])
             
             self.channel_inversion_params = self.augmentations["channel_inversion"] if "channel_inversion" in self.augmentations else None
