@@ -40,6 +40,7 @@ task:
 
 train_folders:
   - kidney_1_dense
+  - kidney_2
 #  - kidney_3_dense
 
 val_folders:
@@ -68,7 +69,7 @@ dataset:
 
     crop_size_range: [400, 600]
 #    crop_size_range: null
-    p_crop_size_noise: 0.25
+    p_crop_size_noise: 0.0
     output_crop_size: null
     to_float32: true
     load_ann: true
