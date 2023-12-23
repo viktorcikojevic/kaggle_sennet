@@ -89,7 +89,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             crude_precision = self.total_tp / (self.total_tp + self.total_fp + 1e-6)
             crude_recall = self.total_tp / (self.total_tp + self.total_fn + 1e-6)
             crude_f1 = 2 * crude_precision * crude_recall / (crude_precision + crude_recall + 1e-6)
-            crude_val_loss = self.total_val_loss / self.val_count
+            crude_val_loss = self.total_val_loss / (self.val_count + 1e-6)
             self.total_tp = 0
             self.total_fp = 0
             self.total_fn = 0
