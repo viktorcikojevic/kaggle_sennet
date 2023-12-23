@@ -76,7 +76,7 @@ dataset:
     normalisation_kwargs:
       mean: 0.5
       std: 0.235
-      normalisation_percentile: 1
+      normalisation_percentile: null
 
 
 augmentations:
