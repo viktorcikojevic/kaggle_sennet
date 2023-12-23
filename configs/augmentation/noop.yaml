@@ -1,0 +1,10 @@
+augmenter_class: null
+augmenter_kwargs: {}
+
+
+batch_transform:
+  kwargs:
+    alpha_cutmix: 0.0
+    alpha_mixup: 0.0
+    cutmix_prob: 0.0
+    mixup_prob: 0.0
