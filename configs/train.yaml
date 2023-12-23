@@ -58,14 +58,12 @@ dataset:
     channel_end: null
     sample_with_mask: false
 
-    crop_size_range: null
+    crop_size_range: [400, 600]
     output_crop_size: null
     to_float32: true
-    channels_jitter: 0
-    p_channel_jitter: 0.0
     load_ann: true
     seg_fill_val: 0
-    crop_location_noise: 0
+    crop_location_noise: 50
 
     add_depth_along_channel: true
     add_depth_along_width: true

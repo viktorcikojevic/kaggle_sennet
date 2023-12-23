@@ -13,8 +13,6 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             crop_size_range: Optional[Tuple[int, int]],
             output_crop_size: int,
             to_float32: bool = False,
-            channels_jitter: int = 0,
-            p_channel_jitter: float = 0.0,
             load_ann: bool = True,
             seg_fill_val: int = 255,
             crop_location_noise: int = 0
@@ -24,8 +22,6 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         self.crop_size_range = crop_size_range
         self.output_crop_size = output_crop_size
         self.to_float32 = to_float32
-        self.channels_jitter = channels_jitter
-        self.p_channel_jitter = p_channel_jitter
         self.load_ann = load_ann
         self.seg_fill_val = seg_fill_val
         self.crop_location_noise = crop_location_noise
@@ -33,6 +29,7 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         self.loaded_seg_mmaps: Dict[str, MmapArray] = {}
 
     # @profile
+    @profile
     def _get_pixel_bbox(self, results: Dict) -> Tuple[int, int, int, int, int, int]:
         lc = results["bbox"][0]
         lx = results["bbox"][1]
@@ -172,8 +169,10 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         )
 
     def __repr__(self):
-        repr_str = (f"{self.__class__.__name__}("
-                    f"to_float32={self.to_float32}, "
-                    f"channels_jitter={self.channels_jitter}, "
-                    f"p_channel_jitter={self.p_channel_jitter})")
+        repr_str = (
+            f"{self.__class__.__name__}("
+            f"to_float32={self.to_float32}, "
+            f"crop_location_noise={self.crop_location_noise})"
+            f"crop_size_range={self.crop_size_range})"
+        )
         return repr_str

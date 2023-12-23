@@ -2,6 +2,7 @@ from sennet.custom_modules import *
 from sennet.environments.constants import AUG_DUMP_DIR
 from sennet.core.dataset import ThreeDSegmentationDataset
 from tqdm import tqdm
+from torch.utils.data import Subset
 from omegaconf import DictConfig
 import hydra
 
@@ -13,6 +14,7 @@ def main(cfg: DictConfig):
         substride=1.0,
         **cfg.dataset.kwargs,
     )
+    dataset = Subset(dataset, list(range(0, len(dataset), 100)))
 
     save_dir = AUG_DUMP_DIR / "train"
     save_dir.mkdir(exist_ok=True, parents=True)
