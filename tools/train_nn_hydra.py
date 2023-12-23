@@ -1,5 +1,6 @@
 from pytorch_lightning.loggers import WandbLogger
 import pytorch_lightning as pl
+from sennet.core.submission_utils import sanitise_val_dataset_kwargs
 from sennet.core.three_d_segmentation_task import ThreeDSegmentationTask
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.environments.constants import MODEL_OUT_DIR, PRETRAINED_DIR
@@ -10,7 +11,6 @@ from torch.utils.data import DataLoader, ConcatDataset
 import sennet.custom_modules.models as models
 from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
-from copy import deepcopy
 from typing import Dict
 from hydra.core.hydra_config import HydraConfig
 import hydra
@@ -60,14 +60,10 @@ def main(cfg: DictConfig):
     ])
     # TODO(Sumo): fix this so training works with multiple val sets
 
-    val_dataset_kwargs = deepcopy(dataset_kwargs)
-    val_dataset_kwargs["crop_size_range"] = None
-    val_dataset_kwargs["crop_location_noise"] = 0
+    val_dataset_kwargs = sanitise_val_dataset_kwargs(dataset_kwargs, load_ann=True)
     val_dataset = ThreeDSegmentationDataset(
         folder=cfg.val_folders[0],
         substride=cfg.dataset.val_substride,
-        augmenter_class=None,
-        augmenter_kwargs=None,
         **val_dataset_kwargs,
     )
     # val_dataset = ConcatDataset([

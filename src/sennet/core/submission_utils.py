@@ -82,13 +82,20 @@ def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[mod
     return cfg, model
 
 
-def build_data_loader(folder: str, substride: float, cfg: Dict):
-    kwargs = deepcopy(cfg["dataset"]["kwargs"])
+def sanitise_val_dataset_kwargs(kwargs, load_ann: bool = False) -> dict[str, any]:
+    kwargs = deepcopy(kwargs)
     kwargs["crop_size_range"] = None
-    kwargs["p_channel_jitter"] = 0.0
-    kwargs["load_ann"] = False
+    kwargs["load_ann"] = load_ann
     kwargs["crop_location_noise"] = 0
+    kwargs["p_crop_location_noise"] = 0
+    kwargs["p_crop_size_noise"] = 0
+    kwargs["augmenter_class"] = None
+    kwargs["augmenter_kwargs"] = None
+    return kwargs
 
+
+def build_data_loader(folder: str, substride: float, cfg: Dict):
+    kwargs = sanitise_val_dataset_kwargs(cfg["dataset"]["kwargs"], load_ann=False)
     dataset = ThreeDSegmentationDataset(
         folder,
         substride=substride,

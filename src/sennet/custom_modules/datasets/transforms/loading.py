@@ -16,7 +16,8 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             load_ann: bool = True,
             seg_fill_val: int = 255,
             crop_location_noise: int = 0,
-            random_crop: bool = False,
+            p_crop_location_noise: float = 0.0,
+            p_crop_size_noise: float = 0.0,
     ):
         if crop_size_range is not None:
             assert crop_size_range[0] <= crop_size_range[1], f"{crop_size_range=}"
@@ -26,9 +27,10 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         self.load_ann = load_ann
         self.seg_fill_val = seg_fill_val
         self.crop_location_noise = crop_location_noise
+        self.p_crop_location_noise = p_crop_location_noise
+        self.p_crop_size_noise = p_crop_size_noise
         self.loaded_image_mmaps: Dict[str, MmapArray] = {}
         self.loaded_seg_mmaps: Dict[str, MmapArray] = {}
-        self.random_crop = random_crop
 
     # @profile
     @profile
@@ -39,12 +41,20 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         uc = results["bbox"][3]
         ux = results["bbox"][4]
         uy = results["bbox"][5]
-        if self.crop_location_noise == 0:
+
+        should_randomise_crop_location = self.crop_location_noise > 0 and np.random.binomial(p=self.p_crop_location_noise, n=1) > 0.5
+        should_randomise_crop_size = self.crop_size_range is not None and np.random.binomial(p=self.p_crop_size_noise, n=1) > 0.5
+        if not (should_randomise_crop_location or should_randomise_crop_size):
             return lc, lx, ly, uc, ux, uy
 
-        mid_x_noise = np.random.randint(-self.crop_location_noise, self.crop_location_noise+1)
-        mid_y_noise = np.random.randint(-self.crop_location_noise, self.crop_location_noise+1)
-        mid_c_noise = np.random.randint(-self.crop_location_noise, self.crop_location_noise+1)
+        if should_randomise_crop_location:
+            mid_x_noise = np.random.randint(-self.crop_location_noise, self.crop_location_noise+1)
+            mid_y_noise = np.random.randint(-self.crop_location_noise, self.crop_location_noise+1)
+            mid_c_noise = np.random.randint(-self.crop_location_noise, self.crop_location_noise+1)
+        else:
+            mid_x_noise = 0
+            mid_y_noise = 0
+            mid_c_noise = 0
         mid_x = int(0.5*lx + 0.5*ux) + mid_x_noise
         mid_y = int(0.5*ly + 0.5*uy) + mid_y_noise
         mid_c = int(0.5*lc + 0.5*uc) + mid_c_noise
@@ -52,7 +62,8 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         new_crop_size_c = uc - lc
         new_crop_size_x = ux - lx
         new_crop_size_y = uy - ly
-        if self.crop_size_range is not None:
+
+        if should_randomise_crop_size:
             bbox_type = results["bbox_type"]
             if bbox_type == DEPTH_ALONG_CHANNEL:
                 new_crop_size_x = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
@@ -72,32 +83,9 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         ux = int(lx + new_crop_size_x)
         uy = int(ly + new_crop_size_y)
         return lc, lx, ly, uc, ux, uy
-
-    @profile
-    def _random_crop(self, results: Dict) -> Dict:
-        # Img and the seg map are taken from bbox. Make a random shift of the bbox to simulate the random crop.
-        lc, lx, ly, uc, ux, uy = results["bbox"]
-        width, height, depth = results["img_w"], results["img_h"], results["img_c"]
-        
-        take_channels = uc - lc
-        take_x = ux - lx
-        take_y = uy - ly
-        
-        # perform random crop
-        lx = np.random.randint(0, width - take_x)
-        ly = np.random.randint(0, height - take_y)
-        lc = np.random.randint(0, depth - take_channels)
-        ux = lx + take_x
-        uy = ly + take_y
-        uc = lc + take_channels
-        
-        results["bbox"] = [lc, lx, ly, uc, ux, uy]
-        return results
         
     @profile
     def transform(self, results: Dict) -> Optional[Dict]:
-        if self.random_crop:
-            results = self._random_crop(results)
         crop_bbox = self._get_pixel_bbox(results)
         img, seg = self._read_image_and_seg(
             results,

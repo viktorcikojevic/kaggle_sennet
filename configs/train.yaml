@@ -1,7 +1,7 @@
 defaults:
   - _self_
   - model: unet3d
-  - augmentation: multi_channel_augmentation
+  - augmentation: noop
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
@@ -73,6 +73,8 @@ dataset:
     load_ann: true
     seg_fill_val: 0
     crop_location_noise: 50
+    p_crop_location_noise: 1.0
+    p_crop_size_noise: 0.25
 
     # These three allow for rotation and flip augmentation
     add_depth_along_channel: true
