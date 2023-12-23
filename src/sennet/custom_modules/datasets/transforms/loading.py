@@ -63,17 +63,18 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         new_crop_size_x = ux - lx
         new_crop_size_y = uy - ly
 
+        new_crop_size = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
         if should_randomise_crop_size:
             bbox_type = results["bbox_type"]
             if bbox_type == DEPTH_ALONG_CHANNEL:
-                new_crop_size_x = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
-                new_crop_size_y = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
+                new_crop_size_x = new_crop_size
+                new_crop_size_y = new_crop_size
             elif bbox_type == DEPTH_ALONG_HEIGHT:
-                new_crop_size_c = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
-                new_crop_size_x = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
+                new_crop_size_c = new_crop_size
+                new_crop_size_x = new_crop_size
             elif bbox_type == DEPTH_ALONG_WIDTH:
-                new_crop_size_c = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
-                new_crop_size_y = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
+                new_crop_size_c = new_crop_size
+                new_crop_size_y = new_crop_size
             else:
                 raise RuntimeError(f"unknown {bbox_type=}")
         lc = int(np.clip(mid_c - 0.5*new_crop_size_c, 0, results["img_c"] - new_crop_size_c))

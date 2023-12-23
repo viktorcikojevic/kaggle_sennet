@@ -1,6 +1,6 @@
 predictors:
   n_chunks: 5
-  threshold: 0.5
+  threshold: 0.14400786886580752
   substride: 1.0
   models:
-    - SMP(Unet_resnet50_imagenet)-c512x1-bs32-llr-3-t111-sm0-2023-12-23-11-28-59
+    - SMP(Unet_resnet50_imagenet)-c512x1-bs32-llr-3-t111-sm0-2023-12-23-13-39-00
