@@ -46,6 +46,13 @@ val_folders:
    - kidney_3_dense
 #   - kidney_3_sparse
 
+batch_transform:
+  kwargs:
+    alpha_cutmix: 0.4
+    alpha_mixup: 0.4
+    cutmix_prob: 0.5
+    mixup_prob: 0.5
+
 dataset:
   train_substride: 0.25
   val_substride: 1.0

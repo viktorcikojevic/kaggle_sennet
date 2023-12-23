@@ -26,11 +26,3 @@ augmenter_kwargs:
   zoom_in_out: # random zoom in/out. Guess this is important. Train data resolution ~50um, private test 63um (factor of 1.26)
     scale_limit: 0.4 # If scale_limit is a single float value, the range will be (-scale_limit, scale_limit). Note that the scale_limit will be biased by 1. If scale_limit is a tuple, like (low, high), sampling will be done from the range (1 + low, 1 + high). Default: (-0.1, 0.1).
     p: 0.4
-
-batch_transform:
-  kwargs:
-    alpha_cutmix: 0.4
-    alpha_mixup: 0.4
-    cutmix_prob: 0.5
-    mixup_prob: 0.5
-

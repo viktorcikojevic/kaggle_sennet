@@ -2,7 +2,6 @@ import numpy as np
 from sennet.custom_modules.datasets.transforms.normalisation import Normalise
 from sennet.custom_modules.datasets.multi_channel_image import MultiChannelDataset
 from sennet.custom_modules.datasets.transforms.loading import LoadMultiChannelImageAndAnnotationsFromFile
-from sennet.custom_modules.datasets.transforms.multi_channel_augm import MultiChannelAugmentation
 from sennet.custom_modules.datasets import transforms as augmentations
 from typing import List, Optional, Tuple, Dict, Any
 from torch.utils.data import Dataset, DataLoader
