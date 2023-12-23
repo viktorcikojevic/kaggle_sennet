@@ -106,14 +106,11 @@ class MultiChannelAugmentation:
 
         
     def channel_inversion(self, img, mask):   
-        shape = img.shape
-        # find the axis with the smallest size
-        min_axis = np.argmin(shape)
         
         # randomly invert a min_axis
         if np.random.rand() < self.channel_inversion_params["p"]:
-            img = np.flip(img, axis=min_axis).copy()
-            mask = np.flip(mask, axis=min_axis).copy()
+            img = np.flip(img, axis=2).copy()
+            mask = np.flip(mask, axis=2).copy()
         
         return img, mask
 
