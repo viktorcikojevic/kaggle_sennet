@@ -85,7 +85,6 @@ def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[mod
 def build_data_loader(folder: str, substride: float, cfg: Dict):
     kwargs = deepcopy(cfg["dataset"]["kwargs"])
     kwargs["crop_size_range"] = None
-    kwargs["channels_jitter"] = None
     kwargs["p_channel_jitter"] = 0.0
     kwargs["load_ann"] = False
     kwargs["crop_location_noise"] = 0

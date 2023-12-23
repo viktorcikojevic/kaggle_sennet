@@ -59,8 +59,6 @@ def main(cfg: DictConfig):
 
     val_dataset_kwargs = deepcopy(dataset_kwargs)
     val_dataset_kwargs["crop_size_range"] = None
-    val_dataset_kwargs["channels_jitter"] = None
-    val_dataset_kwargs["p_channel_jitter"] = 0.0
     val_dataset_kwargs["crop_location_noise"] = 0
     val_dataset = ThreeDSegmentationDataset(
         folder=cfg.val_folders[0],
