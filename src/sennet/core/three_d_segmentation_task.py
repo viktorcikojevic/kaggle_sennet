@@ -22,6 +22,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             experiment_name: str,
             criterion: nn.Module,
             eval_threshold: float = 0.2,
+            compute_crude_metrics: bool = False,
             batch_transform: nn.Module = None,
     ):
         pl.LightningModule.__init__(self)
@@ -29,6 +30,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.val_loader = val_loader
         self.val_folders = val_folders
         self.val_rle_df = []
+        self.compute_crude_metrics = compute_crude_metrics
         for f in self.val_folders:
             self.val_rle_df.append(pd.read_csv(PROCESSED_DATA_DIR / f / "rle.csv"))
         self.val_rle_df = pd.concat(self.val_rle_df, axis=0)
@@ -68,6 +70,8 @@ class ThreeDSegmentationTask(pl.LightningModule):
         return loss
 
     def validation_step(self, batch: Dict, batch_idx: int):
+        if not self.compute_crude_metrics:
+            return
         with torch.no_grad():
             self.model = self.model.eval()
             seg_pred = self.model.predict(batch["img"])
@@ -89,7 +93,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             crude_precision = self.total_tp / (self.total_tp + self.total_fp + 1e-6)
             crude_recall = self.total_tp / (self.total_tp + self.total_fn + 1e-6)
             crude_f1 = 2 * crude_precision * crude_recall / (crude_precision + crude_recall + 1e-6)
-            crude_val_loss = self.total_val_loss / self.val_count
+            crude_val_loss = self.total_val_loss / (self.val_count + 1e-6)
             self.total_tp = 0
             self.total_fp = 0
             self.total_fn = 0

@@ -1,5 +1,5 @@
 from pathlib import Path
-from sennet.environments.environments import DATA_DUMPS_DIR, DATA_DIR
+from sennet.environments.environments import DATA_DUMPS_DIR, DATA_DIR, MODEL_OUT_DIR
 
 
 # example code for environments.py
@@ -15,10 +15,11 @@ DATA_DUMPS_DIR = Path(DATA_DUMPS_DIR)
 PROCESSED_DATA_DIR = DATA_DUMPS_DIR / "processed"
 PROCESSED_2D_DATA_DIR = DATA_DUMPS_DIR / "processed_2d"
 AUG_DUMP_DIR = DATA_DUMPS_DIR / "aug_dump"
-MODEL_OUT_DIR = DATA_DUMPS_DIR / "models"
+MODEL_OUT_DIR = Path(MODEL_OUT_DIR)
 TMP_SUB_MMAP_DIR = DATA_DUMPS_DIR / "tmp_mmaps"
 PRETRAINED_DIR = DATA_DUMPS_DIR / "pretrained_checkpoints"
 CONFIG_DIR = REPO_DIR / "configs"
+STAGING_DIR = DATA_DUMPS_DIR / "staging"
 
 
 if __name__ == "__main__":

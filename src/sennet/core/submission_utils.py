@@ -74,7 +74,11 @@ def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[mod
     state_dict = ckpt["state_dict"]
     torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict, prefix="model.")
     if "pretrained" in cfg["model"]["kwargs"]:
+        print(f"model kwargs contains pretrained, replacing it with None")
         cfg["model"]["kwargs"]["pretrained"] = None
+    if "encoder_weights" in cfg["model"]["kwargs"]:
+        print(f"model kwargs contains encoder_weights, replacing it with None")
+        cfg["model"]["kwargs"]["encoder_weights"] = None
     model = model_class(**cfg["model"]["kwargs"])
     load_status = model.load_state_dict(state_dict)
     print(load_status)
@@ -82,14 +86,21 @@ def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[mod
     return cfg, model
 
 
-def build_data_loader(folder: str, substride: float, cfg: Dict):
-    kwargs = deepcopy(cfg["dataset"]["kwargs"])
+def sanitise_val_dataset_kwargs(kwargs, load_ann: bool = False) -> dict[str, any]:
+    kwargs = deepcopy(kwargs)
     kwargs["crop_size_range"] = None
-    kwargs["channels_jitter"] = None
-    kwargs["p_channel_jitter"] = 0.0
-    kwargs["load_ann"] = False
+    kwargs["load_ann"] = load_ann
+    kwargs["assert_label_exists"] = load_ann
     kwargs["crop_location_noise"] = 0
+    kwargs["p_crop_location_noise"] = 0
+    kwargs["p_crop_size_noise"] = 0
+    kwargs["augmenter_class"] = None
+    kwargs["augmenter_kwargs"] = None
+    return kwargs
 
+
+def build_data_loader(folder: str, substride: float, cfg: Dict):
+    kwargs = sanitise_val_dataset_kwargs(cfg["dataset"]["kwargs"], load_ann=False)
     dataset = ThreeDSegmentationDataset(
         folder,
         substride=substride,

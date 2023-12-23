@@ -25,16 +25,15 @@ class ThreeDSegmentationDataset(Dataset):
             add_depth_along_channel: bool = True,
             add_depth_along_width: bool = False,
             add_depth_along_height: bool = False,
-            random_crop: bool = False,
 
             crop_size_range: Optional[Tuple[int, int]] = None,
             output_crop_size: Optional[int] = None,
             to_float32: bool = False,
-            channels_jitter: int = 0,
-            p_channel_jitter: float = 0.0,
             load_ann: bool = True,
             seg_fill_val: int = 255,
             crop_location_noise: int = 0,
+            p_crop_location_noise: float = 0.0,
+            p_crop_size_noise: float = 0.0,
 
             augmenter_class: Optional[str] = None,
             augmenter_kwargs: Optional[Dict[str, Any]] = None,
@@ -65,12 +64,11 @@ class ThreeDSegmentationDataset(Dataset):
             crop_size_range=crop_size_range,
             output_crop_size=output_crop_size,
             to_float32=to_float32,
-            channels_jitter=channels_jitter,
-            p_channel_jitter=p_channel_jitter,
             load_ann=load_ann,
             seg_fill_val=seg_fill_val,
             crop_location_noise=crop_location_noise,
-            random_crop=random_crop,
+            p_crop_location_noise=p_crop_location_noise,
+            p_crop_size_noise=p_crop_size_noise,
         )
 
         self.augmenter_class = augmenter_class
@@ -97,7 +95,11 @@ class ThreeDSegmentationDataset(Dataset):
         data = self.dataset[i]
         data = self.loader.transform(data)
         for t in self.transforms:
-            data = t.transform(data)
+            try:
+                data = t.transform(data)
+            except Exception as e:
+                print(f"can't run {t}: {repr(e)}")
+                raise
 
         # unsqueeze(0) are there to create a channel dimension
         if "gt_seg_map" in data:
@@ -116,6 +118,8 @@ if __name__ == "__main__":
         # "kidney_3_dense",
         512,
         12,
+        crop_location_noise=100,
+        crop_size_range=(400, 600),
         output_crop_size=512,
         substride=1.0,
         load_ann=True,

@@ -1,7 +1,7 @@
 defaults:
   - _self_
   - model: unet3d
-  - augmentation: multi_channel_augmentation
+  - augmentation: noop
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
@@ -36,6 +36,7 @@ loss:
 task:
   kwargs:
     eval_threshold: 0.2
+    compute_crude_metrics: false
 
 train_folders:
   - kidney_1_dense
@@ -50,29 +51,30 @@ batch_transform:
   kwargs:
     alpha_cutmix: 0.4
     alpha_mixup: 0.4
-    cutmix_prob: 0.5
-    mixup_prob: 0.5
+    cutmix_prob: 0.0
+    mixup_prob: 0.0
 
 dataset:
   train_substride: 0.25
   val_substride: 1.0
   kwargs:
-    crop_size: 128
-    n_take_channels: 16
+    crop_size: 512
+    n_take_channels: 1
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
     channel_end: null
     sample_with_mask: false
 
-    crop_size_range: null
+    crop_size_range: [400, 600]
+#    crop_size_range: null
+    p_crop_size_noise: 0.25
     output_crop_size: null
     to_float32: true
-    channels_jitter: 0
-    p_channel_jitter: 0.0
     load_ann: true
     seg_fill_val: 0
-    crop_location_noise: 0
+    crop_location_noise: 50
+    p_crop_location_noise: 1.0
 
     # These three allow for rotation and flip augmentation
     add_depth_along_channel: true
