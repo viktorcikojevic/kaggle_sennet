@@ -25,8 +25,6 @@ class ThreeDSegmentationDataset(Dataset):
             add_depth_along_channel: bool = True,
             add_depth_along_width: bool = False,
             add_depth_along_height: bool = False,
-            random_crop: bool = False,
-            random_3d_rotate: bool = False,
 
             crop_size_range: Optional[Tuple[int, int]] = None,
             output_crop_size: Optional[int] = None,
@@ -69,10 +67,9 @@ class ThreeDSegmentationDataset(Dataset):
             load_ann=load_ann,
             seg_fill_val=seg_fill_val,
             crop_location_noise=crop_location_noise,
-            random_crop=random_crop,
+            random_crop=augmentations["random_crop"] if augmentations is not None else False,
         )
         self.augmenter_3d = MultiChannelAugmentation(
-            random_3d_rotate=random_3d_rotate,
             augmentations=augmentations
         )
 

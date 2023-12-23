@@ -78,10 +78,10 @@ dataset:
       std: 0.235
       normalisation_percentile: 1
 
-    random_crop: true # random_crop augmentation
-    random_3d_rotate: true # random_3d_rotate augmentation
 
 augmentations:
+  random_crop: true # random_crop augmentation
+  random_3d_rotate: true # random_3d_rotate augmentation
   random_brightness_contrast:
     p: 0.5
     brightness_limit: 0.2
@@ -102,8 +102,6 @@ augmentations:
     p: 0.1
   channel_inversion:
     p: 0.1
-  clahe:
-    p: 0.5
 
 batch_transform:
   kwargs:

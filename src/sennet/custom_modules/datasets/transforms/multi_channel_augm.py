@@ -5,12 +5,11 @@ import numpy as np
 class MultiChannelAugmentation:
     
     def __init__(self,
-                 random_3d_rotate: bool = False,
                  augmentations: any = None,
                  ) -> None:
         
         self.augmentations = augmentations
-        self.random_3d_rotate = random_3d_rotate
+        self.random_3d_rotate = augmentations["random_3d_rotate"] if augmentations is not None else False
         self.random_3d_rotate_transform = A.Compose([
             A.Rotate(limit=90, p=0.5),
             A.VerticalFlip(p=0.5),
@@ -40,11 +39,9 @@ class MultiChannelAugmentation:
                 A.PixelDropout(
                     per_channel=self.augmentations["pixel_dropout"]["per_channel"], 
                     p=self.augmentations["pixel_dropout"]["p"]
-                ),
-                A.CLAHE(
-                    p=self.augmentations["clahe"]["p"]
-                ),
+                )
             ])
+            
             
             self.channel_inversion_params = self.augmentations["channel_inversion"] if "channel_inversion" in self.augmentations else None
             
@@ -55,18 +52,26 @@ class MultiChannelAugmentation:
         img = data["img"]
         gt_seg_map = data["gt_seg_map"]
         
+        # Get them to (h, w, c)
+        img = np.transpose(img, (1, 2, 0))
+        gt_seg_map = np.transpose(gt_seg_map, (1, 2, 0))
+        
         if self.random_3d_rotate:
             
             out = self.random_3d_rotate_transform(image=img, mask=gt_seg_map)
             img_augmented, gt_seg_map_augmented = out["image"], out["mask"]
             # flip x and y axes and do it again
-            img_augmented = np.transpose(img_augmented, (1, 0, 2))
-            gt_seg_map_augmented = np.transpose(gt_seg_map_augmented, (1, 0, 2))
+            img_augmented = np.transpose(img_augmented, (0, 2, 1))
+            gt_seg_map_augmented = np.transpose(gt_seg_map_augmented, (0, 2, 1))
             out = self.random_3d_rotate_transform(image=img_augmented, mask=gt_seg_map_augmented)
             img_augmented, gt_seg_map_augmented = out["image"], out["mask"]
+            # get back to (h, w, c)
+            img_augmented = np.transpose(img_augmented, (0, 2, 1))
+            gt_seg_map_augmented = np.transpose(gt_seg_map_augmented, (0, 2, 1))
         
             img = img_augmented
             gt_seg_map = gt_seg_map_augmented
+            
         
         if self.augmentations is not None:
             # apply augmentations
@@ -77,12 +82,18 @@ class MultiChannelAugmentation:
             if self.channel_inversion_params is not None:
                 img, gt_seg_map = self.channel_inversion(img, gt_seg_map)
 
+            
+            
+        # Get images back to (c, h, w)
+        img = np.transpose(img, (2, 0, 1))
+        gt_seg_map = np.transpose(gt_seg_map, (2, 0, 1))
+        
         
         data["img"] = img
         data["gt_seg_map"] = gt_seg_map
         
         return data
-            
+
         
     def channel_inversion(self, img, mask):   
         shape = img.shape
@@ -97,23 +108,4 @@ class MultiChannelAugmentation:
         return img, mask
 
         
-    def per_channel_normalization(self, data):
-        
-        img = data["img"]
-        
-        shape = img.shape
-        # find the axis with the smallest size
-        min_axis = np.argmin(shape)
-        
-        axes = [0, 1, 2]
-        # remove the axis with the smallest size
-        axes.remove(min_axis)
-        
-        img_mean_per_channel = np.mean(img, axis=tuple(axes), keepdims=True)
-        img_std_per_channel = np.std(img, axis=tuple(axes), keepdims=True)
-        
-        img = (img - img_mean_per_channel) / (img_std_per_channel + 1e-8)
-        
-        data["img"] = img
-        
-        return data
+    
