@@ -39,6 +39,13 @@ class MultiChannelAugmentation:
                 A.PixelDropout(
                     per_channel=self.augmentations["pixel_dropout"]["per_channel"], 
                     p=self.augmentations["pixel_dropout"]["p"]
+                ),
+                A.ShiftScaleRotate(
+                    shift_limit=(0,0),
+                    scale_limit=augmentations["zoom_in_out"]["scale_limit"],
+                    # scale_limit=tuple(augmentations["zoom_in_out"]["scale_limit"]),
+                    rotate_limit=(0,0),
+                    p=augmentations["zoom_in_out"]["p"]
                 )
             ])
             
@@ -48,6 +55,9 @@ class MultiChannelAugmentation:
         
         
     def transform(self, data):
+        
+        if self.augmentations is None or self.augmentations["p_any_augm"] < np.random.rand():
+            return data
         
         img = data["img"]
         gt_seg_map = data["gt_seg_map"]
