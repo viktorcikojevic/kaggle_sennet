@@ -1,17 +1,18 @@
 defaults:
   - _self_
   - model: unet3d
+  - augmentation: multi_channel_augmentation
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
 val_check_interval: 5000
-batch_size: 32
-apparent_batch_size: 2
+batch_size: 32 # final batch size.
+apparent_batch_size: 2 # batch size during training
 num_workers: 16
 dry_logger: false
 exp_name: three_d_seg
 group_name: null # maybe this would be useful for grouping experiments when we do hyperparameter search
-patience: 5
+patience: 5 # stops if (val_check_interval * patience) steps have passed without improvement in the metric
 max_epochs: 100
 
 optimiser:
@@ -45,11 +46,18 @@ val_folders:
    - kidney_3_dense
 #   - kidney_3_sparse
 
+batch_transform:
+  kwargs:
+    alpha_cutmix: 0.4
+    alpha_mixup: 0.4
+    cutmix_prob: 0.5
+    mixup_prob: 0.5
+
 dataset:
   train_substride: 0.25
   val_substride: 1.0
   kwargs:
-    crop_size: 512
+    crop_size: 128
     n_take_channels: 16
     reduce_zero_label: False
     assert_label_exists: True
@@ -66,6 +74,7 @@ dataset:
     seg_fill_val: 0
     crop_location_noise: 0
 
+    # These three allow for rotation and flip augmentation
     add_depth_along_channel: true
     add_depth_along_width: true
     add_depth_along_height: true
