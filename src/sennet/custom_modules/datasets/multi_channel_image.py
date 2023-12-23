@@ -86,8 +86,7 @@ class MultiChannelDataset:
             sample_with_mask: bool = False,
             add_depth_along_channel: bool = True,
             add_depth_along_width: bool = False,
-            add_depth_along_height: bool = False,
-            random_crop: bool = False,
+            add_depth_along_height: bool = False
     ) -> None:
         self.folder = PROCESSED_DATA_DIR / folder
         print(f"reading from the following folder: {self.folder}")
@@ -103,7 +102,6 @@ class MultiChannelDataset:
         self.add_depth_along_channel = add_depth_along_channel
         self.add_depth_along_width = add_depth_along_width
         self.add_depth_along_height = add_depth_along_height
-        self.random_crop = random_crop
         self._load_data_list()
 
     def __len__(self):
