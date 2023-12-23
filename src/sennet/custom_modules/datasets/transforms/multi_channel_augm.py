@@ -68,7 +68,7 @@ class MultiChannelAugmentation:
             
     def transform(self, data):
         
-        if self.p_any_augm < np.random.rand():
+        if self.p_any_augm > np.random.rand():
             return data
         
         img = data["img"]
