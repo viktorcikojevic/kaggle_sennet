@@ -17,8 +17,8 @@ class Normalise:
     def transform(self, results: Dict) -> Optional[Dict]:
         if self.normalisation_percentile:
             img = results["img"]
-            pct_lb = np.percentile(img.flatten(), self.normalisation_percentile)
-            pct_ub = np.percentile(img.flatten(), 100 - self.normalisation_percentile)
+            pct_lb = results[f"percentile_{self.normalisation_percentile}"]
+            pct_ub = results[f"percentile_{100 - self.normalisation_percentile}"]
             results["img"] = (results["img"] - pct_lb) / (pct_ub - pct_lb + 1e-6)
         else:
             results["img"] = results["img"] / 255.0
