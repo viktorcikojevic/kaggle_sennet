@@ -23,6 +23,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             criterion: nn.Module,
             eval_threshold: float = 0.2,
             compute_crude_metrics: bool = False,
+            batch_transform: nn.Module = None,
     ):
         pl.LightningModule.__init__(self)
         self.model = model
@@ -38,6 +39,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.experiment_name = experiment_name
         self.eval_threshold = eval_threshold
         self.best_surface_dice = 0.0
+        self.batch_transform = batch_transform
 
         self.total_tp = 0
         self.total_fp = 0
@@ -46,6 +48,8 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.val_count = 0
 
     def training_step(self, batch: Dict, batch_idx: int):
+        if self.batch_transform is not None:
+            batch = self.batch_transform(batch)
         self.model = self.model.train()
         seg_pred = self.model.predict(batch["img"])
         preds = seg_pred.pred

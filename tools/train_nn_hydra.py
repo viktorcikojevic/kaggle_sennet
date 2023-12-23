@@ -4,6 +4,7 @@ from sennet.core.three_d_segmentation_task import ThreeDSegmentationTask
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.environments.constants import MODEL_OUT_DIR, PRETRAINED_DIR
 from sennet.custom_modules.losses.loss import CombinedLoss
+from sennet.custom_modules.datasets.transforms.batch_transforms import BatchTransform
 from sennet.custom_modules.models.base_model import Base3DSegmentor
 from torch.utils.data import DataLoader, ConcatDataset
 import sennet.custom_modules.models as models
@@ -47,11 +48,13 @@ def main(cfg: DictConfig):
     print(f"{model_out_dir = }")
 
     dataset_kwargs = cfg_dict["dataset"]["kwargs"]
+    augmentation_kwargs = cfg_dict["augmentation"]
     train_dataset = ConcatDataset([
         ThreeDSegmentationDataset(
             folder=folder,
             substride=cfg.dataset.train_substride,
             **dataset_kwargs,
+            **augmentation_kwargs,
         )
         for folder in cfg.train_folders
     ])
@@ -63,6 +66,8 @@ def main(cfg: DictConfig):
     val_dataset = ThreeDSegmentationDataset(
         folder=cfg.val_folders[0],
         substride=cfg.dataset.val_substride,
+        augmenter_class=None,
+        augmenter_kwargs=None,
         **val_dataset_kwargs,
     )
     # val_dataset = ConcatDataset([
@@ -94,6 +99,9 @@ def main(cfg: DictConfig):
 
     criterion = CombinedLoss(cfg_dict)
 
+    # create batch transforms
+    batch_transform = BatchTransform(**cfg_dict["batch_transform"]["kwargs"]) if "batch_transform" in cfg_dict else None
+    
     task = ThreeDSegmentationTask(
         model,
         val_loader=val_loader,
@@ -101,6 +109,7 @@ def main(cfg: DictConfig):
         optimiser_spec=cfg_dict["optimiser"],
         experiment_name=experiment_name,
         criterion=criterion,
+        batch_transform=batch_transform,
         **cfg_dict["task"]["kwargs"],
     )
     if cfg.dry_logger:

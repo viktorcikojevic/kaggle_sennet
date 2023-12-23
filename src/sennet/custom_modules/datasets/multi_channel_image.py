@@ -40,11 +40,7 @@ def generate_crop_bboxes(
                 lc = uc - c_take_range
                 ly = uy - y_take_range
                 lx = ux - x_take_range
-                if lc < 0:
-                    continue
-                if ly < 0:
-                    continue
-                if lx < 0:
+                if lc < 0 or ly < 0 or lx < 0:
                     continue
                 box = [lc, lx, ly, uc, ux, uy]
                 if (mask is not None) and (not np.any(mask[lc:uc, ly:uy, lx:ux])):
@@ -90,7 +86,7 @@ class MultiChannelDataset:
             sample_with_mask: bool = False,
             add_depth_along_channel: bool = True,
             add_depth_along_width: bool = False,
-            add_depth_along_height: bool = False,
+            add_depth_along_height: bool = False
     ) -> None:
         self.folder = PROCESSED_DATA_DIR / folder
         print(f"reading from the following folder: {self.folder}")
@@ -165,7 +161,7 @@ class MultiChannelDataset:
                 substride=self.substride,
                 shape=(mask.shape[0], mask.shape[1], mask.shape[2]),
                 mask=mask.data if self.sample_with_mask else None,
-                depth_mode=bbox_type,
+                depth_mode=bbox_type
             )
             new_bbox_types = np.full(len(new_bboxes), bbox_type)
             print(f"adding depth along {msg}: {new_bboxes.shape[0]}")

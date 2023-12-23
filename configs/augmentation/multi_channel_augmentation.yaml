@@ -1,0 +1,28 @@
+augmenter_class: "MultiChannelAugmentation"
+augmenter_kwargs:
+  p_any_augm: 0.5
+  random_crop: true # random_crop augmentation
+  random_3d_rotate: true # random_3d_rotate augmentation
+  random_brightness_contrast:
+    p: 0.5
+    brightness_limit: 0.2
+    contrast_limit: 0.2
+  affine:
+    scale: [0.8, 1.2]
+    translate_percent: [0.1, 0.1]
+    p: 0.25
+  channel_dropout:
+    channel_drop_range: [1, 4]
+    p: 0.2
+  one_of:
+    gaussian_blur: {}
+    motion_blur: {}
+    p: 0.1
+  pixel_dropout:
+    per_channel: true
+    p: 0.1
+  channel_inversion:
+    p: 0.1
+  zoom_in_out: # random zoom in/out. Guess this is important. Train data resolution ~50um, private test 63um (factor of 1.26)
+    scale_limit: 0.4 # If scale_limit is a single float value, the range will be (-scale_limit, scale_limit). Note that the scale_limit will be biased by 1. If scale_limit is a tuple, like (low, high), sampling will be done from the range (1 + low, 1 + high). Default: (-0.1, 0.1).
+    p: 0.4

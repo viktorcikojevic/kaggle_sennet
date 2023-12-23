@@ -1,6 +1,6 @@
 from typing import Optional, Dict
 from line_profiler_pycharm import profile
-
+import numpy as np
 
 class Normalise:
     def __init__(
@@ -16,11 +16,12 @@ class Normalise:
     @profile
     def transform(self, results: Dict) -> Optional[Dict]:
         if self.normalisation_percentile:
+            img = results["img"]
             pct_lb = results[f"percentile_{self.normalisation_percentile}"]
             pct_ub = results[f"percentile_{100 - self.normalisation_percentile}"]
             results["img"] = (results["img"] - pct_lb) / (pct_ub - pct_lb + 1e-6)
         else:
-            results["img"] /= 255.0
+            results["img"] = results["img"] / 255.0
         results["img"] -= self.mean
         results["img"] /= self.std
         return results
