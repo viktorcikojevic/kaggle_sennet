@@ -95,7 +95,11 @@ class ThreeDSegmentationDataset(Dataset):
         data = self.dataset[i]
         data = self.loader.transform(data)
         for t in self.transforms:
-            data = t.transform(data)
+            try:
+                data = t.transform(data)
+            except Exception as e:
+                print(f"can't run {t}: {repr(e)}")
+                raise
 
         # unsqueeze(0) are there to create a channel dimension
         if "gt_seg_map" in data:

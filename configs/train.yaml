@@ -51,8 +51,8 @@ batch_transform:
   kwargs:
     alpha_cutmix: 0.4
     alpha_mixup: 0.4
-    cutmix_prob: 0.5
-    mixup_prob: 0.5
+    cutmix_prob: 0.0
+    mixup_prob: 0.0
 
 dataset:
   train_substride: 0.25
@@ -68,13 +68,13 @@ dataset:
 
 #    crop_size_range: [400, 600]
     crop_size_range: null
+    p_crop_size_noise: 0.0
     output_crop_size: null
     to_float32: true
     load_ann: true
     seg_fill_val: 0
     crop_location_noise: 50
     p_crop_location_noise: 1.0
-    p_crop_size_noise: 0.25
 
     # These three allow for rotation and flip augmentation
     add_depth_along_channel: true
