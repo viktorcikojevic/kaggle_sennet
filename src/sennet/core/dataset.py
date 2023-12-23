@@ -2,8 +2,8 @@ import numpy as np
 from sennet.custom_modules.datasets.transforms.normalisation import Normalise
 from sennet.custom_modules.datasets.multi_channel_image import MultiChannelDataset
 from sennet.custom_modules.datasets.transforms.loading import LoadMultiChannelImageAndAnnotationsFromFile
-from sennet.custom_modules.datasets.transforms.multi_channel_augm import MultiChannelAugmentation
-from typing import List, Optional, Tuple, Dict
+from sennet.custom_modules.datasets import transforms as augmentations
+from typing import List, Optional, Tuple, Dict, Any
 from torch.utils.data import Dataset, DataLoader
 import torch
 from tqdm import tqdm
@@ -25,6 +25,7 @@ class ThreeDSegmentationDataset(Dataset):
             add_depth_along_channel: bool = True,
             add_depth_along_width: bool = False,
             add_depth_along_height: bool = False,
+            random_crop: bool = False,
 
             crop_size_range: Optional[Tuple[int, int]] = None,
             output_crop_size: Optional[int] = None,
@@ -34,7 +35,9 @@ class ThreeDSegmentationDataset(Dataset):
             load_ann: bool = True,
             seg_fill_val: int = 255,
             crop_location_noise: int = 0,
-            augmentations: any = None,
+
+            augmenter_class: Optional[str] = None,
+            augmenter_kwargs: Optional[Dict[str, Any]] = None,
 
             transforms: Optional[List] = None,
             normalisation_kwargs: Optional[Dict] = None,
@@ -67,16 +70,22 @@ class ThreeDSegmentationDataset(Dataset):
             load_ann=load_ann,
             seg_fill_val=seg_fill_val,
             crop_location_noise=crop_location_noise,
-            random_crop=augmentations["random_crop"] if augmentations is not None else False,
+            random_crop=random_crop,
         )
-        self.augmenter_3d = MultiChannelAugmentation(
-            augmentations=augmentations
-        )
+
+        self.augmenter_class = augmenter_class
+        if self.augmenter_class is not None:
+            augmenter_constructor = getattr(augmentations, self.augmenter_class)
+            self.augmenter = augmenter_constructor(**augmenter_kwargs)
+        else:
+            self.augmenter = None
 
         self.transforms = transforms
         self.normalisation_kwargs = normalisation_kwargs
         if self.transforms is None:
             self.transforms = []
+        if self.augmenter is not None:
+            self.transforms.append(self.augmenter)
         if self.normalisation_kwargs is not None:
             self.transforms.append(Normalise(**self.normalisation_kwargs))
 
@@ -87,7 +96,6 @@ class ThreeDSegmentationDataset(Dataset):
     def __getitem__(self, i: int):
         data = self.dataset[i]
         data = self.loader.transform(data)
-        data = self.augmenter_3d.transform(data)
         for t in self.transforms:
             data = t.transform(data)
 
