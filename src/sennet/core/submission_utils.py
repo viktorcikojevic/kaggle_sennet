@@ -7,6 +7,8 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 from torch.utils.data import DataLoader
+from torcheval.metrics import BinaryAUROC, BinaryF1Score
+import dataclasses
 import yaml
 import torch
 from copy import deepcopy
@@ -36,31 +38,45 @@ def generate_submission_df_from_one_chunked_inference(
     return df
 
 
+@dataclasses.dataclass
+class ChunkedMetrics:
+    f1_score: float
+    binary_au_roc: float
+
+
 def evaluate_chunked_inference(
         root_dir: Union[str, Path],
         label_dir: Union[str, Path],
-) -> float:
-    root_dir = Path(root_dir)
-    label_dir = Path(label_dir)
-    total_tp = 0
-    total_fp = 0
-    total_fn = 0
-    count = 0
-    i = 0
-    chunk_dirs = sorted(list(root_dir.glob("chunk*")))
-    label = read_mmap_array(label_dir / "label", mode="r")
-    for d in tqdm(chunk_dirs, position=0):
-        pred = read_mmap_array(d / "thresholded_prob", mode="r")
-        for c in tqdm(range(pred.shape[0]), position=1, leave=False):
-            total_tp += (pred.data[c, :, :] & label.data[i, :, :]).sum()
-            total_fp += (pred.data[c, :, :] & ~label.data[i, :, :]).sum()
-            total_fn += (~pred.data[c, :, :] & label.data[i, :, :]).sum()
-            count += (pred.data[c, :, :].shape[0] * pred.data[c, :, :].shape[1])
-            i += 1
-    precision = total_tp / (total_tp + total_fp + 1e-6)
-    recall = total_tp / (total_tp + total_fn + 1e-6)
-    f1_score = 2 * (precision * recall) / (precision + recall + 1e-6)
-    return f1_score
+        device: str = "cuda",
+) -> ChunkedMetrics:
+    with torch.no_grad():
+        f1_metric = BinaryF1Score()
+        au_roc_metric = BinaryAUROC()
+
+        root_dir = Path(root_dir)
+        label_dir = Path(label_dir)
+
+        i = 0
+        chunk_dirs = sorted(list(root_dir.glob("chunk*")))
+        label = read_mmap_array(label_dir / "label", mode="r")
+        for d in tqdm(chunk_dirs, position=0):
+            mean_prob = read_mmap_array(d / "mean_prob", mode="r")
+            pred = read_mmap_array(d / "thresholded_prob", mode="r")
+            for c in tqdm(range(pred.shape[0]), position=1, leave=False):
+                pred_tensor = torch.from_numpy(pred.data[c, :, :].copy()).reshape(-1).to(device)
+                mean_prob_tensor = torch.from_numpy(mean_prob.data[c, :, :].copy()).reshape(-1).to(device)
+                target_tensor = torch.from_numpy(label.data[i, :, :].copy()).reshape(-1).to(device)
+
+                f1_metric.update(pred_tensor, target_tensor)
+                au_roc_metric.update(mean_prob_tensor[::10], target_tensor[::10])
+
+                i += 1
+        f1_score = float(f1_metric.compute().cpu().item())
+        au_roc_score = float(au_roc_metric.compute().cpu().item())
+        return ChunkedMetrics(
+            f1_score=f1_score,
+            binary_au_roc=au_roc_score,
+        )
 
 
 def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[models.Base3DSegmentor]]:

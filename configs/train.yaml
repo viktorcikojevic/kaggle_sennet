@@ -23,8 +23,8 @@ optimiser:
     lr: null
 
 loss:
-  - type: BCELoss
-    weight: 1.0
+#  - type: BCELoss
+#    weight: 1.0
 #  - type: DiceLoss
 #    weight: 1.0
 #    kwargs:

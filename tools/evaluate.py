@@ -4,9 +4,10 @@ import pandas as pd
 
 
 def main():
-    # df = pd.read_csv("/home/clay/research/kaggle/sennet/data_dumps/predicted/kidney_1_dense/submission.csv")
-    df = pd.read_csv("/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_dense/submission.csv")
-    # df = pd.read_csv("/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_3_dense/submission.csv")
+    # path = "/home/clay/research/kaggle/sennet/data_dumps/predicted/kidney_1_dense/submission.csv"
+    path = "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_dense/submission.csv"
+    print(f"{path = }")
+    df = pd.read_csv(path)
     label = pd.read_csv(DATA_DIR / "train_rles.csv")
     # label = pd.read_csv("/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_1_dense/rle.csv")
     filtered_label = label.loc[label["id"].isin(df["id"])].copy().sort_values("id").reset_index()

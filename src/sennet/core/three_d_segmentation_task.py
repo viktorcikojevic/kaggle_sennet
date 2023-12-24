@@ -1,5 +1,5 @@
 import pandas as pd
-from sennet.core.submission_utils import evaluate_chunked_inference
+from sennet.core.submission_utils import evaluate_chunked_inference, ChunkedMetrics
 from sennet.core.submission import generate_submission_df, ParallelizationSettings
 from sennet.core.utils import resize_3d_image
 from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score
@@ -123,12 +123,13 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 submit=sub.submission_df,
                 label=filtered_label,
             )
-            f1_score = evaluate_chunked_inference(
+            metrics: ChunkedMetrics = evaluate_chunked_inference(
                 root_dir=out_dir,
                 label_dir=PROCESSED_DATA_DIR / self.val_folders[0]  # TODO(Sumo): adjust this so we can eval more folders
             )
             print("--------------------------------")
-            print(f"{f1_score = }")
+            print(f"f1_score = {metrics.f1_score}")
+            print(f"binary_au_roc = {metrics.binary_au_roc}")
             print(f"{surface_dice_score = }")
             print(f"{crude_f1 = }")
             print(f"{crude_val_loss = }")
@@ -136,7 +137,8 @@ class ThreeDSegmentationTask(pl.LightningModule):
             if surface_dice_score > self.best_surface_dice:
                 self.best_surface_dice = surface_dice_score
             self.log_dict({
-                "f1_score": f1_score,
+                "f1_score": metrics.f1_score,
+                "binary_au_roc": metrics.binary_au_roc,
                 "surface_dice": surface_dice_score,
                 "crude_f1": crude_f1,
                 "crude_val_loss": crude_val_loss,
