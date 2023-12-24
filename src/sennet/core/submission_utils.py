@@ -1,4 +1,5 @@
 import sennet.custom_modules.models as models
+from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score_from_mmap
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.core.mmap_arrays import read_mmap_array
 from sennet.core.rles import rle_encode
@@ -41,41 +42,56 @@ def generate_submission_df_from_one_chunked_inference(
 @dataclasses.dataclass
 class ChunkedMetrics:
     f1_score: float
-    binary_au_roc: float
+    # binary_au_roc: float
+    surface_dices: list[float]
 
 
 def evaluate_chunked_inference(
         root_dir: Union[str, Path],
         label_dir: Union[str, Path],
+        thresholds: list[float] = (0.2,),
         device: str = "cuda",
 ) -> ChunkedMetrics:
     with torch.no_grad():
-        f1_metric = BinaryF1Score()
-        au_roc_metric = BinaryAUROC()
-
         root_dir = Path(root_dir)
         label_dir = Path(label_dir)
 
-        i = 0
         chunk_dirs = sorted(list(root_dir.glob("chunk*")))
         label = read_mmap_array(label_dir / "label", mode="r")
+
+        surface_dices = []
+        for t in tqdm(thresholds, desc="dice"):
+            dice = compute_surface_dice_score_from_mmap(
+                mean_prob_chunks=[
+                    read_mmap_array(d / "mean_prob", mode="r").data
+                    for d in chunk_dirs
+                ],
+                label=label.data,
+                threshold=t,
+            )
+            surface_dices.append(dice)
+
+        f1_metric = BinaryF1Score()
+        # au_roc_metric = BinaryAUROC()
+
+        i = 0
         for d in tqdm(chunk_dirs, position=0):
-            mean_prob = read_mmap_array(d / "mean_prob", mode="r")
             pred = read_mmap_array(d / "thresholded_prob", mode="r")
             for c in tqdm(range(pred.shape[0]), position=1, leave=False):
                 pred_tensor = torch.from_numpy(pred.data[c, :, :].copy()).reshape(-1).to(device)
-                mean_prob_tensor = torch.from_numpy(mean_prob.data[c, :, :].copy()).reshape(-1).to(device)
+                # mean_prob_tensor = torch.from_numpy(mean_prob.data[c, :, :].copy()).reshape(-1).to(device)
                 target_tensor = torch.from_numpy(label.data[i, :, :].copy()).reshape(-1).to(device)
 
                 f1_metric.update(pred_tensor, target_tensor)
-                au_roc_metric.update(mean_prob_tensor[::10], target_tensor[::10])
+                # au_roc_metric.update(mean_prob_tensor[::10], target_tensor[::10])
 
                 i += 1
         f1_score = float(f1_metric.compute().cpu().item())
-        au_roc_score = float(au_roc_metric.compute().cpu().item())
+        # au_roc_score = float(au_roc_metric.compute().cpu().item())
         return ChunkedMetrics(
             f1_score=f1_score,
-            binary_au_roc=au_roc_score,
+            # binary_au_roc=au_roc_score,
+            surface_dices=surface_dices,
         )
 
 

@@ -34,6 +34,7 @@ class ThreeDSegmentationDataset(Dataset):
             crop_location_noise: int = 0,
             p_crop_location_noise: float = 0.0,
             p_crop_size_noise: float = 0.0,
+            p_crop_size_keep_ar: float = 0.0,
 
             augmenter_class: Optional[str] = None,
             augmenter_kwargs: Optional[Dict[str, Any]] = None,
@@ -69,6 +70,7 @@ class ThreeDSegmentationDataset(Dataset):
             crop_location_noise=crop_location_noise,
             p_crop_location_noise=p_crop_location_noise,
             p_crop_size_noise=p_crop_size_noise,
+            p_crop_size_keep_ar=p_crop_size_keep_ar,
         )
 
         self.augmenter_class = augmenter_class

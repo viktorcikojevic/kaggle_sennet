@@ -2,7 +2,6 @@ import pandas as pd
 from sennet.core.submission_utils import evaluate_chunked_inference, ChunkedMetrics
 from sennet.core.submission import generate_submission_df, ParallelizationSettings
 from sennet.core.utils import resize_3d_image
-from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score
 from sennet.environments.constants import PROCESSED_DATA_DIR, TMP_SUB_MMAP_DIR
 from sennet.custom_modules.models import Base3DSegmentor
 import pytorch_lightning as pl
@@ -10,6 +9,7 @@ from typing import Dict, Any, List
 from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.optim
+import json
 
 
 class ThreeDSegmentationTask(pl.LightningModule):
@@ -119,18 +119,22 @@ class ThreeDSegmentationTask(pl.LightningModule):
             filtered_label = self.val_rle_df.loc[self.val_rle_df["id"].isin(sub_df["id"])].copy().sort_values("id").reset_index()
             filtered_label["width"] = sub_df["width"]
             filtered_label["height"] = sub_df["height"]
-            surface_dice_score = compute_surface_dice_score(
-                submit=sub.submission_df,
-                label=filtered_label,
-            )
+            thresholds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
             metrics: ChunkedMetrics = evaluate_chunked_inference(
                 root_dir=out_dir,
-                label_dir=PROCESSED_DATA_DIR / self.val_folders[0]  # TODO(Sumo): adjust this so we can eval more folders
+                label_dir=PROCESSED_DATA_DIR / self.val_folders[0],  # TODO(Sumo): adjust this so we can eval more folders
+                thresholds=[self.eval_threshold] + thresholds,
             )
+            nominal_surface_dice, surface_dice_scores = metrics.surface_dices[0], metrics.surface_dices[1:]
+
+            mean_dice = sum(surface_dice_scores) / (len(surface_dice_scores) + 1e-6)
+            surface_dice_score = mean_dice  # TODO(Sumo): check if this makes sense
             print("--------------------------------")
             print(f"f1_score = {metrics.f1_score}")
-            print(f"binary_au_roc = {metrics.binary_au_roc}")
-            print(f"{surface_dice_score = }")
+            print(f"{nominal_surface_dice = }")
+            print(f"dice_scores:")
+            print(json.dumps({t: d for t, d in zip(thresholds, surface_dice_scores)}, indent=4))
+            print(f"mean_dice = {mean_dice}")
             print(f"{crude_f1 = }")
             print(f"{crude_val_loss = }")
             print("--------------------------------")
@@ -138,7 +142,8 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 self.best_surface_dice = surface_dice_score
             self.log_dict({
                 "f1_score": metrics.f1_score,
-                "binary_au_roc": metrics.binary_au_roc,
+                "mean_dice": mean_dice,
+                "nominal_dice": nominal_surface_dice,
                 "surface_dice": surface_dice_score,
                 "crude_f1": crude_f1,
                 "crude_val_loss": crude_val_loss,

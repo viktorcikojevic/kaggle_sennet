@@ -23,8 +23,8 @@ optimiser:
     lr: null
 
 loss:
-#  - type: BCELoss
-#    weight: 1.0
+  - type: BCELoss
+    weight: 1.0
 #  - type: DiceLoss
 #    weight: 1.0
 #    kwargs:
@@ -71,6 +71,7 @@ dataset:
     crop_size_range: [400, 600]
 #    crop_size_range: null
     p_crop_size_noise: 0.25
+    p_crop_size_keep_ar: 0.5
     output_crop_size: null
     to_float32: true
     load_ann: true

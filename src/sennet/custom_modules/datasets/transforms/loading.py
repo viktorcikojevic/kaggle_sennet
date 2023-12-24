@@ -18,6 +18,7 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             crop_location_noise: int = 0,
             p_crop_location_noise: float = 0.0,
             p_crop_size_noise: float = 0.0,
+            p_crop_size_keep_ar: float = 0.5,
     ):
         if crop_size_range is not None:
             assert crop_size_range[0] <= crop_size_range[1], f"{crop_size_range=}"
@@ -29,6 +30,7 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         self.crop_location_noise = crop_location_noise
         self.p_crop_location_noise = p_crop_location_noise
         self.p_crop_size_noise = p_crop_size_noise
+        self.p_crop_size_keep_ar = p_crop_size_keep_ar
         self.loaded_image_mmaps: Dict[str, MmapArray] = {}
         self.loaded_seg_mmaps: Dict[str, MmapArray] = {}
 
@@ -63,18 +65,31 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         new_crop_size_x = ux - lx
         new_crop_size_y = uy - ly
 
+        should_keep_ar = np.random.binomial(p=self.p_crop_size_keep_ar, n=1) > 0.5
         new_crop_size = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
         if should_randomise_crop_size:
             bbox_type = results["bbox_type"]
             if bbox_type == DEPTH_ALONG_CHANNEL:
-                new_crop_size_x = new_crop_size
-                new_crop_size_y = new_crop_size
+                if should_keep_ar:
+                    new_crop_size_x = new_crop_size
+                    new_crop_size_y = new_crop_size
+                else:
+                    new_crop_size_x = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
+                    new_crop_size_y = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
             elif bbox_type == DEPTH_ALONG_HEIGHT:
-                new_crop_size_c = new_crop_size
-                new_crop_size_x = new_crop_size
+                if should_keep_ar:
+                    new_crop_size_c = new_crop_size
+                    new_crop_size_x = new_crop_size
+                else:
+                    new_crop_size_c = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
+                    new_crop_size_x = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
             elif bbox_type == DEPTH_ALONG_WIDTH:
-                new_crop_size_c = new_crop_size
-                new_crop_size_y = new_crop_size
+                if should_keep_ar:
+                    new_crop_size_c = new_crop_size
+                    new_crop_size_y = new_crop_size
+                else:
+                    new_crop_size_c = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
+                    new_crop_size_y = np.random.randint(self.crop_size_range[0], self.crop_size_range[1])
             else:
                 raise RuntimeError(f"unknown {bbox_type=}")
         lc = int(np.clip(mid_c - 0.5*new_crop_size_c, 0, results["img_c"] - new_crop_size_c))
