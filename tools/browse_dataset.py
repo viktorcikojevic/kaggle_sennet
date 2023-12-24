@@ -13,6 +13,7 @@ def main(cfg: DictConfig):
         folder=cfg.train_folders[0],
         substride=1.0,
         **cfg.dataset.kwargs,
+        **cfg.augmentation,
     )
     dataset = Subset(dataset, list(range(0, len(dataset), 100)))
 

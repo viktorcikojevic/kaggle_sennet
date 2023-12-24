@@ -1,7 +1,7 @@
 defaults:
   - _self_
   - model: unet3d
-  - augmentation: noop
+  - augmentation: vanilla
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
@@ -40,7 +40,7 @@ task:
 
 train_folders:
   - kidney_1_dense
-  - kidney_2
+#  - kidney_2
 #  - kidney_3_dense
 
 val_folders:
