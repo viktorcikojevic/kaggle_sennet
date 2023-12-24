@@ -194,6 +194,7 @@ def generate_submission_df(
         out_dir: Optional[Union[str, Path]] = None,
         device: str = "cuda",
         save_sub: bool = True,
+        scan_thresholds: bool = False,
 ) -> SubmissionOutput:
     ps = parallelization_settings
     if ps.run_as_single_process:
@@ -307,7 +308,7 @@ def generate_submission_df(
         for s in saver_processes:
             s.join()
 
-    df_out = generate_submission_df_from_one_chunked_inference(out_dir)
+    df_out = generate_submission_df_from_one_chunked_inference(out_dir, scan_thresholds)
     if save_sub:
         df_out.to_csv(out_dir / "submission.csv")
     return SubmissionOutput(
