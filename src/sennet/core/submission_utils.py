@@ -10,15 +10,22 @@ from torch.utils.data import DataLoader
 import yaml
 import torch
 from copy import deepcopy
+import numpy as np
 
 
 def generate_submission_df_from_one_chunked_inference(
         root_dir: Path,
+        scan_thresholds: bool = False,
 ) -> pd.DataFrame:
     image_names = (root_dir / "image_names").read_text().split("\n")
     chunk_dirs = sorted(list(root_dir.glob("chunk*")))
     i = 0
     data = {"id": [], "rle": [], "height": [], "width": []}
+    if scan_thresholds:
+        thresholds = np.arange(0.2, 0.9, 0.05)
+        for th in thresholds:
+            data[f"rle_{th:.3f}"] = []
+        
     for d in tqdm(chunk_dirs, position=0):
         pred = read_mmap_array(d / "thresholded_prob", mode="r")
         for c in tqdm(range(pred.shape[0]), position=1, leave=False):
@@ -31,6 +38,23 @@ def generate_submission_df_from_one_chunked_inference(
             data["rle"].append(rle)
             data["height"].append(int(pred.data.shape[1]))
             data["width"].append(int(pred.data.shape[2]))
+        
+        if scan_thresholds:    
+            print("Scanning thresholds ... ")
+            # read the mean_prob
+            pred = read_mmap_array(d / "mean_prob", mode="r")
+            for th in thresholds:
+                img_indx=0
+                for c in tqdm(range(pred.shape[0]), position=1, leave=False):
+                    thresholded_prob_channel = (pred.data[c, :, :] > th)
+                    rle = rle_encode(thresholded_prob_channel)
+                    if rle == "":
+                        rle = "1 0"
+                    image_name = image_names[img_indx]
+                    img_indx += 1
+                    data[f"rle_{th:.3f}"].append(rle)
+                
+        
     df = pd.DataFrame(data).sort_values("id")
     # df = df.set_index("id").sort_index()
     return df
