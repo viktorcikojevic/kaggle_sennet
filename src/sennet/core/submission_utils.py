@@ -9,6 +9,7 @@ import pandas as pd
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torcheval.metrics import BinaryAUROC, BinaryF1Score
+from collections import OrderedDict
 import dataclasses
 import yaml
 import torch
@@ -104,15 +105,30 @@ def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[mod
 
     ckpt = torch.load(ckpt_path)
     state_dict = ckpt["state_dict"]
-    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict, prefix="model.")
     if "pretrained" in cfg["model"]["kwargs"]:
         print(f"model kwargs contains pretrained, replacing it with None")
         cfg["model"]["kwargs"]["pretrained"] = None
     if "encoder_weights" in cfg["model"]["kwargs"]:
         print(f"model kwargs contains encoder_weights, replacing it with None")
         cfg["model"]["kwargs"]["encoder_weights"] = None
+    if any(k.startswith("ema_") for k in state_dict.keys()):
+        print("ema weights found, loading ema weights")
+        model_state_dict = OrderedDict([
+            (k, v)
+            for k, v in state_dict.items()
+            if k.startswith("ema_model.")
+        ])
+        torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, prefix="ema_model.module.")
+    else:
+        print("ema weights not found, loading model")
+        model_state_dict = OrderedDict([
+            (k, v)
+            for k, v in state_dict.items()
+            if k.startswith("model.")
+        ])
+        torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, prefix="model.")
     model = model_class(**cfg["model"]["kwargs"])
-    load_status = model.load_state_dict(state_dict)
+    load_status = model.load_state_dict(model_state_dict)
     print(load_status)
     model = model.eval()
     return cfg, model
@@ -165,8 +181,14 @@ if __name__ == "__main__":
     # )
     # print(f"{_score = }")
 
-    _score = evaluate_chunked_inference(
-        "/home/clay/research/kaggle/sennet/data_dumps/tmp_mmaps/WrappedUNet2D-c512x1-2023-12-18-17-16-31",
-        "/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_3_sparse",
+    # _score = evaluate_chunked_inference(
+    #     "/home/clay/research/kaggle/sennet/data_dumps/tmp_mmaps/WrappedUNet2D-c512x1-2023-12-18-17-16-31",
+    #     "/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_3_sparse",
+    # )
+    # print(f"{_score = }")
+    _cfg, _model = load_model_from_dir(
+        "/home/clay/research/kaggle/sennet/data_dumps/models/SMP(Unet_resnet50_imagenet)-c512x1-bs32-llr-3-t111-sm0-2023-12-24-22-11-35",
     )
-    print(f"{_score = }")
+    # _cfg, _model = load_model_from_dir(
+    #     "/home/clay/research/kaggle/sennet/data_dumps/models/SMP(Unet_resnet50_imagenet)-c512x1-bs32-llr-3-t111-sm0-2023-12-24-20-53-43",
+    # )

@@ -6,11 +6,12 @@ defaults:
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 5000
+val_check_interval: 10000
 batch_size: 32 # final batch size.
 apparent_batch_size: 2 # batch size during training
 num_workers: 16
 dry_logger: false
+quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
 group_name: null # maybe this would be useful for grouping experiments when we do hyperparameter search
 patience: 5 # stops if (val_check_interval * patience) steps have passed without improvement in the metric
@@ -38,6 +39,7 @@ task:
   kwargs:
     eval_threshold: 0.2
     compute_crude_metrics: false
+    ema_momentum: 0.00025
 
 train_folders:
   - kidney_1_dense
@@ -98,4 +100,12 @@ hydra:
     n_trials: 20
     n_jobs: 1
     params:
-      optimiser.log_lr: range(-4, -3, 1)
+      optimiser.log_lr: range(-4, -2, 0.1)
+      dataset.kwargs.crop_size: range(128, 960, 32)
+      dataset.kwargs.p_crop_size_noise: range(0.2, 1.0, 0.2)
+      batch_size: range(4, 128, 4)
+
+      batch_transform.kwargs.alpha_cutmix: range(0.0, 1.0, 0.1)
+      batch_transform.kwargs.alpha_mixup: range(0.0, 1.0, 0.1)
+      batch_transform.kwargs.cutmix_prob: range(0.0, 1.0, 0.1)
+      batch_transform.kwargs.mixup_prob: range(0.0, 1.0, 0.1)
