@@ -32,10 +32,10 @@ loss:
     weight: 1.0
     kwargs:
       smooth: 0.0001
-#  - type: FocalLoss
-#    weight: 1.0
-#    kwargs:
-#      gamma: 2.0
+  - type: FocalLoss
+    weight: 1.0
+    kwargs:
+      gamma: 2.0
 
 task:
   kwargs:
@@ -103,14 +103,14 @@ hydra:
     n_jobs: 1
     params:
       optimiser.log_lr: range(-5, -3, 0.1)
-#      dataset.kwargs.crop_size: range(128, 992, 32)
-#      dataset.kwargs.p_crop_size_noise: range(0.2, 1.0, 0.2)
-#      batch_size: range(4, 128, 4)
-#
-#      batch_transform.kwargs.alpha_cutmix: range(0.0, 1.0, 0.1)
-#      batch_transform.kwargs.alpha_mixup: range(0.0, 1.0, 0.1)
-#      batch_transform.kwargs.cutmix_prob: range(0.0, 1.0, 0.1)
-#      batch_transform.kwargs.mixup_prob: range(0.0, 1.0, 0.1)
+      dataset.kwargs.crop_size: range(128, 992, 32)
+      dataset.kwargs.p_crop_size_noise: range(0.2, 1.0, 0.2)
+      batch_size: range(4, 128, 4)
+
+      batch_transform.kwargs.alpha_cutmix: range(0.0, 1.0, 0.1)
+      batch_transform.kwargs.alpha_mixup: range(0.0, 1.0, 0.1)
+      batch_transform.kwargs.cutmix_prob: range(0.0, 1.0, 0.1)
+      batch_transform.kwargs.mixup_prob: range(0.0, 1.0, 0.1)
       loss.1.weight: range(0.0, 1.0, 0.1)
       loss.2.weight: range(0.0, 1.0, 0.1)
       loss.3.weight: range(0.0, 1.0, 0.1)
