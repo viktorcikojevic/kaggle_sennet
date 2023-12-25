@@ -1,4 +1,4 @@
-from sennet.core.mmap_arrays import create_mmap_array, MmapArray
+from sennet.core.mmap_arrays import create_mmap_array
 from pathlib import Path
 import numpy as np
 import cc3d
