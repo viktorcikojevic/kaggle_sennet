@@ -44,10 +44,6 @@ class MultiChannelAugmentation:
                 translate_percent=affine["translate_percent"],
                 p=affine["p"]
             ),
-            A.ChannelDropout(
-                channel_drop_range=channel_dropout["channel_drop_range"],
-                p=channel_dropout["p"]
-            ),
             A.OneOf([
                 A.GaussianBlur(),
                 A.MotionBlur(),
