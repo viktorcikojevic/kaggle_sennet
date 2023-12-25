@@ -1,3 +1,7 @@
-min_delta: 0.01
-patience: 3
-verbose: true
+# @package _global_
+
+val_check_interval: 5000
+early_stopping:
+  min_delta: 0.0
+  patience: 5
+  verbose: true
