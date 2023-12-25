@@ -1,19 +1,19 @@
 defaults:
   - _self_
-  - model: unet3d
-  - augmentation: vanilla
+  - model: smp_unet_r50
+  - augmentation: multi_channel_augmentation
 #  - augmentation: noop
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 10000
+val_check_interval: 500
 batch_size: 32 # final batch size.
-apparent_batch_size: 2 # batch size during training
+apparent_batch_size: 32 # batch size during training
 num_workers: 16
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-group_name: null # maybe this would be useful for grouping experiments when we do hyperparameter search
+group_name: "smp_unet_r50_hyptun" # maybe this would be useful for grouping experiments when we do hyperparameter search
 patience: 5 # stops if (val_check_interval * patience) steps have passed without improvement in the metric
 max_epochs: 100
 
@@ -24,18 +24,18 @@ optimiser:
     lr: null
 
 loss:
-#  - type: BCELoss
-#    weight: 1.0
-  - type: MccLoss
-    weight: 1.0
-#  - type: DiceLoss
-#    weight: 1.0
-#    kwargs:
-#      smooth: 0.0001
-#  - type: FocalLoss
-#    weight: 1.0
-#    kwargs:
-#      gamma: 2.0
+ - type: BCELoss
+   weight: 1.0
+ - type: MccLoss
+   weight: 1.0
+ - type: DiceLoss
+   weight: 1.0
+   kwargs:
+     smooth: 0.0001
+ - type: FocalLoss
+   weight: 1.0
+   kwargs:
+     gamma: 2.0
 
 task:
   kwargs:
@@ -99,15 +99,18 @@ hydra:
       seed: 42
     direction: maximize
     storage: null
-    n_trials: 20
+    n_trials: 40
     n_jobs: 1
     params:
       optimiser.log_lr: range(-4, -2, 0.1)
-#      dataset.kwargs.crop_size: range(128, 992, 32)
-#      dataset.kwargs.p_crop_size_noise: range(0.2, 1.0, 0.2)
-#      batch_size: range(4, 128, 4)
-#
-#      batch_transform.kwargs.alpha_cutmix: range(0.0, 1.0, 0.1)
-#      batch_transform.kwargs.alpha_mixup: range(0.0, 1.0, 0.1)
-#      batch_transform.kwargs.cutmix_prob: range(0.0, 1.0, 0.1)
-#      batch_transform.kwargs.mixup_prob: range(0.0, 1.0, 0.1)
+      # dataset.kwargs.crop_size: range(128, 640, 128)
+      dataset.kwargs.p_crop_size_noise: range(0.2, 1.0, 0.2)
+      # batch_size: range(4, 128, 4)
+      batch_transform.kwargs.alpha_cutmix: range(0.0, 1.0, 0.1)
+      batch_transform.kwargs.alpha_mixup: range(0.0, 1.0, 0.1)
+      batch_transform.kwargs.cutmix_prob: range(0.0, 1.0, 0.1)
+      batch_transform.kwargs.mixup_prob: range(0.0, 1.0, 0.1)
+      loss.1.weight: range(0.0, 1.0, 0.1)
+      loss.2.weight: range(0.0, 1.0, 0.1)
+      loss.3.weight: range(0.0, 1.0, 0.1)
+      augmentation.augmenter_kwargs.p_any_augm: range(0.0, 1.0, 0.1)

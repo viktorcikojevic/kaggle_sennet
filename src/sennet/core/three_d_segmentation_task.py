@@ -11,7 +11,7 @@ from copy import deepcopy
 import torch.nn as nn
 import torch.optim
 import json
-
+import numpy as np
 
 class EMA(nn.Module):
     def __init__(self, model, momentum=0.00001):
@@ -164,28 +164,26 @@ class ThreeDSegmentationTask(pl.LightningModule):
             metrics: ChunkedMetrics = evaluate_chunked_inference(
                 root_dir=out_dir,
                 label_dir=PROCESSED_DATA_DIR / self.val_folders[0],  # TODO(Sumo): adjust this so we can eval more folders
-                thresholds=[self.eval_threshold] + thresholds,
+                thresholds=thresholds,
             )
-            nominal_surface_dice, surface_dice_scores = metrics.surface_dices[0], metrics.surface_dices[1:]
-
-            mean_dice = sum(surface_dice_scores) / (len(surface_dice_scores) + 1e-6)
-            surface_dice_score = mean_dice  # TODO(Sumo): check if this makes sense
+            surface_dice_scores = metrics.surface_dices
+            best_dice_current = np.max(surface_dice_scores)
+            best_threshold_current = thresholds[np.argmax(surface_dice_scores)]
             print("--------------------------------")
             print(f"f1_score = {metrics.f1_score}")
-            print(f"{nominal_surface_dice = }")
-            print(f"dice_scores:")
+            print("dice_scores:")
             print(json.dumps({t: d for t, d in zip(thresholds, surface_dice_scores)}, indent=4))
-            print(f"mean_dice = {mean_dice}")
+            print(f"best_threshold_current = {best_threshold_current}")
+            print(f"best_dice_current = {best_dice_current}")
             print(f"{crude_f1 = }")
             print(f"{crude_val_loss = }")
             print("--------------------------------")
-            if surface_dice_score > self.best_surface_dice:
-                self.best_surface_dice = surface_dice_score
+            if best_dice_current > self.best_surface_dice:
+                self.best_surface_dice = best_dice_current
             self.log_dict({
                 "f1_score": metrics.f1_score,
-                "mean_dice": mean_dice,
-                "nominal_dice": nominal_surface_dice,
-                "surface_dice": surface_dice_score,
+                "threshold": best_threshold_current,
+                "surface_dice": best_dice_current,
                 "crude_f1": crude_f1,
                 "crude_val_loss": crude_val_loss,
             })

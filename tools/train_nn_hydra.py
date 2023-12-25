@@ -86,7 +86,7 @@ def main(cfg: DictConfig):
     )
     val_loader = DataLoader(
         val_dataset,
-        batch_size=1,
+        batch_size=2*cfg.apparent_batch_size,
         shuffle=False,
         num_workers=0,
         pin_memory=True,
@@ -108,7 +108,6 @@ def main(cfg: DictConfig):
         experiment_name=experiment_name,
         criterion=criterion,
         batch_transform=batch_transform,
-        scan_thresholds=cfg_dict["scan_thresholds"],
         **cfg_dict["task"]["kwargs"],
     )
     if cfg.dry_logger:
