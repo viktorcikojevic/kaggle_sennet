@@ -1,6 +1,8 @@
-import pandas as pd
+# from pathlib import Path
 from sennet.core.submission_utils import evaluate_chunked_inference, ChunkedMetrics
 from sennet.core.submission import generate_submission_df, ParallelizationSettings
+# from sennet.core.mmap_arrays import read_mmap_array
+# from sennet.core.post_processings import filter_out_small_blobs
 from sennet.core.utils import resize_3d_image
 from sennet.environments.constants import PROCESSED_DATA_DIR, TMP_SUB_MMAP_DIR
 from sennet.custom_modules.models import Base3DSegmentor
@@ -12,6 +14,7 @@ import torch.nn as nn
 import torch.optim
 import json
 import numpy as np
+
 
 class EMA(nn.Module):
     def __init__(self, model, momentum=0.00001):
@@ -60,11 +63,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             self.ema_model = None
         self.val_loader = val_loader
         self.val_folders = val_folders
-        self.val_rle_df = []
         self.compute_crude_metrics = compute_crude_metrics
-        for f in self.val_folders:
-            self.val_rle_df.append(pd.read_csv(PROCESSED_DATA_DIR / f / "rle.csv"))
-        self.val_rle_df = pd.concat(self.val_rle_df, axis=0)
         self.optimiser_spec = optimiser_spec
         self.criterion = criterion
         self.experiment_name = experiment_name
@@ -98,9 +97,12 @@ class ThreeDSegmentationTask(pl.LightningModule):
         loss = self.criterion(preds, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
         # loss = self.criterion(resized_pred, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
         self.log("train_loss", loss, prog_bar=True)
+        return loss
+
+    def backward(self, loss: torch.Tensor, *args: Any, **kwargs: Any) -> None:
         if self.ema_model is not None:
             self.ema_model.update(self.model)
-        return loss
+        return pl.LightningModule.backward(self, loss, *args, **kwargs)
 
     def _get_eval_model(self):
         if self.ema_model is not None:
@@ -140,10 +142,9 @@ class ThreeDSegmentationTask(pl.LightningModule):
             self.total_val_loss = 0.0
             self.val_count = 0
 
-            # out_dir = TMP_SUB_MMAP_DIR / self.experiment_name
-            out_dir = TMP_SUB_MMAP_DIR / "training_tmp"  # prevent me forgetting to remove tmp dirs
+            out_dir = TMP_SUB_MMAP_DIR / "training_tmp"
             model = self._get_eval_model()
-            sub = generate_submission_df(
+            _ = generate_submission_df(
                 model,
                 self.val_loader,
                 threshold=self.eval_threshold,
@@ -156,13 +157,24 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 device="cuda",
                 save_sub=True,
             )
-            sub_df = sub.submission_df
-            filtered_label = self.val_rle_df.loc[self.val_rle_df["id"].isin(sub_df["id"])].copy().sort_values("id").reset_index()
-            filtered_label["width"] = sub_df["width"]
-            filtered_label["height"] = sub_df["height"]
+
+            # mmap_paths = sorted([p for p in out_dir.glob("chunk_*")])
+            # mmap_arrays = [read_mmap_array(p / "thresholded_prob") for p in mmap_paths]
+            # mmap = np.concatenate([m.data for m in mmap_arrays], axis=0)
+            # cc3d_out_dir = TMP_SUB_MMAP_DIR / "training_tmp_cc3d"
+            # cc3d_out_dir.mkdir(exist_ok=True, parents=True)
+            # Path(cc3d_out_dir / "image_names").write_text(Path(out_dir / "image_names").read_text())
+            # filter_out_small_blobs(
+            #     thresholded_pred=mmap,
+            #     out_path=cc3d_out_dir / "chunk_00" / "thresholded_prob",
+            #     dust_threshold=1000,
+            #     connectivity=26,
+            # )
+
             thresholds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
             metrics: ChunkedMetrics = evaluate_chunked_inference(
                 root_dir=out_dir,
+                # root_dir=cc3d_out_dir,
                 label_dir=PROCESSED_DATA_DIR / self.val_folders[0],  # TODO(Sumo): adjust this so we can eval more folders
                 thresholds=thresholds,
             )

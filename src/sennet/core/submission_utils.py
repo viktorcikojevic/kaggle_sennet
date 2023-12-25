@@ -97,11 +97,19 @@ def evaluate_chunked_inference(
         )
 
 
-def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[models.Base3DSegmentor]]:
-    model_dir = Path(model_dir)
+def load_config_from_dir(model_dir: str | Path) -> Dict:
     with open(model_dir / "config.yaml", "rb") as f:
         cfg = yaml.load(f, yaml.FullLoader)
-    ckpt_path = list(model_dir.glob("*.ckpt"))[0]
+    return cfg
+
+
+def load_model_from_dir(model_dir: str | Path) -> Tuple[Dict, Optional[models.Base3DSegmentor]]:
+    model_dir = Path(model_dir)
+    cfg = load_config_from_dir(model_dir)
+    ckpt_path = sorted(list(model_dir.glob("*.ckpt")))[0]
+    print(f"found ckpt: {ckpt_path}")
+    is_ckpt_path_trimmed = "trimmed" in ckpt_path.name
+
     model_class = getattr(models, cfg["model"]["type"])
 
     ckpt = torch.load(ckpt_path)
@@ -112,7 +120,11 @@ def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[mod
     if "encoder_weights" in cfg["model"]["kwargs"]:
         print(f"model kwargs contains encoder_weights, replacing it with None")
         cfg["model"]["kwargs"]["encoder_weights"] = None
-    if any(k.startswith("ema_") for k in state_dict.keys()):
+
+    if is_ckpt_path_trimmed:
+        print("trimmed ckpt found")
+        model_state_dict = ckpt["state_dict"]
+    elif any(k.startswith("ema_") for k in state_dict.keys()):
         print("ema weights found, loading ema weights")
         model_state_dict = OrderedDict([
             (k, v)
@@ -132,6 +144,15 @@ def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[mod
     load_status = model.load_state_dict(model_state_dict)
     print(load_status)
     model = model.eval()
+
+    # trim down checkpoint and save the trimmed version, probably can shrink ckpt sizes by like 50%
+    if is_ckpt_path_trimmed:
+        print("loaded ckpt is trimmed so no need to trim it again")
+    else:
+        ckpt = {"state_dict": model_state_dict}
+        trimmed_ckpt_path = ckpt_path.parent / f"AAA_trimmed_{ckpt_path.name}"
+        torch.save(ckpt, trimmed_ckpt_path)
+        print(f"saved trimmed ckpt path: {trimmed_ckpt_path}")
     return cfg, model
 
 
