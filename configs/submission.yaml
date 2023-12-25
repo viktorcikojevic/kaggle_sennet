@@ -1,10 +1,11 @@
 predictors:
   n_chunks: 5
-  threshold: 0.22268179497817303
+  threshold: 0.24805456012328997
 #  substride: 0.5
   substride: 1.0
   tta_kwargs:
 #    add_flips: true
     add_flips: false
   models:
-    - SMP(Unet_resnet50_imagenet)-c512x1-bs32-llr-3-t111-sm0-2023-12-24-11-25-25
+#    - SMP(Unet_resnet50_imagenet)-c512x1-bs32-llr-3-t111-sm0-2023-12-24-11-25-25
+    - SMP(Unet_resnet50_imagenet)-c512x1-bs32-llr-3-t111-sm0-2023-12-24-22-11-35

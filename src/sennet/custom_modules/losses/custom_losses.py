@@ -1,3 +1,4 @@
+import segmentation_models_pytorch.losses as smp_loss
 import pytorch_toolbelt.losses as ptb_loss
 import torch
 import torch.nn as nn
@@ -63,6 +64,18 @@ class LovaszLoss(nn.Module):
         #         target[:, i, :, :]
         #     )
         # return loss / (num_channels + 1e-6)
+
+
+class MccLoss(nn.Module):
+    def __init__(self):
+        nn.Module.__init__(self)
+        self.loss = smp_loss.MCCLoss()
+
+    def forward(self, logits: torch.Tensor, target: torch.Tensor):
+        # logits: (b, z, h, w)
+        # target: (b, z, h, w)
+        loss = self.loss(torch.nn.functional.sigmoid(logits), target)
+        return loss
 
 
 class PtbLoss(nn.Module):
