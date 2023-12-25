@@ -66,19 +66,19 @@ def main():
             for c in tqdm(range(image.shape[0]), position=0):
                 zs = np.full(num_points, c, dtype=np.single) * scaling
                 zs = np.frombuffer(zs.tobytes(), dtype=np.uint8).reshape((-1, 4))
-                intensities = image[c, :, :].ravel()
-                mask_channel = mask[c, :, :].ravel()
-                merged_array = np.ascontiguousarray(
-                    np.concatenate((
-                        xs[mask_channel, ...] * stride,
-                        ys[mask_channel, ...] * stride,
-                        zs[mask_channel, ...] * stride,
-                        intensities[:, None][mask_channel, ...]
-                    ), axis=1)
-                )
-                n_written_points += merged_array.shape[0]
-                ba = merged_array.tobytes()
-                image_f.write(ba)
+                # intensities = image[c, :, :].ravel()
+                # mask_channel = mask[c, :, :].ravel()
+                # merged_array = np.ascontiguousarray(
+                #     np.concatenate((
+                #         xs[mask_channel, ...] * stride,
+                #         ys[mask_channel, ...] * stride,
+                #         zs[mask_channel, ...] * stride,
+                #         intensities[:, None][mask_channel, ...]
+                #     ), axis=1)
+                # )
+                # n_written_points += merged_array.shape[0]
+                # ba = merged_array.tobytes()
+                # image_f.write(ba)
 
                 label_intensities = label[c, :, :].ravel()
                 mask_channel = mask[c, :, :].ravel() & (label_intensities > 0)

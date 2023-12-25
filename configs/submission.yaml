@@ -1,6 +1,6 @@
 predictors:
   n_chunks: 5
-  threshold: 0.24805456012328997
+  threshold: 0.02
 #  substride: 0.5
   substride: 1.0
   tta_kwargs:
