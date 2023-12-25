@@ -108,6 +108,7 @@ def main(cfg: DictConfig):
         experiment_name=experiment_name,
         criterion=criterion,
         batch_transform=batch_transform,
+        scan_thresholds=cfg_dict["scan_thresholds"],
         **cfg_dict["task"]["kwargs"],
     )
     if cfg.dry_logger:
