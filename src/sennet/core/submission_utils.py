@@ -97,10 +97,15 @@ def evaluate_chunked_inference(
         )
 
 
-def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[models.Base3DSegmentor]]:
-    model_dir = Path(model_dir)
+def load_config_from_dir(model_dir: str | Path) -> Dict:
     with open(model_dir / "config.yaml", "rb") as f:
         cfg = yaml.load(f, yaml.FullLoader)
+    return cfg
+
+
+def load_model_from_dir(model_dir: str | Path) -> Tuple[Dict, Optional[models.Base3DSegmentor]]:
+    model_dir = Path(model_dir)
+    cfg = load_config_from_dir(model_dir)
     ckpt_path = sorted(list(model_dir.glob("*.ckpt")))[0]
     print(f"found ckpt: {ckpt_path}")
     is_ckpt_path_trimmed = "trimmed" in ckpt_path.name

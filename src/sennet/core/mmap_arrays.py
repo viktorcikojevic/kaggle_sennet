@@ -11,6 +11,7 @@ class MmapArray:
     shape: List[int]
     metadata: Dict
     dtype: type
+    order: Literal["C", "F"]
 
 
 def read_mmap_array(
@@ -23,6 +24,7 @@ def read_mmap_array(
         read_json = json.loads((root_path / "metadata.json").read_text())
     shape = read_json["shape"]
     dtype = read_json["dtype"]
+    order: Literal["C", "F"] = read_json.get("order", "C")
     if dtype == "bool":
         dtype = bool
     elif dtype == "float":
@@ -34,12 +36,14 @@ def read_mmap_array(
         dtype=dtype,
         mode=mode,
         shape=tuple(shape),
+        order=order,
     )
     arr = MmapArray(
         data=data,
         shape=shape,
         metadata=read_json,
         dtype=dtype,
+        order=order,
     )
     return arr
 
@@ -48,10 +52,12 @@ def create_mmap_array(
         output_dir: Path,
         shape: List[int],
         dtype: type,
+        order: Literal["C", "F"] = "C",
 ) -> MmapArray:
     metadata = {
         "shape": shape,
-        "dtype": dtype.__name__
+        "dtype": dtype.__name__,
+        "order": order,
     }
     output_dir.mkdir(exist_ok=True, parents=True)
     (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=4))
@@ -60,11 +66,13 @@ def create_mmap_array(
         dtype=dtype,
         mode="write",
         shape=tuple(shape),
+        order=order,
     )
     arr = MmapArray(
         data=data,
         shape=shape,
         metadata=metadata,
         dtype=dtype,
+        order=order,
     )
     return arr

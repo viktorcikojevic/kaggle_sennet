@@ -1,6 +1,7 @@
 predictors:
   n_chunks: 5
   threshold: 0.02
+  dust_threshold: 1000
 #  substride: 0.5
   substride: 1.0
   tta_kwargs:
@@ -8,3 +9,4 @@ predictors:
     add_flips: false
   models:
     - SMP(Unet_resnet50_imagenet)-c512x1-bs32-llr-3.7-t111-sm0-2023-12-25-14-01-47
+#    - SMP(Unet_resnet50_imagenet)-c512x1-bs32-llr-2.5-t111-sm0-2023-12-25-06-48-28
