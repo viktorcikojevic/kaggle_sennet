@@ -1,0 +1,3 @@
+min_delta: 0.01
+patience: 3
+verbose: true

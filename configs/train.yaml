@@ -2,6 +2,7 @@ defaults:
   - _self_
   - model: smp_unet_r50
   - augmentation: vanilla
+  - early_stopping: normal
 #  - augmentation: noop
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
@@ -14,7 +15,6 @@ dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
 group_name: "smp_unet_r50_hyptun" # maybe this would be useful for grouping experiments when we do hyperparameter search
-patience: 5 # stops if (val_check_interval * patience) steps have passed without improvement in the metric
 max_epochs: 100
 
 optimiser:

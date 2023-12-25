@@ -124,9 +124,8 @@ def main(cfg: DictConfig):
     callbacks += [
         pl.callbacks.EarlyStopping(
             monitor="surface_dice",
-            patience=cfg.patience,
-            verbose=True,
-            mode="max"
+            mode="max",
+            **cfg.early_stopping,
         ),
         pl.callbacks.ModelCheckpoint(
             dirpath=model_out_dir,

@@ -18,6 +18,7 @@ def objective(
 
     chunk_dirs = [Path(d) for d in chunk_dirs]
     mean_dice = 0.0
+    dice_scores = {}
     for folder in chunk_dirs:
         chunk_dir_names = sorted([c.name for c in folder.glob("chunk*") if c.is_dir()])
 
@@ -27,7 +28,11 @@ def objective(
             label=labels[folder.name],
             threshold=threshold,
         )
+        dice_scores[folder.name] = dice_score
         mean_dice += dice_score / len(chunk_dirs)
+    print("---")
+    print(json.dumps(dice_scores, indent=4))
+    print("---")
     return mean_dice
 
 

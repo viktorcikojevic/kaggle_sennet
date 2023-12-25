@@ -98,9 +98,12 @@ class ThreeDSegmentationTask(pl.LightningModule):
         loss = self.criterion(preds, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
         # loss = self.criterion(resized_pred, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
         self.log("train_loss", loss, prog_bar=True)
+        return loss
+
+    def backward(self, loss: torch.Tensor, *args: Any, **kwargs: Any) -> None:
         if self.ema_model is not None:
             self.ema_model.update(self.model)
-        return loss
+        return pl.LightningModule.backward(self, loss, *args, **kwargs)
 
     def _get_eval_model(self):
         if self.ema_model is not None:

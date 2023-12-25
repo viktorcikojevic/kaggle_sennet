@@ -43,15 +43,19 @@ def main():
             # mask_mmap_array.data[i, :, :] = fg_mask
             mask_mmap_array.data[i, :, :] = 1
             print(f"done images: {i+1}/{len(image_paths)}: {image_path}")
-        print(f"flushing images")
 
+        print(f"computing stats")
         p = 1
         channel_margin = 0.2
         channel_lb = int(channel_margin * mmap_array.data.shape[0])
         channel_ub = int((1 - channel_margin) * mmap_array.data.shape[0])
         global_percentile = np.percentile(mmap_array.data[channel_lb: channel_ub, :], [p, 100 - p])
+        global_mean = np.mean(mmap_array.data[channel_lb: channel_ub, :])
+        global_std = np.std(mmap_array.data[channel_lb: channel_ub, :])
         Path(output_dir / "stats.json").write_text(json.dumps(
             {
+                "mean": float(global_mean),
+                "std": float(global_std),
                 "percentiles": {
                     1: float(global_percentile[0]),
                     99: float(global_percentile[1]),
@@ -60,6 +64,7 @@ def main():
             indent=4,
         ))
 
+        print(f"flushing images")
         if mmap_array is not None:
             mmap_array.data.flush()
         if mask_mmap_array is not None:
