@@ -1,4 +1,4 @@
-from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score
+from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score, compute_surface_dice_score_from_mmap
 from sennet.environments.constants import DATA_DIR
 from sennet.core.mmap_arrays import read_mmap_array
 from sennet.core.rles import rle_encode
@@ -22,6 +22,13 @@ def objective(
     data = {"id": [], "rle": [], "height": [], "width": []}
     for folder in chunk_dirs:
         chunk_dir_names = sorted([c.name for c in folder.glob("chunk*") if c.is_dir()])
+
+        # mean_prob_chunks = [read_mmap_array(folder / cd / "mean_prob", mode="r").data for cd in chunk_dir_names]
+        # compute_surface_dice_score_from_mmap(
+        #     mean_prob_chunks=mean_prob_chunks,
+        #     label=,
+        #     threshold=threshold,
+        # )
         # out_dir = POST_PROCESS_HYP_WORK_DIR / folder
         # (out_dir / "image_names").write_text()
         image_names = (folder / "image_names").read_text().split("\n")

@@ -38,3 +38,6 @@ dependencies:
     - ipywidgets
     - torchvision
     - segmentation_models_pytorch
+    - connected-components-3d
+    - pytorch_toolbelt
+    - torcheval

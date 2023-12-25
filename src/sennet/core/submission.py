@@ -194,7 +194,6 @@ def generate_submission_df(
         out_dir: Optional[Union[str, Path]] = None,
         device: str = "cuda",
         save_sub: bool = True,
-        scan_thresholds: bool = False,
 ) -> SubmissionOutput:
     ps = parallelization_settings
     if ps.run_as_single_process:
@@ -308,7 +307,7 @@ def generate_submission_df(
         for s in saver_processes:
             s.join()
 
-    df_out = generate_submission_df_from_one_chunked_inference(out_dir, scan_thresholds)
+    df_out = generate_submission_df_from_one_chunked_inference(out_dir)
     if save_sub:
         df_out.to_csv(out_dir / "submission.csv")
     return SubmissionOutput(
@@ -318,17 +317,17 @@ def generate_submission_df(
 
 if __name__ == "__main__":
     # from sennet.custom_modules.models import UNet3D
-    from sennet.custom_modules.models import WrappedUNet3D
+    from sennet.custom_modules.models import SMPModel
 
     _crop_size = 512
-    _n_take_channels = 12
+    _n_take_channels = 1
     _ds = ThreeDSegmentationDataset(
-        "kidney_1_dense",
+        "kidney_3_dense",
         crop_size=_crop_size,
         n_take_channels=_n_take_channels,
         output_crop_size=_crop_size,
         substride=1.0,
-        sample_with_mask=True,
+        sample_with_mask=False,
     )
     _dl = DataLoader(
         _ds,
@@ -336,7 +335,13 @@ if __name__ == "__main__":
         shuffle=True,   # deliberate
         pin_memory=True,
     )
-    _model = WrappedUNet3D(in_channels=1, out_channels=1, f_maps=32, is_segmentation=False)
+    _model = SMPModel(
+        version="Unet",
+        encoder_name="resnet34",
+        encoder_weights="imagenet",
+        in_channels=1,
+        classes=1,
+    ).eval()
     _sub = generate_submission_df(
         _model,
         _dl,

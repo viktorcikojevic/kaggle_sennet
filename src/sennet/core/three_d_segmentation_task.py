@@ -1,17 +1,39 @@
 import pandas as pd
-from sennet.core.submission_utils import evaluate_chunked_inference
+from sennet.core.submission_utils import evaluate_chunked_inference, ChunkedMetrics
 from sennet.core.submission import generate_submission_df, ParallelizationSettings
 from sennet.core.utils import resize_3d_image
-from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score
 from sennet.environments.constants import PROCESSED_DATA_DIR, TMP_SUB_MMAP_DIR
 from sennet.custom_modules.models import Base3DSegmentor
 import pytorch_lightning as pl
 from typing import Dict, Any, List
 from torch.utils.data import DataLoader
+from copy import deepcopy
 import torch.nn as nn
 import torch.optim
-import numpy as np
-from tqdm import tqdm
+import json
+
+
+class EMA(nn.Module):
+    def __init__(self, model, momentum=0.00001):
+        # https://www.kaggle.com/competitions/hubmap-hacking-the-human-vasculature/discussion/429060
+        # https://github.com/Lightning-AI/pytorch-lightning/issues/10914
+        super(EMA, self).__init__()
+        self.module = deepcopy(model)
+        self.module.eval()
+        self.momentum = momentum
+        self.decay = 1 - self.momentum
+
+    def _update(self, model, update_fn):
+        with torch.no_grad():
+            for ema_v, model_v in zip(self.module.state_dict().values(), model.state_dict().values()):
+                ema_v.copy_(update_fn(ema_v, model_v))
+
+    def update(self, model):
+        self._update(model, update_fn=lambda e, m: self.decay * e + (1. - self.decay) * m)
+
+    def set(self, model):
+        self._update(model, update_fn=lambda e, m: m)
+
 
 class ThreeDSegmentationTask(pl.LightningModule):
     def __init__(
@@ -25,10 +47,17 @@ class ThreeDSegmentationTask(pl.LightningModule):
             eval_threshold: float = 0.2,
             compute_crude_metrics: bool = False,
             batch_transform: nn.Module = None,
-            scan_thresholds: bool = False,
+            ema_momentum: float | None = None,
     ):
         pl.LightningModule.__init__(self)
         self.model = model
+        self.ema_momentum = ema_momentum
+        if self.ema_momentum is not None:
+            print(f"{ema_momentum=} is given, evaluations will be done using ema")
+            self.ema_model = EMA(self.model, self.ema_momentum)
+        else:
+            print(f"{ema_momentum=} not given, evaluations will be done using the model")
+            self.ema_model = None
         self.val_loader = val_loader
         self.val_folders = val_folders
         self.val_rle_df = []
@@ -42,7 +71,6 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.eval_threshold = eval_threshold
         self.best_surface_dice = 0.0
         self.batch_transform = batch_transform
-        self.scan_thresholds = scan_thresholds
 
         self.total_tp = 0
         self.total_fp = 0
@@ -70,14 +98,23 @@ class ThreeDSegmentationTask(pl.LightningModule):
         loss = self.criterion(preds, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
         # loss = self.criterion(resized_pred, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
         self.log("train_loss", loss, prog_bar=True)
+        if self.ema_model is not None:
+            self.ema_model.update(self.model)
         return loss
+
+    def _get_eval_model(self):
+        if self.ema_model is not None:
+            model = self.ema_model.module
+        else:
+            model = self.model.eval()
+        return model
 
     def validation_step(self, batch: Dict, batch_idx: int):
         if not self.compute_crude_metrics:
             return
         with torch.no_grad():
-            self.model = self.model.eval()
-            seg_pred = self.model.predict(batch["img"])
+            model = self._get_eval_model()
+            seg_pred = model.predict(batch["img"])
             preds = torch.nn.functional.sigmoid(seg_pred.pred) > 0.2
             gt_seg_map = batch["gt_seg_map"][:, 0, :, :, :] > 0.2
             loss = self.criterion(seg_pred.pred, batch["gt_seg_map"][:, 0, :, :, :].float())
@@ -105,11 +142,11 @@ class ThreeDSegmentationTask(pl.LightningModule):
 
             # out_dir = TMP_SUB_MMAP_DIR / self.experiment_name
             out_dir = TMP_SUB_MMAP_DIR / "training_tmp"  # prevent me forgetting to remove tmp dirs
+            model = self._get_eval_model()
             sub = generate_submission_df(
-                self.model,
+                model,
                 self.val_loader,
                 threshold=self.eval_threshold,
-                scan_thresholds=self.scan_thresholds,
                 parallelization_settings=ParallelizationSettings(
                     run_as_single_process=False,
                     n_chunks=5,
@@ -123,56 +160,35 @@ class ThreeDSegmentationTask(pl.LightningModule):
             filtered_label = self.val_rle_df.loc[self.val_rle_df["id"].isin(sub_df["id"])].copy().sort_values("id").reset_index()
             filtered_label["width"] = sub_df["width"]
             filtered_label["height"] = sub_df["height"]
-            
-            if self.scan_thresholds:
-                rle_thresholds = sub_df.columns[sub_df.columns.str.startswith("rle_")]
-                rle_thresholds = [float(x.split("_")[1]) for x in rle_thresholds]
-                rle_thresholds = np.array(rle_thresholds)
-                sub_df_threshold = sub_df.copy()
-                best_th_curr = None
-                best_surface_dice_curr = 0.0
-                
-                for th in tqdm(rle_thresholds, total=len(rle_thresholds)):
-                    sub_df_threshold["rle"] = sub_df_threshold[f"rle_{th:.3f}"]
-                    surface_dice_score = compute_surface_dice_score(
-                        submit=sub_df_threshold,
-                        label=filtered_label,
-                    )
-                    if surface_dice_score > best_surface_dice_curr:
-                        best_surface_dice_curr = surface_dice_score
-                        best_th_curr = th
-            
-            surface_dice_score = compute_surface_dice_score(
-                submit=sub.submission_df,
-                label=filtered_label,
-            )
-            f1_score = evaluate_chunked_inference(
+            thresholds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+            metrics: ChunkedMetrics = evaluate_chunked_inference(
                 root_dir=out_dir,
-                label_dir=PROCESSED_DATA_DIR / self.val_folders[0]  # TODO(Sumo): adjust this so we can eval more folders
+                label_dir=PROCESSED_DATA_DIR / self.val_folders[0],  # TODO(Sumo): adjust this so we can eval more folders
+                thresholds=[self.eval_threshold] + thresholds,
             )
+            nominal_surface_dice, surface_dice_scores = metrics.surface_dices[0], metrics.surface_dices[1:]
+
+            mean_dice = sum(surface_dice_scores) / (len(surface_dice_scores) + 1e-6)
+            surface_dice_score = mean_dice  # TODO(Sumo): check if this makes sense
             print("--------------------------------")
-            print(f"{f1_score = }")
-            print(f"{surface_dice_score = }")
+            print(f"f1_score = {metrics.f1_score}")
+            print(f"{nominal_surface_dice = }")
+            print(f"dice_scores:")
+            print(json.dumps({t: d for t, d in zip(thresholds, surface_dice_scores)}, indent=4))
+            print(f"mean_dice = {mean_dice}")
             print(f"{crude_f1 = }")
             print(f"{crude_val_loss = }")
-            if self.scan_thresholds:
-                print(f"{best_th_curr = }")
-                print(f"{best_surface_dice_curr = }")
             print("--------------------------------")
-            if self.scan_thresholds and best_surface_dice_curr > self.best_surface_dice:
-                self.best_surface_dice = best_surface_dice_curr
-            if not self.scan_thresholds and surface_dice_score > self.best_surface_dice:
+            if surface_dice_score > self.best_surface_dice:
                 self.best_surface_dice = surface_dice_score
-            out_dict = {
-                "f1_score": f1_score,
+            self.log_dict({
+                "f1_score": metrics.f1_score,
+                "mean_dice": mean_dice,
+                "nominal_dice": nominal_surface_dice,
                 "surface_dice": surface_dice_score,
                 "crude_f1": crude_f1,
                 "crude_val_loss": crude_val_loss,
-            }
-            if self.scan_thresholds:
-                out_dict["best_surface_dice"] = best_surface_dice_curr
-                out_dict["best_threshold"] = best_th_curr
-            self.log_dict(out_dict)
+            })
 
     def configure_optimizers(self):
         if self.optimiser_spec["kwargs"]["lr"] is None:

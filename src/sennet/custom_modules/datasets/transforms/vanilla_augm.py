@@ -9,9 +9,19 @@ class VanillaAugmentation:
             self,
     ):
         self._transform = A.Compose([
-            A.Rotate(limit=90, p=0.5, interpolation=cv2.INTER_AREA),
+            A.RandomRotate90(p=0.5),
             A.VerticalFlip(p=0.5),
             A.HorizontalFlip(p=0.5),
+            A.RandomBrightnessContrast(
+                brightness_limit=0.05,
+                contrast_limit=0.05,
+                p=0.5,
+            ),
+            A.OneOf([
+                A.GaussNoise(var_limit=(10.0, 50.0), p=1.0),
+                # A.ISONoise(color_shift=(0.01, 0.05), intensity=(0.1, 0.5), p=1.0),
+                A.MultiplicativeNoise(multiplier=(0.9, 1.1), elementwise=True, p=1.0),
+            ], p=0.5)
         ])
 
     def transform(self, data):

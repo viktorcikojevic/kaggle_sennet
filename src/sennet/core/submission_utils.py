@@ -1,4 +1,5 @@
 import sennet.custom_modules.models as models
+from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score_from_mmap
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.core.mmap_arrays import read_mmap_array
 from sennet.core.rles import rle_encode
@@ -7,6 +8,9 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 from torch.utils.data import DataLoader
+from torcheval.metrics import BinaryAUROC, BinaryF1Score
+from collections import OrderedDict
+import dataclasses
 import yaml
 import torch
 from copy import deepcopy
@@ -15,17 +19,11 @@ import numpy as np
 
 def generate_submission_df_from_one_chunked_inference(
         root_dir: Path,
-        scan_thresholds: bool = False,
 ) -> pd.DataFrame:
     image_names = (root_dir / "image_names").read_text().split("\n")
     chunk_dirs = sorted(list(root_dir.glob("chunk*")))
     i = 0
     data = {"id": [], "rle": [], "height": [], "width": []}
-    if scan_thresholds:
-        thresholds = np.arange(0.2, 0.9, 0.05)
-        for th in thresholds:
-            data[f"rle_{th:.3f}"] = []
-        
     for d in tqdm(chunk_dirs, position=0):
         pred = read_mmap_array(d / "thresholded_prob", mode="r")
         for c in tqdm(range(pred.shape[0]), position=1, leave=False):
@@ -38,53 +36,65 @@ def generate_submission_df_from_one_chunked_inference(
             data["rle"].append(rle)
             data["height"].append(int(pred.data.shape[1]))
             data["width"].append(int(pred.data.shape[2]))
-        
-        if scan_thresholds:    
-            print("Scanning thresholds ... ")
-            # read the mean_prob
-            pred = read_mmap_array(d / "mean_prob", mode="r")
-            for th in thresholds:
-                img_indx=0
-                for c in tqdm(range(pred.shape[0]), position=1, leave=False):
-                    thresholded_prob_channel = (pred.data[c, :, :] > th)
-                    rle = rle_encode(thresholded_prob_channel)
-                    if rle == "":
-                        rle = "1 0"
-                    image_name = image_names[img_indx]
-                    img_indx += 1
-                    data[f"rle_{th:.3f}"].append(rle)
-                
-        
     df = pd.DataFrame(data).sort_values("id")
     # df = df.set_index("id").sort_index()
     return df
 
 
+@dataclasses.dataclass
+class ChunkedMetrics:
+    f1_score: float
+    # binary_au_roc: float
+    surface_dices: list[float]
+
+
 def evaluate_chunked_inference(
         root_dir: Union[str, Path],
         label_dir: Union[str, Path],
-) -> float:
-    root_dir = Path(root_dir)
-    label_dir = Path(label_dir)
-    total_tp = 0
-    total_fp = 0
-    total_fn = 0
-    count = 0
-    i = 0
-    chunk_dirs = sorted(list(root_dir.glob("chunk*")))
-    label = read_mmap_array(label_dir / "label", mode="r")
-    for d in tqdm(chunk_dirs, position=0):
-        pred = read_mmap_array(d / "thresholded_prob", mode="r")
-        for c in tqdm(range(pred.shape[0]), position=1, leave=False):
-            total_tp += (pred.data[c, :, :] & label.data[i, :, :]).sum()
-            total_fp += (pred.data[c, :, :] & ~label.data[i, :, :]).sum()
-            total_fn += (~pred.data[c, :, :] & label.data[i, :, :]).sum()
-            count += (pred.data[c, :, :].shape[0] * pred.data[c, :, :].shape[1])
-            i += 1
-    precision = total_tp / (total_tp + total_fp + 1e-6)
-    recall = total_tp / (total_tp + total_fn + 1e-6)
-    f1_score = 2 * (precision * recall) / (precision + recall + 1e-6)
-    return f1_score
+        thresholds: list[float] = (0.2,),
+        device: str = "cuda",
+) -> ChunkedMetrics:
+    with torch.no_grad():
+        root_dir = Path(root_dir)
+        label_dir = Path(label_dir)
+
+        chunk_dirs = sorted(list(root_dir.glob("chunk*")))
+        label = read_mmap_array(label_dir / "label", mode="r")
+
+        surface_dices = []
+        for t in tqdm(thresholds, desc="dice"):
+            dice = compute_surface_dice_score_from_mmap(
+                mean_prob_chunks=[
+                    read_mmap_array(d / "mean_prob", mode="r").data
+                    for d in chunk_dirs
+                ],
+                label=label.data,
+                threshold=t,
+            )
+            surface_dices.append(dice)
+
+        f1_metric = BinaryF1Score()
+        # au_roc_metric = BinaryAUROC()
+
+        i = 0
+        for d in tqdm(chunk_dirs, position=0):
+            pred = read_mmap_array(d / "thresholded_prob", mode="r")
+            for c in tqdm(range(pred.shape[0]), position=1, leave=False):
+                pred_tensor = torch.from_numpy(pred.data[c, :, :].copy()).reshape(-1).to(device)
+                # mean_prob_tensor = torch.from_numpy(mean_prob.data[c, :, :].copy()).reshape(-1).to(device)
+                target_tensor = torch.from_numpy(label.data[i, :, :].copy()).reshape(-1).to(device)
+
+                f1_metric.update(pred_tensor, target_tensor)
+                # au_roc_metric.update(mean_prob_tensor[::10], target_tensor[::10])
+
+                i += 1
+        f1_score = float(f1_metric.compute().cpu().item())
+        # au_roc_score = float(au_roc_metric.compute().cpu().item())
+        return ChunkedMetrics(
+            f1_score=f1_score,
+            # binary_au_roc=au_roc_score,
+            surface_dices=surface_dices,
+        )
 
 
 def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[models.Base3DSegmentor]]:
@@ -96,15 +106,30 @@ def load_model_from_dir(model_dir: Union[str, Path]) -> Tuple[Dict, Optional[mod
 
     ckpt = torch.load(ckpt_path)
     state_dict = ckpt["state_dict"]
-    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict, prefix="model.")
     if "pretrained" in cfg["model"]["kwargs"]:
         print(f"model kwargs contains pretrained, replacing it with None")
         cfg["model"]["kwargs"]["pretrained"] = None
     if "encoder_weights" in cfg["model"]["kwargs"]:
         print(f"model kwargs contains encoder_weights, replacing it with None")
         cfg["model"]["kwargs"]["encoder_weights"] = None
+    if any(k.startswith("ema_") for k in state_dict.keys()):
+        print("ema weights found, loading ema weights")
+        model_state_dict = OrderedDict([
+            (k, v)
+            for k, v in state_dict.items()
+            if k.startswith("ema_model.")
+        ])
+        torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, prefix="ema_model.module.")
+    else:
+        print("ema weights not found, loading model")
+        model_state_dict = OrderedDict([
+            (k, v)
+            for k, v in state_dict.items()
+            if k.startswith("model.")
+        ])
+        torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, prefix="model.")
     model = model_class(**cfg["model"]["kwargs"])
-    load_status = model.load_state_dict(state_dict)
+    load_status = model.load_state_dict(model_state_dict)
     print(load_status)
     model = model.eval()
     return cfg, model
@@ -157,8 +182,14 @@ if __name__ == "__main__":
     # )
     # print(f"{_score = }")
 
-    _score = evaluate_chunked_inference(
-        "/home/clay/research/kaggle/sennet/data_dumps/tmp_mmaps/WrappedUNet2D-c512x1-2023-12-18-17-16-31",
-        "/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_3_sparse",
+    # _score = evaluate_chunked_inference(
+    #     "/home/clay/research/kaggle/sennet/data_dumps/tmp_mmaps/WrappedUNet2D-c512x1-2023-12-18-17-16-31",
+    #     "/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_3_sparse",
+    # )
+    # print(f"{_score = }")
+    _cfg, _model = load_model_from_dir(
+        "/home/clay/research/kaggle/sennet/data_dumps/models/SMP(Unet_resnet50_imagenet)-c512x1-bs32-llr-3-t111-sm0-2023-12-24-22-11-35",
     )
-    print(f"{_score = }")
+    # _cfg, _model = load_model_from_dir(
+    #     "/home/clay/research/kaggle/sennet/data_dumps/models/SMP(Unet_resnet50_imagenet)-c512x1-bs32-llr-3-t111-sm0-2023-12-24-20-53-43",
+    # )

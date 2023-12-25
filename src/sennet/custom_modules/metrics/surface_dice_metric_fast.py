@@ -8,9 +8,10 @@ import time
 import torch
 import torch.nn as nn
 from PIL import Image
+from line_profiler_pycharm import profile
 
 
-from .surface_dice_metric import create_table_neighbour_code_to_surface_area
+from sennet.custom_modules.metrics.surface_dice_metric import create_table_neighbour_code_to_surface_area
 
 # PyTorch version dependence on index data type
 torch_ver_major = int(torch.__version__.split('.')[0])
@@ -139,3 +140,93 @@ def compute_surface_dice_score(submit: pd.DataFrame, label: pd.DataFrame) -> flo
     dice = num / denom.clamp(min=1e-8)
     return dice.item()
 
+
+@profile
+def compute_surface_dice_score_from_mmap(
+        mean_prob_chunks: list[np.ndarray],
+        label: np.ndarray,
+        threshold: float,
+) -> float:
+    """
+    Compute surface Dice score for one 3D volume
+
+    submit (pd.DataFrame): submission file with id and rle
+    label (pd.DataFrame): ground truth id, rle, and also image height, width
+    """
+    # submit and label must contain exact same id in same order
+    assert sum(p.shape[0] for p in mean_prob_chunks) == label.shape[0]
+
+    # Surface area lookup table: Tensor[float32] (256, )
+    area = create_table_neighbour_code_to_surface_area((1, 1, 1))
+    area = torch.from_numpy(area).to(device)  # torch.float32
+
+    # Slide through the volume like a convolution
+    unfold = torch.nn.Unfold(kernel_size=(2, 2), padding=1)
+
+    h = label.shape[1]
+    w = label.shape[2]
+    n_slices = label.shape[0]
+
+    # Padding before first slice
+    y0 = y0_pred = torch.zeros((h, w), dtype=torch.uint8, device=device)
+
+    num = 0  # numerator of surface Dice
+    denom = 0  # denominator
+    i = 0
+
+    # y1_pred = torch.zeros((h, w), dtype=torch.uint8, device=device)
+    for chunk in mean_prob_chunks:
+        for c in range(chunk.shape[0]):
+            if i < n_slices:
+                y1 = torch.from_numpy(label[i, :, :].copy()).to(device)
+                y1_pred = torch.from_numpy(chunk[c, :, :] > threshold).to(device)
+            else:
+                y1 = y1_pred = torch.zeros((h, w), dtype=torch.uint8, device=device)
+
+            # Compute the surface area between two slices (n_cubes,)
+            area_pred = compute_area([y0_pred, y1_pred], unfold, area)
+            area_true = compute_area([y0, y1], unfold, area)
+
+            # True positive cube indices
+            idx = torch.logical_and(area_pred > 0, area_true > 0)
+
+            # Surface dice numerator and denominator
+            num += area_pred[idx].sum() + area_true[idx].sum()
+            denom += area_pred.sum() + area_true.sum()
+
+            # Next slice
+            y0 = y1
+            y0_pred = y1_pred
+            i += 1
+    dice = num / denom.clamp(min=1e-8)
+    return dice.item()
+
+
+if __name__ == "__main__":
+    from pathlib import Path
+    from sennet.core.mmap_arrays import read_mmap_array
+    import time
+
+    _root_path = Path("/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_dense/")
+    _mmap_paths = sorted([p for p in _root_path.glob("chunk_*")])
+    _mmaps = [read_mmap_array(p / "mean_prob") for p in _mmap_paths]
+    _label = read_mmap_array("/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_3_dense/label", mode="r")
+    print([m.shape for m in _mmaps])
+
+    _t0 = time.time()
+    _dice = compute_surface_dice_score_from_mmap(
+        [m.data for m in _mmaps],
+        _label.data,
+        0.2,
+    )
+    _t1 = time.time()
+    print(f"{_t1 - _t0}, {_dice}")
+
+    _t0 = time.time()
+    _dice = compute_surface_dice_score_from_mmap(
+        [m.data for m in _mmaps],
+        _label.data,
+        0.8,
+    )
+    _t1 = time.time()
+    print(f"{_t1 - _t0}, {_dice}")

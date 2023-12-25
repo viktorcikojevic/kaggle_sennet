@@ -1,6 +1,7 @@
 from sennet.core.submission_utils import load_model_from_dir, build_data_loader, generate_submission_df_from_one_chunked_inference
 from sennet.core.submission import generate_submission_df, ParallelizationSettings
 from sennet.core.mmap_arrays import read_mmap_array, create_mmap_array
+from sennet.core.tta_model import Tta3DSegmentor
 from sennet.environments.constants import PROCESSED_DATA_DIR, CONFIG_DIR, MODEL_OUT_DIR
 from typing import List, Union
 from pathlib import Path
@@ -64,7 +65,9 @@ def main():
     folders_to_dirs = {}
     for model_name in submission_cfg["predictors"]["models"]:
         model_dir = MODEL_OUT_DIR / model_name
-        cfg, model = load_model_from_dir(model_dir)
+        cfg, base_model = load_model_from_dir(model_dir)
+        model = Tta3DSegmentor(base_model, **submission_cfg["predictors"]["tta_kwargs"])
+        # model = base_model
 
         if folders_override is None:
             folders = cfg["val_folders"]

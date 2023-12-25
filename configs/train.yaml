@@ -1,20 +1,21 @@
 defaults:
   - _self_
   - model: unet3d
-  - augmentation: noop
+  - augmentation: vanilla
+#  - augmentation: noop
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 1000
+val_check_interval: 10000
 batch_size: 32 # final batch size.
 apparent_batch_size: 2 # batch size during training
 num_workers: 16
 dry_logger: false
+quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
 group_name: null # maybe this would be useful for grouping experiments when we do hyperparameter search
 patience: 5 # stops if (val_check_interval * patience) steps have passed without improvement in the metric
-max_epochs: 1
-scan_thresholds: false
+max_epochs: 100
 
 optimiser:
   type: "AdamW"
@@ -23,7 +24,9 @@ optimiser:
     lr: null
 
 loss:
-  - type: BCELoss
+#  - type: BCELoss
+#    weight: 1.0
+  - type: MccLoss
     weight: 1.0
 #  - type: DiceLoss
 #    weight: 1.0
@@ -38,9 +41,11 @@ task:
   kwargs:
     eval_threshold: 0.2
     compute_crude_metrics: false
+    ema_momentum: 0.00025
 
 train_folders:
   - kidney_1_dense
+#  - kidney_2
 #  - kidney_3_dense
 
 val_folders:
@@ -59,8 +64,8 @@ dataset:
   train_substride: 0.25
   val_substride: 1.0
   kwargs:
-    crop_size: 256
-    n_take_channels: 16
+    crop_size: 512
+    n_take_channels: 1
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
@@ -70,6 +75,7 @@ dataset:
     crop_size_range: [400, 600]
 #    crop_size_range: null
     p_crop_size_noise: 0.25
+    p_crop_size_keep_ar: 0.5
     output_crop_size: null
     to_float32: true
     load_ann: true
@@ -96,4 +102,12 @@ hydra:
     n_trials: 20
     n_jobs: 1
     params:
-      optimiser.log_lr: range(-4, -3, 1)
+      optimiser.log_lr: range(-4, -2, 0.1)
+#      dataset.kwargs.crop_size: range(128, 992, 32)
+#      dataset.kwargs.p_crop_size_noise: range(0.2, 1.0, 0.2)
+#      batch_size: range(4, 128, 4)
+#
+#      batch_transform.kwargs.alpha_cutmix: range(0.0, 1.0, 0.1)
+#      batch_transform.kwargs.alpha_mixup: range(0.0, 1.0, 0.1)
+#      batch_transform.kwargs.cutmix_prob: range(0.0, 1.0, 0.1)
+#      batch_transform.kwargs.mixup_prob: range(0.0, 1.0, 0.1)

@@ -15,13 +15,19 @@ from typing import Dict
 from hydra.core.hydra_config import HydraConfig
 import hydra
 import torch
+import json
 # import beepy
 
 
 @hydra.main(config_path="../configs", config_name="train", version_base="1.2")
 def main(cfg: DictConfig):
-    time_now = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     cfg_dict: Dict = OmegaConf.to_container(cfg, resolve=True)
+    if cfg.quit_immediately:
+        print("---")
+        print(json.dumps(cfg_dict, indent=4))
+        print("---")
+        return 0
+    time_now = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 
     # ---------------------------------------
     model_class = getattr(models, cfg_dict["model"]["type"])
@@ -58,22 +64,18 @@ def main(cfg: DictConfig):
         )
         for folder in cfg.train_folders
     ])
-    # TODO(Sumo): fix this so training works with multiple val sets
 
+    # note: the depth along width and height turned off to speed up val
     val_dataset_kwargs = sanitise_val_dataset_kwargs(dataset_kwargs, load_ann=True)
+    val_dataset_kwargs["add_depth_along_width"] = False
+    val_dataset_kwargs["add_depth_along_height"] = False
+    # TODO(Sumo): fix this so training works with multiple val sets
     val_dataset = ThreeDSegmentationDataset(
         folder=cfg.val_folders[0],
         substride=cfg.dataset.val_substride,
         **val_dataset_kwargs,
     )
-    # val_dataset = ConcatDataset([
-    #     ThreeDSegmentationDataset(
-    #         folder=folder,
-    #         substride=cfg.dataset.val_substride,
-    #         **dataset_kwargs,
-    #     )
-    #     for folder in cfg.val_folders
-    # ])
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=cfg.apparent_batch_size,
@@ -91,7 +93,7 @@ def main(cfg: DictConfig):
         drop_last=False,
     )
 
-    OmegaConf.save(cfg, model_out_dir / "config.yaml")
+    OmegaConf.save(cfg, model_out_dir / "config.yaml", resolve=True)
 
     criterion = CombinedLoss(cfg_dict)
 
