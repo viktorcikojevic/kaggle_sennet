@@ -19,19 +19,19 @@ max_epochs: 100
 
 optimiser:
   type: "AdamW"
-  log_lr: -3 # sets lr = 10^{-log_lr}. If ls is not null, then it is used instead of log_lr
+  log_lr: -3.7 # sets lr = 10^{-log_lr}. If ls is not null, then it is used instead of log_lr
   kwargs:
     lr: null
 
 loss:
-#  - type: BCELoss
-#    weight: 1.0
+  - type: BCELoss
+    weight: 1.0
   - type: MccLoss
     weight: 1.0
-#  - type: DiceLoss
-#    weight: 1.0
-#    kwargs:
-#      smooth: 0.0001
+  - type: DiceLoss
+    weight: 1.0
+    kwargs:
+      smooth: 0.0001
 #  - type: FocalLoss
 #    weight: 1.0
 #    kwargs:

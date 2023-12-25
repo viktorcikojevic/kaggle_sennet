@@ -44,7 +44,19 @@ def main():
         shutil.copy2(p, staging_path / "tools" / p.name)
     for model_name in model_names:
         model_path = MODEL_OUT_DIR / model_name
-        copy_tree(model_path, str(staging_path / "data_dumps" / "models" / model_name))
+
+        staging_model_path = staging_path / "data_dumps" / "models" / model_name
+        staging_model_path.mkdir(exist_ok=True, parents=True)
+
+        ckpt_path = sorted(list(model_path.glob("*.ckpt")))[0]
+        staging_ckpt_path = staging_model_path / ckpt_path.name
+        print("---")
+        print(f"copying: {ckpt_path} -> {staging_ckpt_path}")
+        print("---")
+        shutil.copy2(model_path / "config.yaml", staging_model_path / "config.yaml")
+        shutil.copy2(ckpt_path, staging_ckpt_path)
+
+        # copy_tree(model_path, str(staging_path / "data_dumps" / "models" / model_name))
 
     shutil.copy2(REPO_DIR / "source.bash", staging_path / "source.bash")
     copy_tree(REPO_DIR / "configs", str(staging_path / "configs"))

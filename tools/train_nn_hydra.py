@@ -136,7 +136,10 @@ def main(cfg: DictConfig):
             filename=f"{cfg.model.type}" + "-{epoch:02d}-{surface_dice:.2f}",
         ),
     ]
-    val_check_interval = min(float(cfg.val_check_interval) / len(train_loader), 1.0)
+    # the weird adjustment is because the original val check interval was designed for apparent batch size of 2
+    adjusted_val_check_interval = float(cfg.val_check_interval * (2.0 / cfg.apparent_batch_size))
+    print(f"{adjusted_val_check_interval = }")
+    val_check_interval = min(adjusted_val_check_interval / len(train_loader), 1.0)
     accumulate_grad_batches = max(1, int(cfg.batch_size / cfg.apparent_batch_size))
     print(f"{accumulate_grad_batches = }")
     trainer = pl.Trainer(
