@@ -43,6 +43,8 @@ def main():
     parser.add_argument("--out-dir", required=True, type=str)
     parser.add_argument("--folders", required=False, type=str)
     parser.add_argument("--run-all", required=False, action="store_true", default=False)
+    parser.add_argument("--n-chunks", required=False, type=int, default=None)
+    parser.add_argument("--run-as-single-process", required=False, action="store_true", default=False)
 
     submission_cfg_path = CONFIG_DIR / "submission.yaml"
     with open(submission_cfg_path, "rb") as f:
@@ -51,7 +53,13 @@ def main():
     args, _ = parser.parse_known_args()
     out_dir = Path(args.out_dir)
     run_all = args.run_all
+    n_chunks_override = args.n_chunks
+    run_as_single_process = args.run_as_single_process
 
+    if n_chunks_override is not None:
+        print(f"{n_chunks_override=} given, override n_chunks to it")
+    if run_as_single_process:
+        print(f"{run_as_single_process=}: removing all multi processing")
     if run_all:
         folders_override = sorted([d.relative_to(PROCESSED_DATA_DIR).name for d in PROCESSED_DATA_DIR.glob("*") if d.is_dir()])
         print(f"run_all given, folders overridden to: {folders_override}")
@@ -67,7 +75,6 @@ def main():
         model_dir = MODEL_OUT_DIR / model_name
         cfg, base_model = load_model_from_dir(model_dir)
         model = Tta3DSegmentor(base_model, **submission_cfg["predictors"]["tta_kwargs"])
-        # model = base_model
 
         if folders_override is None:
             folders = cfg["val_folders"]
@@ -90,8 +97,8 @@ def main():
                 data_loader=data_loader,
                 threshold=submission_cfg["predictors"]["threshold"],
                 parallelization_settings=ParallelizationSettings(
-                    run_as_single_process=False,
-                    n_chunks=submission_cfg["predictors"]["n_chunks"],
+                    run_as_single_process=run_as_single_process,
+                    n_chunks=submission_cfg["predictors"]["n_chunks"] if n_chunks_override is None else n_chunks_override,
                     finalise_one_by_one=True,
                 ),
                 out_dir=data_out_dir,
