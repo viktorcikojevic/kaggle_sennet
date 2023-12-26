@@ -1,4 +1,5 @@
 from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score_from_mmap
+from sennet.core.post_processings import filter_out_small_blobs
 from sennet.environments.constants import PROCESSED_DATA_DIR
 from sennet.core.mmap_arrays import read_mmap_array
 from pathlib import Path
@@ -15,6 +16,7 @@ def objective(
         labels: dict[str, np.ndarray],
 ) -> float:
     threshold: float = trial.suggest_float("threshold", 0.01, 0.9)
+    dust_threshold: float = trial.suggest_float("threshold", 100, 10000000, log=True)
 
     chunk_dirs = [Path(d) for d in chunk_dirs]
     mean_dice = 0.0
