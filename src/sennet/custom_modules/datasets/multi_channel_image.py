@@ -142,6 +142,8 @@ class MultiChannelDataset:
             reduce_zero_label=self.reduce_zero_label,
             seg_fields=[],
         )
+        self.general_metadata[f"mean"] = stats["mean"]
+        self.general_metadata[f"std"] = stats["std"]
         for p, v in stats["percentiles"].items():
             self.general_metadata[f"percentile_{p}"] = v
         self.image_paths = [f"{p.parent.parent.stem}_{p.stem}" for p in image_paths]

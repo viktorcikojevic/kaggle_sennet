@@ -11,6 +11,7 @@ from sennet.core.post_processings import filter_out_small_blobs
 from sennet.environments.constants import PROCESSED_DATA_DIR, CONFIG_DIR, MODEL_OUT_DIR
 from typing import List, Union
 from pathlib import Path
+import pandas as pd
 from tqdm import tqdm
 import argparse
 import yaml
@@ -51,24 +52,26 @@ class EnsembledPredictions:
             self,
             threshold: float,
             dust_threshold: int = 1000,
+            filter_small_blobs: bool = True,
     ):
         self.mean_prob.data[:] /= self.num_model_count
         self.thresholded_prob.data[:] = self.mean_prob.data > threshold
         self.mean_prob.data.flush()
-
-        filtered_dir = self.root_dir.parent.parent / f"{self.root_dir.parent.name}_cc3d" / self.root_dir.name
-        filtered_dir.mkdir(exist_ok=True, parents=True)
-        (filtered_dir / "image_names").write_text((self.root_dir / "image_names").read_text())
-        filter_out_small_blobs(
-            thresholded_pred=self.thresholded_prob.data,
-            out_path=filtered_dir / "chunk_00" / "thresholded_prob",
-            dust_threshold=dust_threshold,
-            connectivity=26,
-        )
         ensembled_df = generate_submission_df_from_one_chunked_inference(self.root_dir)
         ensembled_df.to_csv(self.root_dir / "submission.csv")
-        ensembled_df = generate_submission_df_from_one_chunked_inference(filtered_dir)
-        ensembled_df.to_csv(filtered_dir / "submission.csv")
+
+        if filter_small_blobs:
+            filtered_dir = self.root_dir.parent.parent / f"{self.root_dir.parent.name}_cc3d" / self.root_dir.name
+            filtered_dir.mkdir(exist_ok=True, parents=True)
+            (filtered_dir / "image_names").write_text((self.root_dir / "image_names").read_text())
+            filter_out_small_blobs(
+                thresholded_pred=self.thresholded_prob.data,
+                out_path=filtered_dir / "chunk_00" / "thresholded_prob",
+                dust_threshold=dust_threshold,
+                connectivity=26,
+            )
+            ensembled_df = generate_submission_df_from_one_chunked_inference(filtered_dir)
+            ensembled_df.to_csv(filtered_dir / "submission.csv")
 
 
 def ensemble_predictions(
@@ -106,6 +109,7 @@ def main():
     parser.add_argument("--keep-model-chunks", required=False, action="store_true", default=False)
     parser.add_argument("--n-chunks", required=False, type=int, default=None)
     parser.add_argument("--run-as-single-process", required=False, action="store_true", default=False)
+    parser.add_argument("--no-cc3d", required=False, action="store_true", default=False)
 
     submission_cfg_path = CONFIG_DIR / "submission.yaml"
     with open(submission_cfg_path, "rb") as f:
@@ -117,6 +121,7 @@ def main():
     n_chunks_override = args.n_chunks
     run_as_single_process = args.run_as_single_process
     keep_model_chunks = args.keep_model_chunks
+    no_cc3d = args.no_cc3d
 
     if n_chunks_override is not None:
         print(f"{n_chunks_override=} given, override n_chunks to it")
@@ -187,7 +192,20 @@ def main():
         ensembled_prediction.finalise(
             threshold=submission_cfg["predictors"]["threshold"],
             dust_threshold=submission_cfg["predictors"]["dust_threshold"],
+            filter_small_blobs=not no_cc3d,
         )
+
+    print("aggregating preds into its final dir")
+    final_sub_path = out_dir / "submission.csv"
+    out_dir_name = "ensembled" if no_cc3d else "ensembled_cc3d"
+    pred_files = list((Path(out_dir) / out_dir_name).rglob("submission.csv"))
+    dfs = []
+    for p in pred_files:
+        print(p)
+        df = pd.read_csv(p)[["id", "rle"]]
+        dfs.append(df)
+    df = pd.concat(dfs, axis=0).set_index("id").sort_index()
+    df.to_csv(final_sub_path)
     print("done!")
 
 

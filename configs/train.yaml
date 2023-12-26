@@ -9,11 +9,12 @@ defaults:
 
 val_check_interval: 10000
 batch_size: 32 # final batch size.
-apparent_batch_size: 32 # batch size during training
+apparent_batch_size: 2 # batch size during training
 num_workers: 16
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
+#exp_name: 3d_seg_hyp_search_1
 group_name: "smp_unet_r50_hyptun" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 100
 
@@ -29,11 +30,13 @@ loss:
   - type: MccLoss
     weight: 1.0
   - type: DiceLoss
-    weight: 1.0
+#    weight: 1.0
+    weight: 0.0
     kwargs:
       smooth: 0.0001
   - type: FocalLoss
-    weight: 1.0
+#    weight: 1.0
+    weight: 0.0
     kwargs:
       gamma: 2.0
 
@@ -45,12 +48,13 @@ task:
 
 train_folders:
   - kidney_1_dense
+  - kidney_3_dense
 #  - kidney_2
-#  - kidney_3_dense
 
 val_folders:
 #  - kidney_1_dense
-   - kidney_3_dense
+#   - kidney_3_dense
+  - kidney_2
 #   - kidney_3_sparse
 
 batch_transform:
@@ -65,6 +69,7 @@ dataset:
   val_substride: 1.0
   kwargs:
     crop_size: 512
+#    crop_size: 992
     n_take_channels: 1
     reduce_zero_label: False
     assert_label_exists: True
@@ -72,7 +77,7 @@ dataset:
     channel_end: null
     sample_with_mask: false
 
-    crop_size_range: [400, 600]
+    crop_size_range: [0.8, 1.2]
 #    crop_size_range: null
     p_crop_size_noise: 0.25
     p_crop_size_keep_ar: 0.5
@@ -80,7 +85,7 @@ dataset:
     to_float32: true
     load_ann: true
     seg_fill_val: 0
-    crop_location_noise: 50
+    crop_location_noise: 0.5
     p_crop_location_noise: 1.0
 
     # These three allow for rotation and flip augmentation
@@ -91,12 +96,13 @@ dataset:
     normalisation_kwargs:
       mean: 0.5
       std: 0.235
+      normalise_by_mean_and_std: false
       normalisation_percentile: 1
 
 hydra:
   sweeper:
     sampler:
-      seed: 42
+      seed: 1337
     direction: maximize
     storage: null
     n_trials: 40
@@ -105,13 +111,14 @@ hydra:
       optimiser.log_lr: range(-5, -3, 0.1)
       dataset.kwargs.crop_size: range(128, 992, 32)
       dataset.kwargs.p_crop_size_noise: range(0.2, 1.0, 0.2)
-      batch_size: range(4, 128, 4)
+#      batch_size: range(4, 128, 4)
 
-      batch_transform.kwargs.alpha_cutmix: range(0.0, 1.0, 0.1)
-      batch_transform.kwargs.alpha_mixup: range(0.0, 1.0, 0.1)
-      batch_transform.kwargs.cutmix_prob: range(0.0, 1.0, 0.1)
-      batch_transform.kwargs.mixup_prob: range(0.0, 1.0, 0.1)
+#      batch_transform.kwargs.alpha_cutmix: range(0.0, 1.0, 0.1)
+#      batch_transform.kwargs.alpha_mixup: range(0.0, 1.0, 0.1)
+#      batch_transform.kwargs.cutmix_prob: range(0.0, 1.0, 0.1)
+#      batch_transform.kwargs.mixup_prob: range(0.0, 1.0, 0.1)
+      loss.0.weight: range(0.0, 1.0, 0.1)
       loss.1.weight: range(0.0, 1.0, 0.1)
       loss.2.weight: range(0.0, 1.0, 0.1)
       loss.3.weight: range(0.0, 1.0, 0.1)
-      augmentation.augmenter_kwargs.p_any_augm: range(0.0, 1.0, 0.1)
+#      augmentation.augmenter_kwargs.p_any_augm: range(0.0, 1.0, 0.1)
