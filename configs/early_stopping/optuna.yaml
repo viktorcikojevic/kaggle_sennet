@@ -2,6 +2,6 @@
 
 val_check_interval: 2000
 early_stopping:
-  min_delta: 0.01
+  min_delta: 0.00
   patience: 3
   verbose: true

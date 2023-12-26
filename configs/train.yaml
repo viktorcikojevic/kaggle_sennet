@@ -48,12 +48,13 @@ task:
 
 train_folders:
   - kidney_1_dense
+  - kidney_3_dense
 #  - kidney_2
-#  - kidney_3_dense
 
 val_folders:
 #  - kidney_1_dense
-   - kidney_3_dense
+#   - kidney_3_dense
+  - kidney_2
 #   - kidney_3_sparse
 
 batch_transform:
