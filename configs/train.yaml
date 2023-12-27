@@ -16,7 +16,8 @@ quit_immediately: false # just prints out the config and exits, useful for debug
 exp_name: three_d_seg
 #exp_name: 3d_seg_hyp_search_1
 group_name: "smp_unet_r50_hyptun" # maybe this would be useful for grouping experiments when we do hyperparameter search
-max_epochs: 100
+# max_epochs: 100
+max_steps: 10_000
 
 optimiser:
   type: "AdamW"
