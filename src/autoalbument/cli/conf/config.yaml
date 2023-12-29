@@ -20,6 +20,7 @@ logger:
   save_dir: /home/clay/research/kaggle/sennet/data_dumps/auto_alb_tb_logs/${now:%H-%M-%S}
 
 task: classification # Deep learning task. Should either be `classification` or `semantic_segmentation`.
+#task: semantic_segmentation # Deep learning task. Should either be `classification` or `semantic_segmentation`.
 
 policy_model:
   task_factor: 0.1

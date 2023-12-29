@@ -1,6 +1,7 @@
 # @package _global_
 
-val_check_interval: 10000
+val_check_interval: 30000
+max_steps: 90000
 early_stopping:
   min_delta: 0.00
   patience: 3

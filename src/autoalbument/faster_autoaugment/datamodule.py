@@ -27,15 +27,7 @@ class FasterAutoAugmentDataModule(pl.LightningDataModule):
         self.dataset = self._instantiate_dataset()
 
     def train_dataloader(self):
-        dataloader = torch.utils.data.DataLoader(
-            dataset=self.dataset,
-            batch_size=self.data_cfg.dataloader.batch_size,
-            shuffle=self.data_cfg.dataloader.shuffle,
-            num_workers=self.data_cfg.dataloader.num_workers,
-            pin_memory=self.data_cfg.dataloader.pin_memory,
-            drop_last=self.data_cfg.dataloader.drop_last,
-        )
-        # dataloader = instantiate(self.data_cfg.dataloader, dataset=self.dataset)
+        dataloader = instantiate(self.data_cfg.dataloader, dataset=self.dataset)
         return dataloader
 
     def create_transform(self):

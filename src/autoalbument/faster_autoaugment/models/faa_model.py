@@ -66,7 +66,12 @@ class FAABaseModel(pl.LightningModule):
         )[0]
         return (grad.norm(2, dim=1) - 1).pow(2).mean()
 
+    def _legacy_manual_backward(self, loss, optimizer, *args, **kwargs):
+        self._verify_is_manual_optimization("manual_backward")
+        self.trainer.strategy.backward(loss, optimizer, *args, **kwargs)
+
     def training_step(self, batch, batch_idx):
+        # https://github.com/nocotan/pytorch-lightning-gans/blob/master/models/wgan_gp.py
         input, target = batch
         b = input.size(0) // 2
         a_input, a_target = input[:b], target[:b]
@@ -79,12 +84,11 @@ class FAABaseModel(pl.LightningModule):
         self.main_model.zero_grad()
         output, n_output = self.main_model(n_input)
         loss = self.cfg.policy_model.task_factor * self.criterion(output, n_target)
-        print(loss)
-        self.manual_backward(loss, main_optimizer, retain_graph=True)
+        self._legacy_manual_backward(loss, main_optimizer, retain_graph=True)
 
         d_n_loss = n_output.mean()
 
-        self.manual_backward(d_n_loss.unsqueeze(0), main_optimizer, -ones.unsqueeze(0))
+        self._legacy_manual_backward(d_n_loss.unsqueeze(0), main_optimizer, -ones.unsqueeze(0))
 
         with torch.no_grad():
             a_input = self.policy_model.denormalize_(a_input)
@@ -93,10 +97,10 @@ class FAABaseModel(pl.LightningModule):
         _, a_output = self.main_model(augmented)
         d_a_loss = a_output.mean()
 
-        self.manual_backward(d_a_loss.unsqueeze(0), main_optimizer, ones.unsqueeze(0))
+        self._legacy_manual_backward(d_a_loss.unsqueeze(0), main_optimizer, ones.unsqueeze(0))
 
         gp = self.cfg.policy_model.gp_factor * self.gradient_penalty(n_input, augmented)
-        self.manual_backward(gp, main_optimizer)
+        self._legacy_manual_backward(gp, main_optimizer)
         main_optimizer.step()
 
         self.main_model.requires_grad_(False)
@@ -105,10 +109,10 @@ class FAABaseModel(pl.LightningModule):
         _output, a_output = self.main_model(augmented_input)
 
         _loss = self.cfg.policy_model.task_factor * self.criterion(_output, maybe_augmented_target)
-        self.manual_backward(_loss, policy_optimizer, retain_graph=True)
+        self._legacy_manual_backward(_loss, policy_optimizer, retain_graph=True)
 
         a_loss = a_output.mean()
-        self.manual_backward(a_loss.unsqueeze(0), policy_optimizer, -ones.unsqueeze(0))
+        self._legacy_manual_backward(a_loss.unsqueeze(0), policy_optimizer, -ones.unsqueeze(0))
 
         policy_optimizer.step()
         with torch.no_grad():
