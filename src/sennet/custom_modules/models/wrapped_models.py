@@ -116,10 +116,10 @@ class SMPModel(Base3DSegmentor):
         self.model = constructor(**kw)
 
     def get_name(self) -> str:
-        return f"SMP({self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']})"
+        return f"SMP_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
 
     def predict(self, img: torch.Tensor) -> SegmentorOutput:
-        assert img.shape[1] == 1, f"{self.__class__.__name__} works in 1 channel images only (for not), expected to have c=1, got {img.shape=}"
+        assert img.shape[1] == 1, f"{self.__class__.__name__} works in 1 channel images only (for now), expected to have c=1, got {img.shape=}"
         model_out = self.model(img[:, 0, :, :, :])
         return SegmentorOutput(
             pred=model_out,

@@ -1,0 +1,59 @@
+# @package _global_
+
+_version: 2
+
+# https://github.com/albumentations-team/autoalbument/blob/master/examples/cifar10/search.yaml
+task: classification # Deep learning task. Should either be `classification` or `semantic_segmentation`.
+
+policy_model:
+  task_factor: 0.1
+  gp_factor: 10
+  temperature: 0.05
+  num_sub_policies: 100
+  num_chunks: 8
+  operation_count: 4
+
+classification_model:
+  _target_: model.Cifar10ClassificationModel
+
+data:
+  dataset:
+    _target_: dataset.Cifar10SearchDataset
+    root: /home/clay/research/kaggle/sennet/data/cifar10
+    train: true
+    download: true
+  input_dtype: uint8
+  preprocessing: null
+  normalization:
+    mean: [0.4914, 0.4822, 0.4465]
+    std: [0.247, 0.243, 0.261]
+
+  dataloader:
+    _target_: torch.utils.data.DataLoader
+    batch_size: 128
+    shuffle: true
+    num_workers: 8
+    pin_memory: true
+    drop_last: true
+
+optim:
+  main:
+    _target_: torch.optim.Adam
+    lr: 1e-3
+    betas: [0, 0.999]
+
+  policy:
+    _target_: torch.optim.Adam
+    lr: 1e-3
+    betas: [0, 0.999]
+
+seed: 42
+
+hydra:
+  run:
+    dir: ${config_dir:}/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+trainer:
+  max_epochs: 40
+  benchmark: true
+  gpus: 1

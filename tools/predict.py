@@ -2,7 +2,7 @@ from sennet.core.submission_utils import (
     load_config_from_dir,
     load_model_from_dir,
     build_data_loader,
-    generate_submission_df_from_one_chunked_inference
+    generate_submission_df_from_one_chunked_inference,
 )
 from sennet.core.submission import generate_submission_df, ParallelizationSettings
 from sennet.core.mmap_arrays import read_mmap_array, create_mmap_array
