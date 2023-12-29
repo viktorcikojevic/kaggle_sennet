@@ -147,7 +147,7 @@ def main(cfg: DictConfig):
         logger=logger,
         val_check_interval=val_check_interval,
         # max_epochs=cfg.max_epochs,
-        max_epochs=cfg.max_steps,
+        max_steps=cfg.max_steps,
         precision="16-mixed",
         log_every_n_steps=20,
         # gradient_clip_val=1.0,
