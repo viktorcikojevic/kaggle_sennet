@@ -1,3 +1,5 @@
+import os
+
 import sennet.custom_modules.models as models
 from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score_from_mmap
 from sennet.core.dataset import ThreeDSegmentationDataset
@@ -104,12 +106,22 @@ def load_config_from_dir(model_dir: str | Path) -> Dict:
 
 
 def load_model_from_dir(model_dir: str | Path) -> Tuple[Dict, Optional[models.Base3DSegmentor]]:
+    trimmed_prefix = "AAA_trimmed_"
+
     model_dir = Path(model_dir)
     cfg = load_config_from_dir(model_dir)
-    ckpt_path = sorted(list(model_dir.glob("*.ckpt")))[0]
-    print(f"found ckpt: {ckpt_path}")
+    ckpt_paths = sorted(list(model_dir.glob("*.ckpt")))
+    ckpt_path = ckpt_paths[0]
     is_ckpt_path_trimmed = "trimmed" in ckpt_path.name
+    if len(ckpt_paths) > 1 and is_ckpt_path_trimmed:
+        outdated = ckpt_path.name.replace(trimmed_prefix, "") != ckpt_paths[1].name
+        if outdated:
+            print(f"trimmed checkpoint is outdated: trimmed={ckpt_path.name}, found={ckpt_paths[1].name}")
+            is_ckpt_path_trimmed = False
+            os.remove(ckpt_path)  # prevent it from coming up again
+            ckpt_path = ckpt_paths[1]
 
+    print(f"using ckpt: {ckpt_path}")
     model_class = getattr(models, cfg["model"]["type"])
 
     ckpt = torch.load(ckpt_path)
@@ -150,7 +162,7 @@ def load_model_from_dir(model_dir: str | Path) -> Tuple[Dict, Optional[models.Ba
         print("loaded ckpt is trimmed so no need to trim it again")
     else:
         ckpt = {"state_dict": model_state_dict}
-        trimmed_ckpt_path = ckpt_path.parent / f"AAA_trimmed_{ckpt_path.name}"
+        trimmed_ckpt_path = ckpt_path.parent / f"{trimmed_prefix}{ckpt_path.name}"
         torch.save(ckpt, trimmed_ckpt_path)
         print(f"saved trimmed ckpt path: {trimmed_ckpt_path}")
     return cfg, model

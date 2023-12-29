@@ -17,8 +17,9 @@ def objective(
         chunk_dirs: List[Union[str, Path]],
         labels: dict[str, np.ndarray],
 ) -> float:
-    threshold: float = trial.suggest_float("threshold", 0.01, 0.9)
+    threshold: float = trial.suggest_float("threshold", 0.01, 0.2)
     dust_threshold: int = trial.suggest_int("dust_threshold", 1, 10000000, log=True)
+    do_dust: bool = trial.suggest_categorical("do_dust", [False, True])
 
     chunk_dirs = [Path(d) for d in chunk_dirs]
     mean_dice = 0.0
@@ -31,16 +32,22 @@ def objective(
             m > threshold
             for m in mean_prob_chunks
         ], axis=0)
-        filtered_pred = filter_out_small_blobs(
-            thresholded_pred,
-            out_path=None,
-            dust_threshold=dust_threshold,
-            connectivity=26,
-        )
-        dice_score = compute_surface_dice_score_from_thresholded_mmap(
-            thresholded_chunks=[filtered_pred],
-            label=labels[folder.name],
-        )
+        if do_dust:
+            filtered_pred = filter_out_small_blobs(
+                thresholded_pred,
+                out_path=None,
+                dust_threshold=dust_threshold,
+                connectivity=26,
+            )
+            dice_score = compute_surface_dice_score_from_thresholded_mmap(
+                thresholded_chunks=[filtered_pred],
+                label=labels[folder.name],
+            )
+        else:
+            dice_score = compute_surface_dice_score_from_thresholded_mmap(
+                thresholded_chunks=[thresholded_pred],
+                label=labels[folder.name],
+            )
 
         dice_scores[folder.name] = dice_score
         mean_dice += dice_score / len(chunk_dirs)
@@ -57,14 +64,14 @@ def main():
     pred_dir = Path(args.pred_dir)
 
     chunk_dirs = sorted([str(p) for p in pred_dir.glob("*")])
-    print(f"optimising post process hyp for: {chunk_dirs}")
-    print(json.dumps(chunk_dirs, indent=4))
 
     labels = {
         p.name: read_mmap_array(p / "label", mode="r").data
         for p in PROCESSED_DATA_DIR.glob("*")
         if p.is_dir() and (p / "label").is_dir()
     }
+    print(f"chunk dirs")
+    print(json.dumps(chunk_dirs, indent=4))
     print("found labels:")
     print(json.dumps({k: v.shape for k, v in labels.items()}))
 

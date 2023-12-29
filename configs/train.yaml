@@ -27,7 +27,7 @@ optimiser:
 
 loss:
   - type: BCELoss
-    weight: 1.0
+    weight: 0.0
   - type: MccLoss
     weight: 1.0
   - type: DiceLoss
@@ -36,8 +36,8 @@ loss:
     kwargs:
       smooth: 0.0001
   - type: FocalLoss
-#    weight: 1.0
-    weight: 0.0
+    weight: 1.0
+#    weight: 0.0
     kwargs:
       gamma: 2.0
 

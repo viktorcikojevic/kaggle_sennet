@@ -123,6 +123,9 @@ def main():
     keep_model_chunks = args.keep_model_chunks
     no_cc3d = args.no_cc3d
 
+    if submission_cfg["predictors"]["dust_threshold"] is None:
+        print(f"dust_threshold is None, turning off cc3d")
+        no_cc3d = True
     if n_chunks_override is not None:
         print(f"{n_chunks_override=} given, override n_chunks to it")
     if run_as_single_process:
