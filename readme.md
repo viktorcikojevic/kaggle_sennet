@@ -53,3 +53,19 @@ Create a debug dataset with 10 channels.
 ```bash
 bash create_debug_dataset.sh
 ```
+
+---
+
+# Auto Albumentation
+
+```bash
+python3 tools/auto_alb_search.py \
+  --config-dir /home/clay/research/kaggle/sennet/src/sennet/auto_alb_demo
+  
+# baseline
+python3 tools/train_aa_hydra.py
+
+# auto alb
+python3 tools/train_aa_hydra.py \
+  --aug-path /home/clay/research/kaggle/sennet/policy/latest.json
+```

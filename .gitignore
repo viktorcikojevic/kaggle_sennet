@@ -19,3 +19,6 @@ src/sennet/environments/environments.py
 debug.ipynb
 nohup.out
 *.bin
+checkpoints/
+policy/
+cifar10-cls/

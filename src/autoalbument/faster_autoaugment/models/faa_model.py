@@ -115,6 +115,14 @@ class FAABaseModel(pl.LightningModule):
         self._legacy_manual_backward(a_loss.unsqueeze(0), policy_optimizer, -ones.unsqueeze(0))
 
         policy_optimizer.step()
+
+        # the classifier is the discriminator as well, and forward returns pred, discriminator_pred
+        # loss = classification loss on normal images
+        # _loss = classification loss on augmented images
+        # d_loss = discriminator (critic) loss
+        #   d_n_loss = loss from the model on the real input
+        #   d_a_loss = loss from the model on the augmented input
+        # a_loss = input
         with torch.no_grad():
             metrics = {
                 "loss": loss + _loss,

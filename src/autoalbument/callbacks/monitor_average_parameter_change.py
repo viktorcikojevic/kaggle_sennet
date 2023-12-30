@@ -45,10 +45,10 @@ class MonitorAverageParameterChange(Callback):
         values_change = [abs(v2 - v1) for v1, v2 in zip(values_1, values_2)]
         return sum(values_change) / len(values_change)
 
-    def on_epoch_start(self, trainer, pl_module):
+    def on_train_epoch_start(self, trainer, pl_module):
         self.policy_model_state_dict_epoch_start = copy.deepcopy(pl_module.policy_model.state_dict())
 
-    def on_epoch_end(self, trainer, pl_module):
+    def on_train_epoch_end(self, trainer, pl_module):
         policy_model_state_dict_epoch_end = pl_module.policy_model.state_dict()
         average_parameter_change = self.get_average_parameter_change(
             self.policy_model_state_dict_epoch_start,

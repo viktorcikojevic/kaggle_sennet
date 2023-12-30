@@ -4,6 +4,7 @@ import shutil
 
 import albumentations as A
 from pytorch_lightning import Callback
+import pytorch_lightning as pl
 
 __all__ = [
     "SavePolicy",
@@ -19,9 +20,9 @@ class SavePolicy(Callback):
         self.latest_policy_filepath = os.path.join(self.dirpath, latest_policy_filename)
         os.makedirs(self.dirpath, exist_ok=True)
 
-    def on_epoch_end(self, trainer, pl_module):
+    def on_train_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
         epoch = trainer.current_epoch
-        datamodule = trainer.datamodule
+        datamodule = trainer.datamodule  # this attribute will be there if datamodule is given
         cfg = pl_module.cfg
         transform = pl_module.policy_model.create_transform(
             input_dtype=cfg.data.input_dtype,

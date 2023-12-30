@@ -50,6 +50,9 @@ class FasterAutoAugmentSearcher(SearcherBase):
     def create_trainer_additional_params(self):
         logger = self.create_logger()
         callbacks = self.create_callbacks()
+        print(f"callbacks:")
+        for c in callbacks:
+            print(c)
         return {
             "logger": logger,
             "callbacks": callbacks,

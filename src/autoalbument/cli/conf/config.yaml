@@ -16,8 +16,9 @@ callbacks:
     dirpath: checkpoints
 
 logger:
-  _target_: pytorch_lightning.loggers.TensorBoardLogger
-  save_dir: /home/clay/research/kaggle/sennet/data_dumps/auto_alb_tb_logs/${now:%H-%M-%S}
+  _target_: pytorch_lightning.loggers.WandbLogger
+  project: auto_alb
+  name: aa_${now:%H-%M-%S}
 
 task: classification # Deep learning task. Should either be `classification` or `semantic_segmentation`.
 #task: semantic_segmentation # Deep learning task. Should either be `classification` or `semantic_segmentation`.
@@ -87,9 +88,9 @@ optim:
 
 seed: 42
 
-hydra:
-  run:
-    dir: /home/clay/research/kaggle/sennet/data_dumps/auto_alb_results/${now:%H-%M-%S}
+hydra: {}
+#  run:
+#    dir: /home/clay/research/kaggle/sennet/data_dumps/auto_alb_results/${now:%H-%M-%S}
 
 trainer:
   _target_: pytorch_lightning.Trainer
