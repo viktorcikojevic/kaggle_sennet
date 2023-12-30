@@ -15,7 +15,7 @@ dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
 #exp_name: 3d_seg_hyp_search_1
-group_name: "smp_unet_r50_scan_crop_size_n_channels" # maybe this would be useful for grouping experiments when we do hyperparameter search
+group_name: "smp_unet_r50_scan_n_channels" # maybe this would be useful for grouping experiments when we do hyperparameter search
 # max_epochs: 100
 max_steps: 50000
 
@@ -69,7 +69,8 @@ dataset:
   val_substride: 1.0
   kwargs:
     crop_size: 384
-    n_take_channels: 1
+    n_take_channels: 8 # Number of channels to take from the dataset
+    n_appereant_channels: 1 # After augmentation and preprocessing, how many channels you will take.
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0

@@ -153,6 +153,10 @@ def load_model_from_dir(model_dir: str | Path) -> Tuple[Dict, Optional[models.Ba
         trimmed_ckpt_path = ckpt_path.parent / f"AAA_trimmed_{ckpt_path.name}"
         torch.save(ckpt, trimmed_ckpt_path)
         print(f"saved trimmed ckpt path: {trimmed_ckpt_path}")
+    
+    if 'n_appereant_channels' in cfg['dataset']['kwargs']:
+        cfg['dataset']['kwargs']['n_take_channels'] = cfg['dataset']['kwargs']['n_appereant_channels']
+    
     return cfg, model
 
 
