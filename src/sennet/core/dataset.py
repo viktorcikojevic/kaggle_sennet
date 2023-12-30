@@ -87,7 +87,7 @@ class ThreeDSegmentationDataset(Dataset):
         if self.augmenter is not None:
             self.transforms.append(self.augmenter)
         if self.normalisation_kwargs is not None:
-            self.transforms.append(Normalise(**self.normalisation_kwargs))
+            self.transforms = [Normalise(**self.normalisation_kwargs)] + self.transforms
 
     def __len__(self):
         return len(self.dataset)

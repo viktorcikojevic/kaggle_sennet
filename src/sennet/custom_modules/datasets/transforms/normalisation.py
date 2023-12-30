@@ -1,4 +1,5 @@
 from line_profiler_pycharm import profile
+import numpy as np
 
 
 class Normalise:
@@ -28,6 +29,7 @@ class Normalise:
             results["img"] = results["img"] / 255.0
             results["img"] -= self.mean
             results["img"] /= self.std
+        results["img"] = results["img"].astype(np.float32)  # makes downstream albumentations happy
         return results
 
     def __repr__(self):

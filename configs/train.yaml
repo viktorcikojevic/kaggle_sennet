@@ -2,8 +2,8 @@ defaults:
   - _self_
   - model: smp_unet_r50
   - augmentation: vanilla
-  - early_stopping: normal
 #  - augmentation: noop
+  - early_stopping: normal
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
@@ -13,8 +13,8 @@ apparent_batch_size: 2 # batch size during training
 num_workers: 16
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
-#exp_name: three_d_seg
-exp_name: 3d_seg_hyp_search_3
+exp_name: three_d_seg
+#exp_name: 3d_seg_hyp_search_3
 group_name: "smp_unet_r50_hyptun" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 100
 max_steps: -1
@@ -30,10 +30,10 @@ loss:
   - type: BCELoss
     weight: 0.0
   - type: MccLoss
-    weight: 1.0
+    weight: 0.35
   - type: DiceLoss
 #    weight: 1.0
-    weight: 0.0
+    weight: 0.4
     kwargs:
       smooth: 0.0001
   - type: FocalLoss
@@ -70,8 +70,8 @@ dataset:
   train_substride: 0.25
   val_substride: 1.0
   kwargs:
-    crop_size: 512
-#    crop_size: 992
+#    crop_size: 512
+    crop_size: 896
     n_take_channels: 1
     reduce_zero_label: False
     assert_label_exists: True
