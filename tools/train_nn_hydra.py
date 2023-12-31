@@ -141,6 +141,8 @@ def main(cfg: DictConfig):
     val_check_interval = min(adjusted_val_check_interval / len(train_loader), 1.0)
     accumulate_grad_batches = max(1, int(cfg.batch_size / cfg.apparent_batch_size))
     print(f"{accumulate_grad_batches = }")
+    torch.backends.cudnn.enabled = True
+    torch.backends.cudnn.benchmark = True
     trainer = pl.Trainer(
         num_sanity_val_steps=0,
         accelerator="gpu",
@@ -149,6 +151,7 @@ def main(cfg: DictConfig):
         max_epochs=cfg.max_epochs,
         max_steps=cfg.max_steps,
         precision="16-mixed",
+        benchmark=True,
         log_every_n_steps=20,
         # gradient_clip_val=1.0,
         # gradient_clip_algorithm="norm",

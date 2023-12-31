@@ -30,15 +30,13 @@ loss:
   - type: BCELoss
     weight: 0.0
   - type: MccLoss
-    weight: 0.35
+    weight: 0.0
   - type: DiceLoss
-#    weight: 1.0
     weight: 0.4
     kwargs:
       smooth: 0.0001
   - type: FocalLoss
-    weight: 1.0
-#    weight: 0.0
+    weight: 0.6
     kwargs:
       gamma: 2.0
 
