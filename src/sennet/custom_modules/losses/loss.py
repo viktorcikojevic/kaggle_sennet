@@ -27,6 +27,8 @@ class CombinedLoss(torch.nn.Module):
             bce_loss = F.binary_cross_entropy_with_logits(input, target, reduction="none")
 
         for loss_fn, weight in self.loss_functions:
+            if weight < 1e-3:
+                continue
             if isinstance(loss_fn, LOSSES_WITH_BCE_INPUT):
                 loss_value = loss_fn(bce_loss)
             else:

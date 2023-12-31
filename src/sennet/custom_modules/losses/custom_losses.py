@@ -11,8 +11,8 @@ class DiceLoss(nn.Module):
 
     def forward(self, input, target):
         # Apply sigmoid to input (predictions)
-        input_sigmoid = torch.sigmoid(input).view(-1)
-        target_flat = target.view(-1)
+        input_sigmoid = torch.sigmoid(input).reshape(-1)
+        target_flat = target.reshape(-1)
         
         intersection = (input_sigmoid * target_flat).sum()
 

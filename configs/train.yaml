@@ -58,6 +58,8 @@ task:
     eval_threshold: 0.2
     compute_crude_metrics: false
     ema_momentum: 0.00025
+    ignore_border_loss: true
+#    ignore_border_loss: false
 #    ema_momentum: null
 
 train_folders:
@@ -79,11 +81,12 @@ batch_transform:
     mixup_prob: 0.0
 
 dataset:
-  train_substride: 0.25
+  train_substride: 0.5
   val_substride: 1.0
   kwargs:
-#    crop_size: 512
-    crop_size: 896
+    crop_size: 512
+#    crop_size: 896
+    cropping_border: 32
     n_take_channels: 1
     reduce_zero_label: False
     assert_label_exists: True

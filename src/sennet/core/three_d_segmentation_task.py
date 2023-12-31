@@ -2,6 +2,7 @@ from sennet.core.submission_utils import evaluate_chunked_inference, ChunkedMetr
 from sennet.core.submission import generate_submission_df, ParallelizationSettings
 from sennet.core.utils import resize_3d_image
 from sennet.environments.constants import PROCESSED_DATA_DIR, TMP_SUB_MMAP_DIR
+from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.custom_modules.models import Base3DSegmentor
 import pytorch_lightning as pl
 from typing import Dict, Any, List
@@ -49,6 +50,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             batch_transform: nn.Module = None,
             ema_momentum: float | None = None,
             scheduler_spec: dict[str, Any] = None,
+            ignore_border_loss: bool = False,
     ):
         pl.LightningModule.__init__(self)
         self.model = model
@@ -69,6 +71,11 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.eval_threshold = eval_threshold
         self.best_surface_dice = 0.0
         self.batch_transform = batch_transform
+        self.ignore_border_loss = ignore_border_loss
+
+        assert isinstance(val_loader.dataset, ThreeDSegmentationDataset), \
+            f"to generate submission, dataset must be ThreeDSegmentationDataset"
+        self.cropping_border = val_loader.dataset.dataset.cropping_border
 
         self.total_tp = 0
         self.total_fp = 0
@@ -87,14 +94,32 @@ class ThreeDSegmentationTask(pl.LightningModule):
         _, pred_d, pred_h, pred_w = preds.shape
         _, _, gt_d, gt_h, gt_w = gt_seg_map.shape
         if (gt_d != pred_d) or (gt_h != pred_h) or (gt_w != pred_w):
-            resized_gt = resize_3d_image(gt_seg_map, (pred_w, pred_h, pred_d))[:, 0, :, :, :]
-            # resized_pred = resize_3d_image(preds.unsqueeze(1), (gt_w, gt_h, gt_d))[:, 0, :, :, :]
+            # resized_gt = resize_3d_image(gt_seg_map, (pred_w, pred_h, pred_d))[:, 0, :, :, :]
+            resized_pred = resize_3d_image(preds.unsqueeze(1), (gt_w, gt_h, gt_d))[:, 0, :, :, :]
+            raise RuntimeError(":D")
         else:
-            resized_gt = gt_seg_map[:, 0, :, :, :]
-            # resized_pred = preds
+            # resized_gt = gt_seg_map[:, 0, :, :, :]
+            resized_pred = preds
 
-        loss = self.criterion(preds, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
-        # loss = self.criterion(resized_pred, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
+        # loss = self.criterion(preds, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
+        if self.ignore_border_loss:
+            loss = self.criterion(
+                resized_pred[
+                    :,
+                    :,
+                    self.cropping_border: resized_pred.shape[2] - self.cropping_border,
+                    self.cropping_border: resized_pred.shape[3] - self.cropping_border,
+                ],
+                gt_seg_map[
+                    :,
+                    0,
+                    seg_pred.take_indices_start: seg_pred.take_indices_end,
+                    self.cropping_border: gt_seg_map.shape[3]-self.cropping_border,
+                    self.cropping_border: gt_seg_map.shape[4]-self.cropping_border,
+                ],
+            )
+        else:
+            loss = self.criterion(resized_pred, gt_seg_map[:, 0, :, :, :])
         self.log("train_loss", loss, prog_bar=True)
         return loss
 

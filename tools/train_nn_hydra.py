@@ -142,6 +142,7 @@ def main(cfg: DictConfig):
     print(f"{accumulate_grad_batches = }")
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True
+    torch.set_float32_matmul_precision("medium")
     trainer = pl.Trainer(
         num_sanity_val_steps=0,
         accelerator="gpu",

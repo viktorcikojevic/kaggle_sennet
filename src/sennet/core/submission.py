@@ -135,7 +135,11 @@ class TensorReceivingProcess:
             ux = bbox[4] - self.cropping_border
             ly = bbox[2] + self.cropping_border
             uy = bbox[5] - self.cropping_border
-            cropped_pred = pred[:, self.cropping_border: -self.cropping_border, self.cropping_border: -self.cropping_border]
+            cropped_pred = pred[
+                :,
+                self.cropping_border: pred.shape[1]-self.cropping_border,
+                self.cropping_border: pred.shape[2]-self.cropping_border
+            ]
         elif bbox_type == DEPTH_ALONG_WIDTH:
             lc = pred_chunk.fill_start + self.cropping_border
             uc = pred_chunk.fill_end - self.cropping_border
@@ -143,7 +147,11 @@ class TensorReceivingProcess:
             ux = bbox[1] + data.model_end_idx
             ly = bbox[2] + self.cropping_border
             uy = bbox[5] - self.cropping_border
-            cropped_pred = pred[self.cropping_border: -self.cropping_border, self.cropping_border: -self.cropping_border, :]
+            cropped_pred = pred[
+                self.cropping_border: pred.shape[0]-self.cropping_border,
+                self.cropping_border: pred.shape[1]-self.cropping_border
+                :,
+            ]
         elif bbox_type == DEPTH_ALONG_HEIGHT:
             lc = pred_chunk.fill_start + self.cropping_border
             uc = pred_chunk.fill_end - self.cropping_border
@@ -151,7 +159,11 @@ class TensorReceivingProcess:
             ux = bbox[4] - self.cropping_border
             ly = bbox[2] + data.model_start_idx
             uy = bbox[2] + data.model_end_idx
-            cropped_pred = pred[self.cropping_border: -self.cropping_border, :, self.cropping_border: -self.cropping_border]
+            cropped_pred = pred[
+                self.cropping_border: pred.shape[0]-self.cropping_border,
+                :,
+                self.cropping_border: pred.shape[2]-self.cropping_border
+            ]
         else:
             raise RuntimeError(f"unknown bbox type at {self.__class__.__name__}: {bbox_type=}")
 
