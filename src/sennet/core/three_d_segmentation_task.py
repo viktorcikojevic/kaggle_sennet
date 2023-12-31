@@ -1,8 +1,5 @@
-# from pathlib import Path
 from sennet.core.submission_utils import evaluate_chunked_inference, ChunkedMetrics
 from sennet.core.submission import generate_submission_df, ParallelizationSettings
-# from sennet.core.mmap_arrays import read_mmap_array
-# from sennet.core.post_processings import filter_out_small_blobs
 from sennet.core.utils import resize_3d_image
 from sennet.environments.constants import PROCESSED_DATA_DIR, TMP_SUB_MMAP_DIR
 from sennet.custom_modules.models import Base3DSegmentor
@@ -51,6 +48,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             compute_crude_metrics: bool = False,
             batch_transform: nn.Module = None,
             ema_momentum: float | None = None,
+            scheduler_spec: dict[str, Any] = None,
     ):
         pl.LightningModule.__init__(self)
         self.model = model
@@ -65,6 +63,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.val_folders = val_folders
         self.compute_crude_metrics = compute_crude_metrics
         self.optimiser_spec = optimiser_spec
+        self.scheduler_spec = scheduler_spec
         self.criterion = criterion
         self.experiment_name = experiment_name
         self.eval_threshold = eval_threshold
@@ -203,7 +202,23 @@ class ThreeDSegmentationTask(pl.LightningModule):
     def configure_optimizers(self):
         if self.optimiser_spec["kwargs"]["lr"] is None:
             self.optimiser_spec["kwargs"]["lr"] = 10 ** self.optimiser_spec["log_lr"]
-        optimiser = torch.optim.AdamW(self.model.parameters(), **self.optimiser_spec["kwargs"])
-        return {
+        optimiser_class = getattr(torch.optim, self.optimiser_spec["type"])
+        optimiser = optimiser_class(self.model.parameters(), **self.optimiser_spec["kwargs"])
+        print(f"{optimiser = }")
+        ret_val = {
             "optimizer": optimiser,
         }
+        if self.scheduler_spec is not None and "type" in self.scheduler_spec:
+            scheduler = torch.optim.lr_scheduler.OneCycleLR(
+                optimizer=optimiser,
+                **self.scheduler_spec["kwargs"],
+            )
+            scheduler_dict = {
+                "scheduler": scheduler,
+                "interval": "step",
+            }
+            print(f"{scheduler = }")
+            ret_val["lr_scheduler"] = scheduler_dict
+        else:
+            print("no scheduler")
+        return ret_val

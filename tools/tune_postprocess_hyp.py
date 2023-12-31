@@ -18,8 +18,11 @@ def objective(
         labels: dict[str, np.ndarray],
 ) -> float:
     threshold: float = trial.suggest_float("threshold", 0.01, 0.2)
-    dust_threshold: int = trial.suggest_int("dust_threshold", 1, 10000000, log=True)
     do_dust: bool = trial.suggest_categorical("do_dust", [False, True])
+    if do_dust:
+        dust_threshold: int = trial.suggest_int("dust_threshold", 1, 10000000, log=True)
+    else:
+        dust_threshold = 0
 
     chunk_dirs = [Path(d) for d in chunk_dirs]
     mean_dice = 0.0

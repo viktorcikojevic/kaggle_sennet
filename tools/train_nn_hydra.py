@@ -12,7 +12,6 @@ import sennet.custom_modules.models as models
 from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
 from typing import Dict
-from hydra.core.hydra_config import HydraConfig
 import hydra
 import torch
 import json
@@ -108,6 +107,7 @@ def main(cfg: DictConfig):
         experiment_name=experiment_name,
         criterion=criterion,
         batch_transform=batch_transform,
+        scheduler_spec=cfg_dict["scheduler"],
         **cfg_dict["task"]["kwargs"],
     )
     if cfg.dry_logger:
@@ -118,7 +118,6 @@ def main(cfg: DictConfig):
         logger.experiment.config["experiment_name"] = experiment_name
     callbacks = [
         pl.callbacks.LearningRateMonitor(),
-        # pl.callbacks.RichProgressBar(),
         pl.callbacks.RichModelSummary(max_depth=3),
     ]
     callbacks += [
