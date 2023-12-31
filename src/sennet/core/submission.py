@@ -50,6 +50,7 @@ class TensorReceivingProcess:
             threshold: float,
             chunk_boundary: Tuple[int, int],
             out_dir: Optional[Union[str, Path]] = None,
+            cropping_border: int = 0,
     ):
         self.data_queue = data_queue
         self.threshold = threshold
@@ -61,6 +62,7 @@ class TensorReceivingProcess:
         self.thresholded_prob = None
 
         self.current_folder = None
+        self.cropping_border = cropping_border
 
     def _finalise_image_if_holding_any(self):
         if self.current_folder is not None and self.current_mean_prob is not None and self.current_total_count is not None:
@@ -129,24 +131,27 @@ class TensorReceivingProcess:
         if bbox_type == DEPTH_ALONG_CHANNEL:
             lc = pred_chunk.fill_start
             uc = pred_chunk.fill_end
-            lx = bbox[1]
-            ux = bbox[4]
-            ly = bbox[2]
-            uy = bbox[5]
+            lx = bbox[1] + self.cropping_border
+            ux = bbox[4] - self.cropping_border
+            ly = bbox[2] + self.cropping_border
+            uy = bbox[5] - self.cropping_border
+            cropped_pred = pred[:, self.cropping_border: -self.cropping_border, self.cropping_border: -self.cropping_border]
         elif bbox_type == DEPTH_ALONG_WIDTH:
-            lc = pred_chunk.fill_start
-            uc = pred_chunk.fill_end
+            lc = pred_chunk.fill_start + self.cropping_border
+            uc = pred_chunk.fill_end - self.cropping_border
             lx = bbox[1] + data.model_start_idx
             ux = bbox[1] + data.model_end_idx
-            ly = bbox[2]
-            uy = bbox[5]
+            ly = bbox[2] + self.cropping_border
+            uy = bbox[5] - self.cropping_border
+            cropped_pred = pred[self.cropping_border: -self.cropping_border, self.cropping_border: -self.cropping_border, :]
         elif bbox_type == DEPTH_ALONG_HEIGHT:
-            lc = pred_chunk.fill_start
-            uc = pred_chunk.fill_end
-            lx = bbox[1]
-            ux = bbox[4]
+            lc = pred_chunk.fill_start + self.cropping_border
+            uc = pred_chunk.fill_end - self.cropping_border
+            lx = bbox[1] + self.cropping_border
+            ux = bbox[4] - self.cropping_border
             ly = bbox[2] + data.model_start_idx
             uy = bbox[2] + data.model_end_idx
+            cropped_pred = pred[self.cropping_border: -self.cropping_border, :, self.cropping_border: -self.cropping_border]
         else:
             raise RuntimeError(f"unknown bbox type at {self.__class__.__name__}: {bbox_type=}")
 
@@ -163,7 +168,7 @@ class TensorReceivingProcess:
         else:
             assert self.current_folder == folder, f"can't handle more than one folder: {self.current_folder=}, {folder=}"
 
-        self.current_mean_prob[lc: uc, ly: uy, lx: ux] += pred
+        self.current_mean_prob[lc: uc, ly: uy, lx: ux] += cropped_pred
         self.current_total_count[lc: uc, ly: uy, lx: ux] += 1
 
         # print(f"{self.chunk_boundary} wrote")
@@ -205,6 +210,7 @@ def generate_submission_df(
     assert isinstance(data_loader.dataset, ThreeDSegmentationDataset), \
         f"to generate submission, dataset must be ThreeDSegmentationDataset"
     dataset: ThreeDSegmentationDataset = data_loader.dataset
+    cropping_border = dataset.dataset.cropping_border
     n_channels = dataset.dataset.general_metadata["img_c"]
     distributor = TensorDistributor(n_channels, ps.n_chunks)
 
@@ -221,7 +227,8 @@ def generate_submission_df(
             threshold=threshold,
             # all_image_paths=dataset.dataset.image_paths,
             out_dir=out_dir / f"chunk_{str(i).zfill(2)}",
-            chunk_boundary=cb
+            chunk_boundary=cb,
+            cropping_border=cropping_border,
         )
         for i, (q, cb) in enumerate(zip(data_queues, distributor.chunk_boundaries))
     ]

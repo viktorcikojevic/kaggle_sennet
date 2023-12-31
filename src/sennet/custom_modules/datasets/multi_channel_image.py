@@ -14,11 +14,14 @@ def generate_crop_bboxes(
         shape: Tuple[int, int, int],
         mask: Optional[np.ndarray] = None,
         depth_mode: int = DEPTH_ALONG_CHANNEL,
+        cropping_border: int = 0,
 ) -> np.ndarray:
     # bbox is always [channel_lb, x_lb, y_lb, channel_ub, x_ub, y_ub]
     bboxes = []
 
-    crop_stride = max(1, int(substride * crop_size))
+    effective_crop_size = int(crop_size - 2*cropping_border)
+    assert effective_crop_size > 0, f"crop size too small wrt border: {crop_size=}, {cropping_border=} -> {effective_crop_size=}"
+    crop_stride = max(1, int(substride * effective_crop_size))
     channel_stride = max(1, int(substride * n_take_channels))
 
     c_stride = channel_stride if depth_mode == DEPTH_ALONG_CHANNEL else crop_stride
@@ -86,7 +89,8 @@ class MultiChannelDataset:
             sample_with_mask: bool = False,
             add_depth_along_channel: bool = True,
             add_depth_along_width: bool = False,
-            add_depth_along_height: bool = False
+            add_depth_along_height: bool = False,
+            cropping_border: int = 0,
     ) -> None:
         self.folder = PROCESSED_DATA_DIR / folder
         print(f"reading from the following folder: {self.folder}")
@@ -102,6 +106,7 @@ class MultiChannelDataset:
         self.add_depth_along_channel = add_depth_along_channel
         self.add_depth_along_width = add_depth_along_width
         self.add_depth_along_height = add_depth_along_height
+        self.cropping_border = cropping_border
         self._load_data_list()
 
     def __len__(self):
@@ -163,7 +168,8 @@ class MultiChannelDataset:
                 substride=self.substride,
                 shape=(mask.shape[0], mask.shape[1], mask.shape[2]),
                 mask=mask.data if self.sample_with_mask else None,
-                depth_mode=bbox_type
+                depth_mode=bbox_type,
+                cropping_border=self.cropping_border,
             )
             new_bbox_types = np.full(len(new_bboxes), bbox_type)
             print(f"adding depth along {msg}: {new_bboxes.shape[0]}")

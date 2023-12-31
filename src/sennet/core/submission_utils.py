@@ -181,8 +181,10 @@ def sanitise_val_dataset_kwargs(kwargs, load_ann: bool = False) -> dict[str, any
     return kwargs
 
 
-def build_data_loader(folder: str, substride: float, cfg: Dict):
+def build_data_loader(folder: str, substride: float, cfg: Dict, cropping_border: int | None = None):
     kwargs = sanitise_val_dataset_kwargs(cfg["dataset"]["kwargs"], load_ann=False)
+    if cropping_border is not None:
+        kwargs["cropping_border"] = cropping_border
     dataset = ThreeDSegmentationDataset(
         folder,
         substride=substride,

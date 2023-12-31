@@ -41,6 +41,7 @@ class ThreeDSegmentationDataset(Dataset):
 
             transforms: Optional[List] = None,
             normalisation_kwargs: Optional[Dict] = None,
+            cropping_border: int = 0,
     ):
         Dataset.__init__(self)
 
@@ -60,6 +61,7 @@ class ThreeDSegmentationDataset(Dataset):
             add_depth_along_channel=add_depth_along_channel,
             add_depth_along_width=add_depth_along_width,
             add_depth_along_height=add_depth_along_height,
+            cropping_border=cropping_border,
         )
         self.loader = LoadMultiChannelImageAndAnnotationsFromFile(
             crop_size_range=crop_size_range,

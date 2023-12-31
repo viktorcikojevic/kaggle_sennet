@@ -176,7 +176,12 @@ def main():
             data_out_dir.mkdir(exist_ok=True, parents=True)
             print(f"> {model_name}: {folder} -> {data_out_dir}")
 
-            data_loader = build_data_loader(folder, submission_cfg["predictors"]["substride"], cfg)
+            data_loader = build_data_loader(
+                folder,
+                substride=submission_cfg["predictors"]["substride"],
+                cfg=cfg,
+                cropping_border=submission_cfg["predictors"]["cropping_border"],
+            )
             generate_submission_df(
                 model=model,
                 data_loader=data_loader,
