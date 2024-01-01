@@ -99,8 +99,11 @@ def main(cfg: DictConfig):
     # create batch transforms
     batch_transform = BatchTransform(**cfg_dict["batch_transform"]["kwargs"]) if "batch_transform" in cfg_dict else None
     
+    accumulate_grad_batches = max(1, int(cfg.batch_size / cfg.apparent_batch_size))
+    print(f"{accumulate_grad_batches = }")
     task = ThreeDSegmentationTask(
         model,
+        train_loader=train_loader,
         val_loader=val_loader,
         val_folders=cfg.val_folders,
         optimiser_spec=cfg_dict["optimiser"],
@@ -108,6 +111,7 @@ def main(cfg: DictConfig):
         criterion=criterion,
         batch_transform=batch_transform,
         scheduler_spec=cfg_dict["scheduler"],
+        accumulate_grad_batches=accumulate_grad_batches,
         **cfg_dict["task"]["kwargs"],
     )
     if cfg.dry_logger:
@@ -138,8 +142,6 @@ def main(cfg: DictConfig):
     adjusted_val_check_interval = float(cfg.val_check_interval * (2.0 / cfg.apparent_batch_size))
     print(f"{adjusted_val_check_interval = }")
     val_check_interval = min(adjusted_val_check_interval / len(train_loader), 1.0)
-    accumulate_grad_batches = max(1, int(cfg.batch_size / cfg.apparent_batch_size))
-    print(f"{accumulate_grad_batches = }")
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True
     torch.set_float32_matmul_precision("medium")

@@ -40,6 +40,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
     def __init__(
             self,
             model: Base3DSegmentor,
+            train_loader: DataLoader,
             val_loader: DataLoader,
             val_folders: List[str],
             optimiser_spec: Dict[str, Any],
@@ -51,6 +52,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             ema_momentum: float | None = None,
             scheduler_spec: dict[str, Any] = None,
             ignore_border_loss: bool = False,
+            accumulate_grad_batches: int = 1,
     ):
         pl.LightningModule.__init__(self)
         self.model = model
@@ -73,9 +75,11 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.batch_transform = batch_transform
         self.ignore_border_loss = ignore_border_loss
 
-        assert isinstance(val_loader.dataset, ThreeDSegmentationDataset), \
+        self.train_loader = train_loader
+        self.accumulate_grad_batches = accumulate_grad_batches
+        assert isinstance(self.val_loader.dataset, ThreeDSegmentationDataset), \
             f"to generate submission, dataset must be ThreeDSegmentationDataset"
-        self.cropping_border = val_loader.dataset.dataset.cropping_border
+        self.cropping_border = self.val_loader.dataset.dataset.cropping_border
 
         self.total_tp = 0
         self.total_fp = 0
@@ -234,9 +238,18 @@ class ThreeDSegmentationTask(pl.LightningModule):
             "optimizer": optimiser,
         }
         if self.scheduler_spec is not None and "type" in self.scheduler_spec:
-            scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            scheduler_kwargs = self.scheduler_spec["kwargs"]
+            if "override_total_steps" in self.scheduler_spec:
+                key = self.scheduler_spec["override_total_steps"]["key"]
+                num_epochs = self.scheduler_spec["override_total_steps"]["num_epochs"]
+                train_loader = self.train_loader
+                scheduler_kwargs[key] = int(num_epochs * len(train_loader) / self.accumulate_grad_batches)
+                print(f"scheduler override_total_steps given, now set to {scheduler_kwargs[key]}")
+            scheduler_class = getattr(torch.optim.lr_scheduler, self.scheduler_spec["type"])
+            print(f"{scheduler_kwargs = }")
+            scheduler = scheduler_class(
                 optimizer=optimiser,
-                **self.scheduler_spec["kwargs"],
+                **scheduler_kwargs,
             )
             scheduler_dict = {
                 "scheduler": scheduler,

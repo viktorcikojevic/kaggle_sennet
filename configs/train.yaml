@@ -4,11 +4,13 @@ defaults:
   - augmentation: vanilla
 #  - augmentation: noop
   - early_stopping: normal
+  - scheduler: none
+  - optimiser: adamw
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
 val_check_interval: 10000
-batch_size: 32 # final batch size.
+batch_size: 64 # final batch size.
 apparent_batch_size: 4 # batch size during training
 num_workers: 16
 dry_logger: false
@@ -18,26 +20,6 @@ exp_name: r18_lr_test
 group_name: "smp_unet_r50_hyptun" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 100
 max_steps: -1
-
-#optimiser:
-#  type: "AdamW"
-#  log_lr: -3 # sets lr = 10^{-log_lr}. If ls is not null, then it is used instead of log_lr
-#  kwargs:
-#    lr: null
-
-optimiser:
-  type: "SGD"
-#  log_lr: -2 # sets lr = 10^{-log_lr}. If ls is not null, then it is used instead of log_lr
-  log_lr: -1 # sets lr = 10^{-log_lr}. If ls is not null, then it is used instead of log_lr
-  kwargs:
-    lr: null
-
-#scheduler: null
-scheduler:
-  type: "OneCycleLR"
-  kwargs:
-    max_lr: 4.0
-    total_steps: 12438
 
 loss:
   - type: BCELoss
@@ -58,9 +40,9 @@ task:
     eval_threshold: 0.2
     compute_crude_metrics: false
     ema_momentum: 0.00025
+#    ema_momentum: null
     ignore_border_loss: true
 #    ignore_border_loss: false
-#    ema_momentum: null
 
 train_folders:
   - kidney_1_dense

@@ -1,0 +1,7 @@
+type: "LinearLR"
+override_total_steps:
+  key: total_iters
+  num_epochs: 1
+kwargs:
+  start_factor: 0.0001
+  end_factor: 1.0
