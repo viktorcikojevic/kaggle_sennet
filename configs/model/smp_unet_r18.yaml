@@ -1,7 +1,7 @@
 type: SMPModel
 kwargs:
     version: "Unet"
-    encoder_name: "resnet34"
+    encoder_name: "resnet18"
     encoder_weights: "imagenet"
     in_channels: ${dataset.kwargs.n_take_channels}
     classes: ${dataset.kwargs.n_take_channels}

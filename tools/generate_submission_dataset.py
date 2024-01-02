@@ -31,7 +31,7 @@ def main():
     print(f"dataset will be staged at: {dataset_name = }")
 
     meta = dict(
-        id=f"sirapoabchaikunsaeng/{dataset_name}",
+        id=f"viktorcikojevic/{dataset_name}",
         title=dataset_name,
         isPrivate=True,
         licenses=[dict(name="other")]

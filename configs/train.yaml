@@ -1,42 +1,49 @@
 defaults:
   - _self_
-  - model: smp_unet_r50
-  - augmentation: vanilla
+  - model: smp_unet_resnext50_32x4d
+  - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 10000
+val_check_interval: 40000
 batch_size: 32 # final batch size.
-apparent_batch_size: 2 # batch size during training
-num_workers: 16
+apparent_batch_size: 16 # batch size during training
+num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-#exp_name: 3d_seg_hyp_search_1
-group_name: "smp_unet_r50_hyptun" # maybe this would be useful for grouping experiments when we do hyperparameter search
-max_epochs: 100
+#exp_name: 3d_seg_hy  p_search_1
+group_name: "smp_unet_r50_scan_crop_size_n_channels" # maybe this would be useful for grouping experiments when we do hyperparameter search
+# max_epochs: 100
+max_steps: 50000
 
 optimiser:
-  type: "AdamW"
-  log_lr: -3.7 # sets lr = 10^{-log_lr}. If ls is not null, then it is used instead of log_lr
+  type: "SGD"
+  log_lr: -3.5 # sets lr = 10^{-log_lr}. If ls is not null, then it is used instead of log_lr
   kwargs:
     lr: null
+  
+  lr_scheduler:
+    type: "OneCycleLR"
+    kwargs:
+      max_lr: 2e-3
+      total_steps: ${max_steps}
+      pct_start: 0.1
 
 loss:
   - type: BCELoss
-    weight: 1.0
+    weight: 0.001
   - type: MccLoss
-    weight: 1.0
+    weight: 0.001
   - type: DiceLoss
-#    weight: 1.0
-    weight: 0.0
+    weight: 0.4
     kwargs:
       smooth: 0.0001
   - type: FocalLoss
 #    weight: 1.0
-    weight: 0.0
+    weight: 0.6
     kwargs:
       gamma: 2.0
 
@@ -48,20 +55,20 @@ task:
 
 train_folders:
   - kidney_1_dense
-  - kidney_3_dense
+  # - kidney_3_dense
 #  - kidney_2
 
 val_folders:
 #  - kidney_1_dense
-#   - kidney_3_dense
-  - kidney_2
+  - kidney_3_dense 
+  # - kidney_2
 #   - kidney_3_sparse
 
 batch_transform:
   kwargs:
     alpha_cutmix: 0.4
     alpha_mixup: 0.4
-    cutmix_prob: 0.0
+    cutmix_prob: 0.3
     mixup_prob: 0.0
 
 dataset:
@@ -69,8 +76,8 @@ dataset:
   val_substride: 1.0
   kwargs:
     crop_size: 512
-#    crop_size: 992
-    n_take_channels: 1
+    n_take_channels: 1 # Number of channels to take from the dataset
+    n_appereant_channels: 1 # After augmentation and preprocessing, how many channels you will take.
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
@@ -105,20 +112,22 @@ hydra:
       seed: 1337
     direction: maximize
     storage: null
-    n_trials: 40
+    n_trials: 100
     n_jobs: 1
     params:
-      optimiser.log_lr: range(-5, -3, 0.1)
-      dataset.kwargs.crop_size: range(128, 992, 32)
-      dataset.kwargs.p_crop_size_noise: range(0.2, 1.0, 0.2)
+      # model.kwargs.encoder_name: choice("resnet18", "resnet34", "resnet50", "resnet101")
+      # optimiser.log_lr: range(-5, -3, 0.1)
+      # dataset.kwargs.crop_size: range(64, 512, 64)
+      dataset.kwargs.n_take_channels: range(1, 5, 1)
+      # dataset.kwargs.p_crop_size_noise: range(0.2, 1.0, 0.2)
 #      batch_size: range(4, 128, 4)
 
 #      batch_transform.kwargs.alpha_cutmix: range(0.0, 1.0, 0.1)
 #      batch_transform.kwargs.alpha_mixup: range(0.0, 1.0, 0.1)
 #      batch_transform.kwargs.cutmix_prob: range(0.0, 1.0, 0.1)
 #      batch_transform.kwargs.mixup_prob: range(0.0, 1.0, 0.1)
-      loss.0.weight: range(0.0, 1.0, 0.1)
-      loss.1.weight: range(0.0, 1.0, 0.1)
-      loss.2.weight: range(0.0, 1.0, 0.1)
-      loss.3.weight: range(0.0, 1.0, 0.1)
+      # loss.0.weight: range(0.0, 1.0, 0.1)
+      # loss.1.weight: range(0.0, 1.0, 0.1)
+      # loss.2.weight: range(0.0, 1.0, 0.1)
+      # loss.3.weight: range(0.0, 1.0, 0.1)
 #      augmentation.augmenter_kwargs.p_any_augm: range(0.0, 1.0, 0.1)

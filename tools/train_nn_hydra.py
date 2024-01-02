@@ -69,6 +69,7 @@ def main(cfg: DictConfig):
     val_dataset_kwargs = sanitise_val_dataset_kwargs(dataset_kwargs, load_ann=True)
     val_dataset_kwargs["add_depth_along_width"] = False
     val_dataset_kwargs["add_depth_along_height"] = False
+    val_dataset_kwargs["n_take_channels"] = val_dataset_kwargs["n_appereant_channels"]
     # TODO(Sumo): fix this so training works with multiple val sets
     val_dataset = ThreeDSegmentationDataset(
         folder=cfg.val_folders[0],
@@ -146,7 +147,8 @@ def main(cfg: DictConfig):
         accelerator="gpu",
         logger=logger,
         val_check_interval=val_check_interval,
-        max_epochs=cfg.max_epochs,
+        # max_epochs=cfg.max_epochs,
+        max_steps=cfg.max_steps,
         precision="16-mixed",
         log_every_n_steps=20,
         # gradient_clip_val=1.0,
