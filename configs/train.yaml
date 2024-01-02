@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - model: smp_unet_r50
+  - model: smp_unet_resnext50_32x4d
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
@@ -9,21 +9,28 @@ defaults:
 
 val_check_interval: 40000
 batch_size: 32 # final batch size.
-apparent_batch_size: 32 # batch size during training
-num_workers: 16
+apparent_batch_size: 16 # batch size during training
+num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-#exp_name: 3d_seg_hyp_search_1
-group_name: "smp_unet_r50_scan_n_channels" # maybe this would be useful for grouping experiments when we do hyperparameter search
+#exp_name: 3d_seg_hy  p_search_1
+group_name: "smp_unet_r50_scan_crop_size_n_channels" # maybe this would be useful for grouping experiments when we do hyperparameter search
 # max_epochs: 100
 max_steps: 50000
 
 optimiser:
-  type: "AdamW"
+  type: "SGD"
   log_lr: -3.5 # sets lr = 10^{-log_lr}. If ls is not null, then it is used instead of log_lr
   kwargs:
     lr: null
+  
+  lr_scheduler:
+    type: "OneCycleLR"
+    kwargs:
+      max_lr: 2e-3
+      total_steps: ${max_steps}
+      pct_start: 0.1
 
 loss:
   - type: BCELoss
@@ -68,8 +75,8 @@ dataset:
   train_substride: 0.25
   val_substride: 1.0
   kwargs:
-    crop_size: 384
-    n_take_channels: 8 # Number of channels to take from the dataset
+    crop_size: 512
+    n_take_channels: 1 # Number of channels to take from the dataset
     n_appereant_channels: 1 # After augmentation and preprocessing, how many channels you will take.
     reduce_zero_label: False
     assert_label_exists: True

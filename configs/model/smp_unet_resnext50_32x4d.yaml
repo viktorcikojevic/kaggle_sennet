@@ -1,0 +1,7 @@
+type: SMPModel
+kwargs:
+    version: "Unet"
+    encoder_name: "resnext50_32x4d"
+    encoder_weights: "imagenet"
+    in_channels: ${dataset.kwargs.n_take_channels}
+    classes: ${dataset.kwargs.n_take_channels}

@@ -2,7 +2,7 @@ augmenter_class: "MultiChannelAugmentation"
 augmenter_kwargs:
   p_any_augm: 0.9
   random_crop: true # random_crop augmentation
-  random_3d_rotate: true # random_3d_rotate augmentation
+  random_3d_rotate: false # random_3d_rotate augmentation
   random_brightness_contrast:
     p: 0.5
     brightness_limit: 0.2

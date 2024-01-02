@@ -96,7 +96,14 @@ class ThreeDSegmentationTask(pl.LightningModule):
 
         loss = self.criterion(preds, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
         # loss = self.criterion(resized_pred, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
-        self.log("train_loss", loss, prog_bar=True)
+        # self.log("train_loss", loss, prog_bar=True)
+        if self.scheduler is not None:
+            self.scheduler.step()
+        current_lr = self.optimizers().optimizer.param_groups[0]['lr']
+        self.log_dict({
+            "train_loss": loss,
+            "lr": current_lr,
+        }, prog_bar=True)
         return loss
 
     def backward(self, loss: torch.Tensor, *args: Any, **kwargs: Any) -> None:
@@ -204,6 +211,16 @@ class ThreeDSegmentationTask(pl.LightningModule):
         if self.optimiser_spec["kwargs"]["lr"] is None:
             self.optimiser_spec["kwargs"]["lr"] = 10 ** self.optimiser_spec["log_lr"]
         optimiser = torch.optim.AdamW(self.model.parameters(), **self.optimiser_spec["kwargs"])
+        
+        if 'lr_scheduler' in self.optimiser_spec:
+            self.scheduler = getattr(torch.optim.lr_scheduler, self.optimiser_spec["lr_scheduler"]["type"])(
+                optimiser,
+                **self.optimiser_spec["lr_scheduler"]["kwargs"],
+            )
+        else:
+            self.scheduler = None
+            
+            
         return {
             "optimizer": optimiser,
         }
