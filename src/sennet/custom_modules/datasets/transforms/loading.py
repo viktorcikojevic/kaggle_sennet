@@ -1,16 +1,16 @@
-from typing import *
 import numpy as np
 from sennet.core.mmap_arrays import read_mmap_array, MmapArray
 from sennet.core.utils import DEPTH_ALONG_CHANNEL, DEPTH_ALONG_HEIGHT, DEPTH_ALONG_WIDTH
 from pathlib import Path
 import cv2
 from line_profiler_pycharm import profile
+from copy import deepcopy
 
 
 class LoadMultiChannelImageAndAnnotationsFromFile:
     def __init__(
             self,
-            crop_size_range: Optional[Tuple[float, float]],
+            crop_size_range: tuple[float, float] | None,
             output_crop_size: int,
             to_float32: bool = False,
             load_ann: bool = True,
@@ -31,12 +31,12 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         self.p_crop_location_noise = p_crop_location_noise
         self.p_crop_size_noise = p_crop_size_noise
         self.p_crop_size_keep_ar = p_crop_size_keep_ar
-        self.loaded_image_mmaps: Dict[str, MmapArray] = {}
-        self.loaded_seg_mmaps: Dict[str, MmapArray] = {}
+        self.loaded_image_mmaps: dict[str, MmapArray] = {}
+        self.loaded_seg_mmaps: dict[str, MmapArray] = {}
 
     # @profile
     @profile
-    def _get_pixel_bbox(self, results: Dict) -> Tuple[int, int, int, int, int, int]:
+    def _get_pixel_bbox(self, results: dict) -> tuple[int, int, int, int, int, int]:
         lc = results["bbox"][0]
         lx = results["bbox"][1]
         ly = results["bbox"][2]
@@ -44,11 +44,14 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         ux = results["bbox"][4]
         uy = results["bbox"][5]
 
+        # _original_box = deepcopy(results["bbox"])
+
         should_randomise_crop_location = self.crop_location_noise > 0 and np.random.binomial(p=self.p_crop_location_noise, n=1) > 0.5
         should_randomise_crop_size = self.crop_size_range is not None and np.random.binomial(p=self.p_crop_size_noise, n=1) > 0.5
         if not (should_randomise_crop_location or should_randomise_crop_size):
             return lc, lx, ly, uc, ux, uy
 
+        # "new" cuz they'll be permuted during aug later
         new_crop_size_c = uc - lc
         new_crop_size_x = ux - lx
         new_crop_size_y = uy - ly
@@ -74,9 +77,9 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             mid_x_noise = 0
             mid_y_noise = 0
             mid_c_noise = 0
-        mid_x = int(0.5*lx + 0.5*ux) + mid_x_noise
-        mid_y = int(0.5*ly + 0.5*uy) + mid_y_noise
-        mid_c = int(0.5*lc + 0.5*uc) + mid_c_noise
+        mid_x = 0.5*lx + 0.5*ux
+        mid_y = 0.5*ly + 0.5*uy
+        mid_c = 0.5*lc + 0.5*uc
 
         should_keep_ar = np.random.binomial(p=self.p_crop_size_keep_ar, n=1) > 0.5
         crop_size_lb = int(self.crop_size_range[0] * crop_size)
@@ -84,6 +87,8 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         new_crop_size = np.random.randint(crop_size_lb, crop_size_ub)
         if should_randomise_crop_size:
             if bbox_type == DEPTH_ALONG_CHANNEL:
+                mid_x += mid_x_noise
+                mid_y += mid_y_noise
                 if should_keep_ar:
                     new_crop_size_x = new_crop_size
                     new_crop_size_y = new_crop_size
@@ -91,6 +96,8 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
                     new_crop_size_x = np.random.randint(crop_size_lb, crop_size_ub)
                     new_crop_size_y = np.random.randint(crop_size_lb, crop_size_ub)
             elif bbox_type == DEPTH_ALONG_HEIGHT:
+                mid_c += mid_c_noise
+                mid_x += mid_x_noise
                 if should_keep_ar:
                     new_crop_size_c = new_crop_size
                     new_crop_size_x = new_crop_size
@@ -98,6 +105,8 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
                     new_crop_size_c = np.random.randint(crop_size_lb, crop_size_ub)
                     new_crop_size_x = np.random.randint(crop_size_lb, crop_size_ub)
             elif bbox_type == DEPTH_ALONG_WIDTH:
+                mid_c += mid_c_noise
+                mid_y += mid_y_noise
                 if should_keep_ar:
                     new_crop_size_c = new_crop_size
                     new_crop_size_y = new_crop_size
@@ -112,10 +121,13 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         uc = int(lc + new_crop_size_c)
         ux = int(lx + new_crop_size_x)
         uy = int(ly + new_crop_size_y)
-        return lc, lx, ly, uc, ux, uy
-        
+
+        _new_box = lc, lx, ly, uc, ux, uy
+        # print(f"augmented bbox from: {_original_box} -> {_new_box}, {bbox_type=}")
+        return _new_box
+
     @profile
-    def transform(self, results: Dict) -> Optional[Dict]:
+    def transform(self, results: dict) -> dict | None:
         crop_bbox = self._get_pixel_bbox(results)
         img, seg = self._read_image_and_seg(
             results,
@@ -130,8 +142,8 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
     @profile
     def _read_image_and_seg(
             self,
-            results: Dict[str, Any],
-            crop_bbox: Tuple[int, int, int, int, int, int],
+            results: dict[str, any],
+            crop_bbox: tuple[int, int, int, int, int, int],
     ):
         img_path = results["image_dir"]
         if img_path not in self.loaded_image_mmaps:
@@ -151,12 +163,12 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
     @profile
     def _get_3d_slice(
             self,
-            results: Dict[str, Any],
+            results: dict[str, any],
             full_array: np.ndarray,
-            crop_bbox: Tuple[int, int, int, int, int, int],
+            crop_bbox: tuple[int, int, int, int, int, int],
     ) -> np.ndarray:
         # crops from the original 3d array
-        # molding crops so they look the same for the model
+        # molding crops, so they look the same for the model
         # optionally take the fast past if applicable
         lc, lx, ly, uc, ux, uy = crop_bbox
 
@@ -175,10 +187,12 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             n_take_channels = uy-ly
             is_fast_path = ux-lx == self.output_crop_size and uc-lc == self.output_crop_size
             if is_fast_path:
-                take_img = np.ascontiguousarray(np.stack([
-                    full_array[lc: uc, y, lx: ux]
-                    for y in range(ly, uy)
-                ], axis=0))
+                # take_img = np.ascontiguousarray(np.stack([
+                #     full_array[lc: uc, y, lx: ux]
+                #     for y in range(ly, uy)
+                # ], axis=0))
+                # equivalent with above, checked, trust me
+                take_img = np.ascontiguousarray(full_array[lc: uc, ly: uy, lx: ux].transpose((1, 0, 2)))
             else:
                 resized_arrays = [self._resize_to_output_size(full_array[lc: uc, y, lx: ux]) for y in range(ly, uy)]
                 take_img = np.ascontiguousarray(np.stack(resized_arrays, axis=0))
@@ -187,10 +201,12 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             n_take_channels = ux-lx
             is_fast_path = uc-lc == self.output_crop_size and uy-ly == self.output_crop_size
             if is_fast_path:
-                take_img = np.ascontiguousarray(np.stack([
-                    full_array[lc: uc, ly: uy, x]
-                    for x in range(lx, ux)
-                ], axis=0))
+                # take_img = np.ascontiguousarray(np.stack([
+                #     full_array[lc: uc, ly: uy, x]
+                #     for x in range(lx, ux)
+                # ], axis=0))
+                # equivalent with above, checked, trust me
+                take_img = np.ascontiguousarray(full_array[lc: uc, ly: uy, lx: ux].transpose((2, 0, 1)))
             else:
                 resized_arrays = [self._resize_to_output_size(full_array[lc: uc, ly: uy, x]) for x in range(lx, ux)]
                 take_img = np.ascontiguousarray(np.stack(resized_arrays, axis=0))

@@ -15,7 +15,7 @@ dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
 #exp_name: 3d_seg_hy  p_search_1
-group_name: "smp_unet_r50_scan_crop_size_n_channels" # maybe this would be useful for grouping experiments when we do hyperparameter search
+group_name: "check_jitter_change" # maybe this would be useful for grouping experiments when we do hyperparameter search
 # max_epochs: 100
 max_steps: 50000
 
@@ -28,7 +28,7 @@ optimiser:
   lr_scheduler:
     type: "OneCycleLR"
     kwargs:
-      max_lr: 2e-3
+      max_lr: 6e-4
       total_steps: ${max_steps}
       pct_start: 0.1
 
