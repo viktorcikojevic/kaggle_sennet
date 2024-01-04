@@ -4,7 +4,6 @@ defaults:
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
-  - early_stopping: normal
   - scheduler: none
   - optimiser: adamw
   - override hydra/sweeper: optuna
