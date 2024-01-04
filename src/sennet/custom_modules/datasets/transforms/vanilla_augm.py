@@ -10,36 +10,34 @@ class VanillaAugmentation:
             p: float = 0.25
     ):
         self._transform = A.Compose([
-            A.Rotate(limit=(-180, 180), p=p),
+            # A.Rotate(limit=(-180, 180), p=p),
+            A.RandomRotate90(p=p),
             A.VerticalFlip(p=p),
             A.HorizontalFlip(p=p),
+            # A.RandomGamma(p=p),
             A.RandomBrightnessContrast(
-                brightness_limit=0.2,
-                contrast_limit=0.2,
+                brightness_limit=0.05,
+                contrast_limit=0.05,
                 p=p,
             ),
-            # A.RandomGamma(p=p),
             # A.OneOf([
-                # A.GaussNoise(var_limit=(10.0, 50.0), p=1.0),
-                # A.MultiplicativeNoise(multiplier=(0.95, 1.05), elementwise=True, p=1.0),
-            # ], p=0.5),
+            #     A.GaussNoise(var_limit=(0.005, 0.005), always_apply=True),
+            #     A.MultiplicativeNoise(multiplier=(0.95, 1.05), elementwise=True, always_apply=True),
+            # ], p=p),
             A.OneOf([
-                A.GaussianBlur(),
-                A.MotionBlur(),
+                A.GaussianBlur(always_apply=True),
+                A.MotionBlur(always_apply=True),
             ], p=p),
-            A.OneOf([
-                A.GridDistortion(num_steps=5, distort_limit=0.3, p=p),
-                A.ElasticTransform(
-                    alpha=1,
-                    sigma=50,
-                    alpha_affine=50,
-                    interpolation=cv2.INTER_AREA,
-                    # border_mode=cv2.BORDER_CONSTANT,
-                    # value=0,
-                    # mask_value=0,
-                    p=0.25
-                ),
-            ])
+            # A.OneOf([
+            #     A.GridDistortion(num_steps=5, distort_limit=0.3, p=p, always_apply=True),
+            #     # A.ElasticTransform(
+            #     #     alpha=1,
+            #     #     sigma=50,
+            #     #     alpha_affine=50,
+            #     #     interpolation=cv2.INTER_AREA,
+            #     #     always_apply=True,
+            #     # ),
+            # ], p=p)
         ])
 
     def transform(self, data):
