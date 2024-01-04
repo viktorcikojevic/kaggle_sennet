@@ -4,7 +4,7 @@ from sennet.core.submission_utils import (
     build_data_loader,
     generate_submission_df_from_one_chunked_inference,
 )
-from sennet.core.submission import generate_submission_df, ParallelizationSettings
+from sennet.core.submission_simple import generate_submission_df, ParallelizationSettings
 from sennet.core.mmap_arrays import read_mmap_array, create_mmap_array
 from sennet.core.tta_model import Tta3DSegmentor
 from sennet.core.post_processings import filter_out_small_blobs
@@ -189,8 +189,8 @@ def main():
                 threshold=submission_cfg["predictors"]["threshold"],
                 parallelization_settings=ParallelizationSettings(
                     run_as_single_process=run_as_single_process,
-                    n_chunks=submission_cfg["predictors"]["n_chunks"] if n_chunks_override is None else n_chunks_override,
-                    finalise_one_by_one=True,
+                    # n_chunks=submission_cfg["predictors"]["n_chunks"] if n_chunks_override is None else n_chunks_override,
+                    # finalise_one_by_one=True,
                 ),
                 out_dir=data_out_dir,
                 device="cuda",

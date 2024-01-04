@@ -1,5 +1,5 @@
 from sennet.core.submission_utils import evaluate_chunked_inference, ChunkedMetrics
-from sennet.core.submission import generate_submission_df, ParallelizationSettings
+from sennet.core.submission_simple import generate_submission_df, ParallelizationSettings
 from sennet.core.utils import resize_3d_image
 from sennet.environments.constants import PROCESSED_DATA_DIR, TMP_SUB_MMAP_DIR
 from sennet.core.dataset import ThreeDSegmentationDataset
@@ -53,8 +53,10 @@ class ThreeDSegmentationTask(pl.LightningModule):
             scheduler_spec: dict[str, Any] = None,
             ignore_border_loss: bool = False,
             accumulate_grad_batches: int = 1,
+            **kwargs
     ):
         pl.LightningModule.__init__(self)
+        print(f"unused kwargs: {kwargs}")
         self.model = model
         self.ema_momentum = ema_momentum
         if self.ema_momentum is not None:
@@ -178,8 +180,8 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 threshold=self.eval_threshold,
                 parallelization_settings=ParallelizationSettings(
                     run_as_single_process=False,
-                    n_chunks=5,
-                    finalise_one_by_one=True,
+                    # n_chunks=self.n_eval_chunks,
+                    # finalise_one_by_one=True,
                 ),
                 out_dir=out_dir,
                 device="cuda",
@@ -243,7 +245,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 key = self.scheduler_spec["override_total_steps"]["key"]
                 num_epochs = self.scheduler_spec["override_total_steps"]["num_epochs"]
                 train_loader = self.train_loader
-                scheduler_kwargs[key] = int(num_epochs * len(train_loader) / self.accumulate_grad_batches)
+                scheduler_kwargs[key] = int(num_epochs * len(train_loader) / self.accumulate_grad_batches) + 1
                 print(f"scheduler override_total_steps given, now set to {scheduler_kwargs[key]}")
             scheduler_class = getattr(torch.optim.lr_scheduler, self.scheduler_spec["type"])
             print(f"{scheduler_kwargs = }")
