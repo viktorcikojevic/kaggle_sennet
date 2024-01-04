@@ -4,33 +4,22 @@ defaults:
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
+  - scheduler: none
+  - optimiser: adamw
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
 val_check_interval: 40000
 batch_size: 32 # final batch size.
 apparent_batch_size: 16 # batch size during training
-num_workers: 1
+num_workers: 16
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
-exp_name: three_d_seg
-#exp_name: 3d_seg_hy  p_search_1
-group_name: "check_jitter_change" # maybe this would be useful for grouping experiments when we do hyperparameter search
-# max_epochs: 100
-max_steps: 50000
-
-optimiser:
-  type: "SGD"
-  log_lr: -3.5 # sets lr = 10^{-log_lr}. If ls is not null, then it is used instead of log_lr
-  kwargs:
-    lr: null
-  
-  lr_scheduler:
-    type: "OneCycleLR"
-    kwargs:
-      max_lr: 6e-4
-      total_steps: ${max_steps}
-      pct_start: 0.1
+#exp_name: three_d_seg
+exp_name: r18_recovery_test
+group_name: "smp_unet_r50_hyptun" # maybe this would be useful for grouping experiments when we do hyperparameter search
+max_epochs: 100
+max_steps: -1
 
 loss:
   - type: BCELoss
@@ -52,6 +41,9 @@ task:
     eval_threshold: 0.2
     compute_crude_metrics: false
     ema_momentum: 0.00025
+#    ema_momentum: null
+#    ignore_border_loss: true
+    ignore_border_loss: false
 
 train_folders:
   - kidney_1_dense
@@ -60,8 +52,8 @@ train_folders:
 
 val_folders:
 #  - kidney_1_dense
-  - kidney_3_dense 
-  # - kidney_2
+   - kidney_3_dense
+#  - kidney_2
 #   - kidney_3_sparse
 
 batch_transform:
@@ -72,10 +64,12 @@ batch_transform:
     mixup_prob: 0.0
 
 dataset:
-  train_substride: 0.25
+  train_substride: 1.0
   val_substride: 1.0
   kwargs:
     crop_size: 512
+#    crop_size: 896
+    cropping_border: 0
     n_take_channels: 1 # Number of channels to take from the dataset
     n_appereant_channels: 1 # After augmentation and preprocessing, how many channels you will take.
     reduce_zero_label: False
@@ -87,7 +81,7 @@ dataset:
     crop_size_range: [0.8, 1.2]
 #    crop_size_range: null
     p_crop_size_noise: 0.25
-    p_crop_size_keep_ar: 0.5
+    p_crop_size_keep_ar: 0.8
     output_crop_size: null
     to_float32: true
     load_ann: true
@@ -122,8 +116,8 @@ hydra:
       # dataset.kwargs.p_crop_size_noise: range(0.2, 1.0, 0.2)
 #      batch_size: range(4, 128, 4)
 
-#      batch_transform.kwargs.alpha_cutmix: range(0.0, 1.0, 0.1)
-#      batch_transform.kwargs.alpha_mixup: range(0.0, 1.0, 0.1)
+#      batch_transform.kwargs.alpha_cutmix: range(0.01, 1.0, 0.1)
+#      batch_transform.kwargs.alpha_mixup: range(0.01, 1.0, 0.1)
 #      batch_transform.kwargs.cutmix_prob: range(0.0, 1.0, 0.1)
 #      batch_transform.kwargs.mixup_prob: range(0.0, 1.0, 0.1)
       # loss.0.weight: range(0.0, 1.0, 0.1)

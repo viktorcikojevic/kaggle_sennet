@@ -1,10 +1,8 @@
-# from pathlib import Path
 from sennet.core.submission_utils import evaluate_chunked_inference, ChunkedMetrics
-from sennet.core.submission import generate_submission_df, ParallelizationSettings
-# from sennet.core.mmap_arrays import read_mmap_array
-# from sennet.core.post_processings import filter_out_small_blobs
+from sennet.core.submission_simple import generate_submission_df, ParallelizationSettings
 from sennet.core.utils import resize_3d_image
 from sennet.environments.constants import PROCESSED_DATA_DIR, TMP_SUB_MMAP_DIR
+from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.custom_modules.models import Base3DSegmentor
 import pytorch_lightning as pl
 from typing import Dict, Any, List
@@ -42,6 +40,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
     def __init__(
             self,
             model: Base3DSegmentor,
+            train_loader: DataLoader,
             val_loader: DataLoader,
             val_folders: List[str],
             optimiser_spec: Dict[str, Any],
@@ -51,8 +50,13 @@ class ThreeDSegmentationTask(pl.LightningModule):
             compute_crude_metrics: bool = False,
             batch_transform: nn.Module = None,
             ema_momentum: float | None = None,
+            scheduler_spec: dict[str, Any] = None,
+            ignore_border_loss: bool = False,
+            accumulate_grad_batches: int = 1,
+            **kwargs
     ):
         pl.LightningModule.__init__(self)
+        print(f"unused kwargs: {kwargs}")
         self.model = model
         self.ema_momentum = ema_momentum
         if self.ema_momentum is not None:
@@ -65,11 +69,19 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.val_folders = val_folders
         self.compute_crude_metrics = compute_crude_metrics
         self.optimiser_spec = optimiser_spec
+        self.scheduler_spec = scheduler_spec
         self.criterion = criterion
         self.experiment_name = experiment_name
         self.eval_threshold = eval_threshold
         self.best_surface_dice = 0.0
         self.batch_transform = batch_transform
+        self.ignore_border_loss = ignore_border_loss
+
+        self.train_loader = train_loader
+        self.accumulate_grad_batches = accumulate_grad_batches
+        assert isinstance(self.val_loader.dataset, ThreeDSegmentationDataset), \
+            f"to generate submission, dataset must be ThreeDSegmentationDataset"
+        self.cropping_border = self.val_loader.dataset.dataset.cropping_border
 
         self.total_tp = 0
         self.total_fp = 0
@@ -88,17 +100,32 @@ class ThreeDSegmentationTask(pl.LightningModule):
         _, pred_d, pred_h, pred_w = preds.shape
         _, _, gt_d, gt_h, gt_w = gt_seg_map.shape
         if (gt_d != pred_d) or (gt_h != pred_h) or (gt_w != pred_w):
-            resized_gt = resize_3d_image(gt_seg_map, (pred_w, pred_h, pred_d))[:, 0, :, :, :]
-            # resized_pred = resize_3d_image(preds.unsqueeze(1), (gt_w, gt_h, gt_d))[:, 0, :, :, :]
+            # resized_gt = resize_3d_image(gt_seg_map, (pred_w, pred_h, pred_d))[:, 0, :, :, :]
+            resized_pred = resize_3d_image(preds.unsqueeze(1), (gt_w, gt_h, gt_d))[:, 0, :, :, :]
+            raise RuntimeError(":D")
         else:
-            resized_gt = gt_seg_map[:, 0, :, :, :]
-            # resized_pred = preds
+            # resized_gt = gt_seg_map[:, 0, :, :, :]
+            resized_pred = preds
 
-        loss = self.criterion(preds, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
-        # loss = self.criterion(resized_pred, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
-        # self.log("train_loss", loss, prog_bar=True)
-        if self.scheduler is not None:
-            self.scheduler.step()
+        # loss = self.criterion(preds, resized_gt[:, seg_pred.take_indices_start: seg_pred.take_indices_end, :, :])
+        if self.ignore_border_loss:
+            loss = self.criterion(
+                resized_pred[
+                    :,
+                    :,
+                    self.cropping_border: resized_pred.shape[2] - self.cropping_border,
+                    self.cropping_border: resized_pred.shape[3] - self.cropping_border,
+                ],
+                gt_seg_map[
+                    :,
+                    0,
+                    seg_pred.take_indices_start: seg_pred.take_indices_end,
+                    self.cropping_border: gt_seg_map.shape[3]-self.cropping_border,
+                    self.cropping_border: gt_seg_map.shape[4]-self.cropping_border,
+                ],
+            )
+        else:
+            loss = self.criterion(resized_pred, gt_seg_map[:, 0, :, :, :])
         current_lr = self.optimizers().optimizer.param_groups[0]['lr']
         self.log_dict({
             "train_loss": loss,
@@ -157,8 +184,6 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 threshold=self.eval_threshold,
                 parallelization_settings=ParallelizationSettings(
                     run_as_single_process=False,
-                    n_chunks=5,
-                    finalise_one_by_one=True,
                 ),
                 out_dir=out_dir,
                 device="cuda",
@@ -210,17 +235,32 @@ class ThreeDSegmentationTask(pl.LightningModule):
     def configure_optimizers(self):
         if self.optimiser_spec["kwargs"]["lr"] is None:
             self.optimiser_spec["kwargs"]["lr"] = 10 ** self.optimiser_spec["log_lr"]
-        optimiser = torch.optim.AdamW(self.model.parameters(), **self.optimiser_spec["kwargs"])
-        
-        if 'lr_scheduler' in self.optimiser_spec:
-            self.scheduler = getattr(torch.optim.lr_scheduler, self.optimiser_spec["lr_scheduler"]["type"])(
-                optimiser,
-                **self.optimiser_spec["lr_scheduler"]["kwargs"],
-            )
-        else:
-            self.scheduler = None
-            
-            
-        return {
+        optimiser_class = getattr(torch.optim, self.optimiser_spec["type"])
+        optimiser = optimiser_class(self.model.parameters(), **self.optimiser_spec["kwargs"])
+        print(f"{optimiser = }")
+        ret_val = {
             "optimizer": optimiser,
         }
+        if self.scheduler_spec is not None and "type" in self.scheduler_spec:
+            scheduler_kwargs = self.scheduler_spec["kwargs"]
+            if "override_total_steps" in self.scheduler_spec:
+                key = self.scheduler_spec["override_total_steps"]["key"]
+                num_epochs = self.scheduler_spec["override_total_steps"]["num_epochs"]
+                train_loader = self.train_loader
+                scheduler_kwargs[key] = int(num_epochs * len(train_loader) / self.accumulate_grad_batches) + 1
+                print(f"scheduler override_total_steps given, now set to {scheduler_kwargs[key]}")
+            scheduler_class = getattr(torch.optim.lr_scheduler, self.scheduler_spec["type"])
+            print(f"{scheduler_kwargs = }")
+            scheduler = scheduler_class(
+                optimizer=optimiser,
+                **scheduler_kwargs,
+            )
+            scheduler_dict = {
+                "scheduler": scheduler,
+                "interval": "step",
+            }
+            print(f"{scheduler = }")
+            ret_val["lr_scheduler"] = scheduler_dict
+        else:
+            print("no scheduler")
+        return ret_val

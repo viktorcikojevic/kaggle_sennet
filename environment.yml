@@ -41,3 +41,4 @@ dependencies:
     - connected-components-3d
     - pytorch_toolbelt
     - torcheval
+    - lightning-bolts

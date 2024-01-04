@@ -1,4 +1,5 @@
 from sennet.environments.constants import STAGING_DIR, REPO_DIR, MODEL_OUT_DIR
+from sennet.core.submission_utils import load_model_from_dir
 from distutils.dir_util import copy_tree
 from datetime import datetime
 from pathlib import Path
@@ -47,6 +48,9 @@ def main():
 
         staging_model_path = staging_path / "data_dumps" / "models" / model_name
         staging_model_path.mkdir(exist_ok=True, parents=True)
+
+        # trigger caching + trimming
+        _ = load_model_from_dir(model_path)
 
         ckpt_path = sorted(list(model_path.glob("*.ckpt")))[0]
         staging_ckpt_path = staging_model_path / ckpt_path.name

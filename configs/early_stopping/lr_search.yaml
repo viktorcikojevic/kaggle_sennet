@@ -1,0 +1,11 @@
+# @package _global_
+
+#val_check_interval: 5000
+val_check_interval: 10000
+max_steps: -1
+max_epochs: 1
+early_stopping:
+  min_delta: 0.00
+  patience: 10000000
+  verbose: true
+# no early stopping, training for 1 epoch and that's it

@@ -2,9 +2,9 @@ from sennet.core.submission_utils import (
     load_config_from_dir,
     load_model_from_dir,
     build_data_loader,
-    generate_submission_df_from_one_chunked_inference
+    generate_submission_df_from_one_chunked_inference,
 )
-from sennet.core.submission import generate_submission_df, ParallelizationSettings
+from sennet.core.submission_simple import generate_submission_df, ParallelizationSettings
 from sennet.core.mmap_arrays import read_mmap_array, create_mmap_array
 from sennet.core.tta_model import Tta3DSegmentor
 from sennet.core.post_processings import filter_out_small_blobs
@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 import argparse
+import torch
 import yaml
 import json
 
@@ -123,6 +124,9 @@ def main():
     keep_model_chunks = args.keep_model_chunks
     no_cc3d = args.no_cc3d
 
+    if submission_cfg["predictors"]["dust_threshold"] is None:
+        print(f"dust_threshold is None, turning off cc3d")
+        no_cc3d = True
     if n_chunks_override is not None:
         print(f"{n_chunks_override=} given, override n_chunks to it")
     if run_as_single_process:
@@ -173,15 +177,20 @@ def main():
             data_out_dir.mkdir(exist_ok=True, parents=True)
             print(f"> {model_name}: {folder} -> {data_out_dir}")
 
-            data_loader = build_data_loader(folder, submission_cfg["predictors"]["substride"], cfg)
+            data_loader = build_data_loader(
+                folder,
+                substride=submission_cfg["predictors"]["substride"],
+                cfg=cfg,
+                cropping_border=submission_cfg["predictors"]["cropping_border"],
+            )
             generate_submission_df(
                 model=model,
                 data_loader=data_loader,
                 threshold=submission_cfg["predictors"]["threshold"],
                 parallelization_settings=ParallelizationSettings(
                     run_as_single_process=run_as_single_process,
-                    n_chunks=submission_cfg["predictors"]["n_chunks"] if n_chunks_override is None else n_chunks_override,
-                    finalise_one_by_one=True,
+                    # n_chunks=submission_cfg["predictors"]["n_chunks"] if n_chunks_override is None else n_chunks_override,
+                    # finalise_one_by_one=True,
                 ),
                 out_dir=data_out_dir,
                 device="cuda",

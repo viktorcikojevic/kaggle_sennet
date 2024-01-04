@@ -2,37 +2,55 @@ from sennet.core.utils import DEPTH_ALONG_CHANNEL, DEPTH_ALONG_WIDTH, DEPTH_ALON
 from sennet.environments.constants import PROCESSED_DATA_DIR
 from sennet.core.mmap_arrays import read_mmap_array
 from pathlib import Path
-from typing import *
 import numpy as np
 import json
+
+
+def _get_1d_box_lower_points(
+        dim: int,
+        box_size: int,
+        substride: float,
+) -> np.ndarray:
+    n_boxes = int(np.ceil(dim / box_size / substride))
+    return np.linspace(0, dim-box_size, num=n_boxes).astype(int)
 
 
 def generate_crop_bboxes(
         crop_size: int,
         n_take_channels: int,
         substride: float,
-        shape: Tuple[int, int, int],
-        mask: Optional[np.ndarray] = None,
+        shape: tuple[int, int, int],
+        mask: np.ndarray | None = None,
+        mask_threshold: float | None = 0.0,
         depth_mode: int = DEPTH_ALONG_CHANNEL,
+        cropping_border: int = 0,
 ) -> np.ndarray:
     # bbox is always [channel_lb, x_lb, y_lb, channel_ub, x_ub, y_ub]
     bboxes = []
 
-    crop_stride = max(1, int(substride * crop_size))
-    channel_stride = max(1, int(substride * n_take_channels))
+    effective_crop_size = int(crop_size - 2*cropping_border)
+    assert effective_crop_size > 0, f"crop size too small wrt border: {crop_size=}, {cropping_border=} -> {effective_crop_size=}"
+    # crop_stride = max(1, int(substride * effective_crop_size))
+    # channel_stride = max(1, int(substride * n_take_channels))
 
-    c_stride = channel_stride if depth_mode == DEPTH_ALONG_CHANNEL else crop_stride
+    c_eff_box_size = n_take_channels if depth_mode == DEPTH_ALONG_CHANNEL else effective_crop_size
+    # c_stride = channel_stride if depth_mode == DEPTH_ALONG_CHANNEL else crop_stride
     c_take_range = n_take_channels if depth_mode == DEPTH_ALONG_CHANNEL else crop_size
 
-    y_stride = channel_stride if depth_mode == DEPTH_ALONG_HEIGHT else crop_stride
+    y_eff_box_size = n_take_channels if depth_mode == DEPTH_ALONG_HEIGHT else effective_crop_size
+    # y_stride = channel_stride if depth_mode == DEPTH_ALONG_HEIGHT else crop_stride
     y_take_range = n_take_channels if depth_mode == DEPTH_ALONG_HEIGHT else crop_size
 
-    x_stride = channel_stride if depth_mode == DEPTH_ALONG_WIDTH else crop_stride
+    x_eff_box_size = n_take_channels if depth_mode == DEPTH_ALONG_WIDTH else effective_crop_size
+    # x_stride = channel_stride if depth_mode == DEPTH_ALONG_WIDTH else crop_stride
     x_take_range = n_take_channels if depth_mode == DEPTH_ALONG_WIDTH else crop_size
 
-    for c in range(0, shape[0], c_stride):
-        for i in range(0, shape[1], y_stride):
-            for j in range(0, shape[2], x_stride):
+    # for c in range(0, shape[0], c_stride):
+    #     for i in range(0, shape[1], y_stride):
+    #         for j in range(0, shape[2], x_stride):
+    for c in _get_1d_box_lower_points(shape[0], c_eff_box_size, substride):
+        for i in _get_1d_box_lower_points(shape[1], y_eff_box_size, substride):
+            for j in _get_1d_box_lower_points(shape[2], x_eff_box_size, substride):
                 # this clips the bboxes against the max sides
                 uc = min(c + c_take_range, shape[0])
                 uy = min(i + y_take_range, shape[1])
@@ -41,10 +59,17 @@ def generate_crop_bboxes(
                 ly = uy - y_take_range
                 lx = ux - x_take_range
                 if lc < 0 or ly < 0 or lx < 0:
+                    # NOTE: we can extend this so we can crop in directions that are smaller than the crop size
                     continue
+                if mask is not None:
+                    mask_box = mask[lc:uc, ly:uy, lx:ux]
+                    if mask_threshold is None:
+                        passes_threshold = np.any(mask_box)
+                    else:
+                        passes_threshold = (mask_box > 0).mean() > mask_threshold
+                    if not passes_threshold:
+                        continue
                 box = [lc, lx, ly, uc, ux, uy]
-                if (mask is not None) and (not np.any(mask[lc:uc, ly:uy, lx:ux])):
-                    continue
                 bboxes.append(box)
     if len(bboxes) == 0:
         return np.zeros((0, 4), dtype=int)
@@ -82,11 +107,13 @@ class MultiChannelDataset:
             assert_label_exists: bool = False,
             substride: float = 0.25,
             channel_start: int = 0,
-            channel_end: Optional[int] = None,
+            channel_end: int | None = None,
             sample_with_mask: bool = False,
             add_depth_along_channel: bool = True,
             add_depth_along_width: bool = False,
-            add_depth_along_height: bool = False
+            add_depth_along_height: bool = False,
+            cropping_border: int = 0,
+            mask_threshold: float = 0.0,
     ) -> None:
         self.folder = PROCESSED_DATA_DIR / folder
         print(f"reading from the following folder: {self.folder}")
@@ -102,6 +129,8 @@ class MultiChannelDataset:
         self.add_depth_along_channel = add_depth_along_channel
         self.add_depth_along_width = add_depth_along_width
         self.add_depth_along_height = add_depth_along_height
+        self.cropping_border = cropping_border
+        self.mask_threshold = mask_threshold
         self._load_data_list()
 
     def __len__(self):
@@ -163,7 +192,9 @@ class MultiChannelDataset:
                 substride=self.substride,
                 shape=(mask.shape[0], mask.shape[1], mask.shape[2]),
                 mask=mask.data if self.sample_with_mask else None,
-                depth_mode=bbox_type
+                mask_threshold=self.mask_threshold,
+                depth_mode=bbox_type,
+                cropping_border=self.cropping_border,
             )
             new_bbox_types = np.full(len(new_bboxes), bbox_type)
             print(f"adding depth along {msg}: {new_bboxes.shape[0]}")

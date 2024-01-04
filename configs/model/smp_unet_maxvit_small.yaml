@@ -3,5 +3,5 @@ kwargs:
     version: "Unet"
     encoder_name: "tu-maxvit_small_tf_512"
     encoder_weights: "imagenet"
-    in_channels: 1
-    classes: 1
+    in_channels: ${dataset.kwargs.n_take_channels}
+    classes: ${dataset.kwargs.n_take_channels}
