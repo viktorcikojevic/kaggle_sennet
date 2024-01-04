@@ -1,12 +1,12 @@
 predictors:
   n_chunks: 5
 #  threshold: 0.2
-  threshold: 0.043327699448901344
+  threshold: 0.01
 #  dust_threshold: 28
   dust_threshold: null
 #  substride: 0.5
   substride: 1.0
-  cropping_border: 64
+  cropping_border: 32
   tta_kwargs:
     add_flips: true
 #    add_flips: false
