@@ -46,6 +46,8 @@ def main(cfg: DictConfig):
         f"-llr{cfg.optimiser.log_lr}"
         f"-t{int(cfg.dataset.kwargs.add_depth_along_channel)}{int(cfg.dataset.kwargs.add_depth_along_width)}{int(cfg.dataset.kwargs.add_depth_along_height)}"
         f"-sm{int(cfg.dataset.kwargs.sample_with_mask)}"
+        f"-ema{int(cfg.task.kwargs.ema_momentum is not None)}"
+        f"-cb{int(cfg.dataset.kwargs.cropping_border)}"
         f"-{time_now}"
     )
     model_out_dir = MODEL_OUT_DIR / experiment_name

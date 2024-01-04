@@ -8,6 +8,8 @@ def main():
     label = pd.read_csv(DATA_DIR / "train_rles.csv")
 
     paths = [
+        "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_1_dense/submission.csv",
+        "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_1_dense/submission.csv",
         "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_dense/submission.csv",
         "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_3_dense/submission.csv",
         "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_2/submission.csv",

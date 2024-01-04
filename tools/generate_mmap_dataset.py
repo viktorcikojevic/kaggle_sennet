@@ -1,8 +1,8 @@
 import json
 
 from sennet.core.mmap_arrays import create_mmap_array, MmapArray
-from sennet.environments.constants import PROCESSED_DATA_DIR
-from sennet.core.foreground_extraction import get_foreground_mask
+from sennet.environments.constants import PROCESSED_DATA_DIR, FG_MASK_DIR
+# from sennet.core.foreground_extraction import get_foreground_mask
 from typing import Optional
 from pathlib import Path
 import numpy as np
@@ -27,6 +27,11 @@ def main():
         print(f"found {len(image_paths)} images under {images_dir}")
         mmap_array: Optional[MmapArray] = None
         mask_mmap_array: Optional[MmapArray] = None
+        fg_mask_dir = FG_MASK_DIR / images_dir.parent.name
+        fg_mask_paths = sorted(list(fg_mask_dir.glob("*")))
+        if len(fg_mask_paths) > 0:
+            assert len(fg_mask_paths) == len(image_paths), f"{len(fg_mask_paths)=} != {len(image_paths)=}"
+        print(f"{fg_mask_dir=}, {len(fg_mask_paths)=}")
         for i, image_path in enumerate(image_paths):
             image = cv2.imread(str(image_path), 0)
             if i == 0:
@@ -41,15 +46,22 @@ def main():
             # # if fg_mask.mean() > 0.9:
             # #     print(f"big mask found on {i}")
             # mask_mmap_array.data[i, :, :] = fg_mask
-            mask_mmap_array.data[i, :, :] = 1
+            if len(fg_mask_paths) > 0:
+                fg_mask_path = fg_mask_paths[i]
+                mask = cv2.imread(str(fg_mask_path), 0)
+                resized_mask = cv2.resize(mask, dsize=(image.shape[1], image.shape[0])) > 0
+                mask_mmap_array.data[i, :, :] = resized_mask
+            else:
+                mask_mmap_array.data[i, :, :] = 1
             print(f"done images: {i+1}/{len(image_paths)}: {image_path}")
 
         print(f"computing stats")
-        p = 1
+        ps = [1, 0.001]
+        percentiles = ps + [100 - p for p in ps[::-1]]
         channel_margin = 0.2
         channel_lb = int(channel_margin * mmap_array.data.shape[0])
         channel_ub = int((1 - channel_margin) * mmap_array.data.shape[0])
-        global_percentile = np.percentile(mmap_array.data[channel_lb: channel_ub, :], [p, 100 - p])
+        global_percentile = np.percentile(mmap_array.data[channel_lb: channel_ub, :], percentiles)
         global_mean = np.mean(mmap_array.data[channel_lb: channel_ub, :])
         global_std = np.std(mmap_array.data[channel_lb: channel_ub, :])
         Path(output_dir / "stats.json").write_text(json.dumps(
@@ -57,8 +69,8 @@ def main():
                 "mean": float(global_mean),
                 "std": float(global_std),
                 "percentiles": {
-                    1: float(global_percentile[0]),
-                    99: float(global_percentile[1]),
+                    p: float(g)
+                    for p, g in zip(percentiles, global_percentile)
                 },
             },
             indent=4,
