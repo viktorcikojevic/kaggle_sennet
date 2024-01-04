@@ -1,7 +1,8 @@
 defaults:
   - _self_
-  - model: smp_unet_r50
-  - augmentation: vanilla
+  - model: smp_unet_resnext50_32x4d
+  - augmentation: multi_channel_augmentation
+  - early_stopping: normal
 #  - augmentation: noop
   - early_stopping: normal
   - scheduler: none
@@ -23,14 +24,15 @@ max_steps: -1
 
 loss:
   - type: BCELoss
-    weight: 0.0
+    weight: 0.001
   - type: MccLoss
-    weight: 0.0
+    weight: 0.001
   - type: DiceLoss
     weight: 0.4
     kwargs:
       smooth: 0.0001
   - type: FocalLoss
+#    weight: 1.0
     weight: 0.6
     kwargs:
       gamma: 2.0
@@ -41,12 +43,12 @@ task:
     compute_crude_metrics: false
     ema_momentum: 0.00025
 #    ema_momentum: null
-    ignore_border_loss: true
-#    ignore_border_loss: false
+#    ignore_border_loss: true
+    ignore_border_loss: false
 
 train_folders:
   - kidney_1_dense
-#  - kidney_3_dense
+  # - kidney_3_dense
 #  - kidney_2
 
 val_folders:
@@ -59,7 +61,7 @@ batch_transform:
   kwargs:
     alpha_cutmix: 0.4
     alpha_mixup: 0.4
-    cutmix_prob: 0.0
+    cutmix_prob: 0.3
     mixup_prob: 0.0
 
 dataset:
@@ -69,7 +71,8 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 1
+    n_take_channels: 1 # Number of channels to take from the dataset
+    n_appereant_channels: 1 # After augmentation and preprocessing, how many channels you will take.
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
@@ -101,24 +104,25 @@ dataset:
 hydra:
   sweeper:
     sampler:
-      seed: 42
+      seed: 1337
     direction: maximize
     storage: null
-    n_trials: 40
+    n_trials: 100
     n_jobs: 1
     params:
-      optimiser.log_lr: range(-3, 3, 0.1)
-#      dataset.kwargs.crop_size: range(128, 992, 32)
-#      dataset.kwargs.n_take_channels: range(1, 10, 1)
-#      dataset.kwargs.p_crop_size_noise: range(0.2, 1.0, 0.2)
+      # model.kwargs.encoder_name: choice("resnet18", "resnet34", "resnet50", "resnet101")
+      # optimiser.log_lr: range(-5, -3, 0.1)
+      # dataset.kwargs.crop_size: range(64, 512, 64)
+      dataset.kwargs.n_take_channels: range(1, 5, 1)
+      # dataset.kwargs.p_crop_size_noise: range(0.2, 1.0, 0.2)
 #      batch_size: range(4, 128, 4)
 
 #      batch_transform.kwargs.alpha_cutmix: range(0.01, 1.0, 0.1)
 #      batch_transform.kwargs.alpha_mixup: range(0.01, 1.0, 0.1)
 #      batch_transform.kwargs.cutmix_prob: range(0.0, 1.0, 0.1)
 #      batch_transform.kwargs.mixup_prob: range(0.0, 1.0, 0.1)
-#      loss.0.weight: range(0.0, 1.0, 0.1)
-#      loss.1.weight: range(0.0, 1.0, 0.1)
-#      loss.2.weight: range(0.0, 1.0, 0.1)
-#      loss.3.weight: range(0.0, 1.0, 0.1)
+      # loss.0.weight: range(0.0, 1.0, 0.1)
+      # loss.1.weight: range(0.0, 1.0, 0.1)
+      # loss.2.weight: range(0.0, 1.0, 0.1)
+      # loss.3.weight: range(0.0, 1.0, 0.1)
 #      augmentation.augmenter_kwargs.p_any_augm: range(0.0, 1.0, 0.1)

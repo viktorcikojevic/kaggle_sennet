@@ -126,7 +126,11 @@ class ThreeDSegmentationTask(pl.LightningModule):
             )
         else:
             loss = self.criterion(resized_pred, gt_seg_map[:, 0, :, :, :])
-        self.log("train_loss", loss, prog_bar=True)
+        current_lr = self.optimizers().optimizer.param_groups[0]['lr']
+        self.log_dict({
+            "train_loss": loss,
+            "lr": current_lr,
+        }, prog_bar=True)
         return loss
 
     def backward(self, loss: torch.Tensor, *args: Any, **kwargs: Any) -> None:
@@ -180,8 +184,6 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 threshold=self.eval_threshold,
                 parallelization_settings=ParallelizationSettings(
                     run_as_single_process=False,
-                    # n_chunks=self.n_eval_chunks,
-                    # finalise_one_by_one=True,
                 ),
                 out_dir=out_dir,
                 device="cuda",
@@ -201,7 +203,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             #     connectivity=26,
             # )
 
-            thresholds = [0.02, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5]
+            thresholds = [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.4]
             metrics: ChunkedMetrics = evaluate_chunked_inference(
                 root_dir=out_dir,
                 # root_dir=cc3d_out_dir,

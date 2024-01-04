@@ -16,6 +16,7 @@ class ThreeDSegmentationDataset(Dataset):
             folder: str,
             crop_size: int,
             n_take_channels: int,
+            n_appereant_channels: int,
             reduce_zero_label=True,
             assert_label_exists: bool = False,
             substride: float = 0.25,
@@ -47,6 +48,9 @@ class ThreeDSegmentationDataset(Dataset):
 
         if output_crop_size is None:
             output_crop_size = crop_size
+
+        self.n_take_channels = n_take_channels
+        self.n_appereant_channels = n_appereant_channels
 
         self.dataset = MultiChannelDataset(
             folder=folder,
@@ -104,7 +108,16 @@ class ThreeDSegmentationDataset(Dataset):
             except Exception as e:
                 print(f"can't run {t}: {repr(e)}")
                 raise
-
+        
+        if self.n_appereant_channels < self.n_take_channels:
+            # take a subset of the channels
+            channel_start = np.random.randint(0, self.n_take_channels - self.n_appereant_channels)
+            channel_end = channel_start + self.n_appereant_channels
+            take_channels = np.arange(channel_start, channel_end)
+            data["img"] = data["img"][take_channels]
+            if "gt_seg_map" in data:
+                data["gt_seg_map"] = data["gt_seg_map"][take_channels]
+        
         # unsqueeze(0) are there to create a channel dimension
         if "gt_seg_map" in data:
             data["gt_seg_map"] = torch.from_numpy(data["gt_seg_map"]).unsqueeze(0)

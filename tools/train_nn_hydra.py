@@ -68,6 +68,7 @@ def main(cfg: DictConfig):
     val_dataset_kwargs = sanitise_val_dataset_kwargs(dataset_kwargs, load_ann=True)
     val_dataset_kwargs["add_depth_along_width"] = False
     val_dataset_kwargs["add_depth_along_height"] = False
+    val_dataset_kwargs["n_take_channels"] = val_dataset_kwargs["n_appereant_channels"]
     # TODO(Sumo): fix this so training works with multiple val sets
     val_dataset = ThreeDSegmentationDataset(
         folder=cfg.val_folders[0],
@@ -122,6 +123,7 @@ def main(cfg: DictConfig):
         logger.experiment.config["experiment_name"] = experiment_name
     callbacks = [
         pl.callbacks.LearningRateMonitor(),
+        # pl.callbacks.RichProgressBar(),
         pl.callbacks.RichModelSummary(max_depth=3),
     ]
     callbacks += [
