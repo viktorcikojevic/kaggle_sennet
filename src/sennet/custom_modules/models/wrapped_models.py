@@ -6,6 +6,8 @@ import segmentation_models_pytorch as smp
 from typing import Union, Optional
 from pathlib import Path
 import torch
+import torch.nn as nn
+from transformers import SegformerConfig, SegformerForSemanticSegmentation
 
 
 class WrappedUNet3D(Base3DSegmentor):
@@ -140,6 +142,37 @@ class SMPModel(Base3DSegmentor):
             take_indices_start=0,
             take_indices_end=img.shape[2],
         )
+
+class SegformerModel(Base3DSegmentor):
+    def __init__(self, **kw):
+        Base3DSegmentor.__init__(self)
+        self.kw = kw
+        segformer_config =  SegformerConfig(**kw)
+        self.segformer = SegformerForSemanticSegmentation(segformer_config)
+        self.upscaler1 = nn.ConvTranspose2d(1, 1, kernel_size=(4,4), stride=2, padding=1)
+        self.upscaler2 = nn.ConvTranspose2d(1, 1, kernel_size=(4,4), stride=2, padding=1)
+
+    def get_name(self) -> str:
+        # concatenate all depths in self.kw['depths']
+        depths = ""
+        for d in self.kw['depths']:
+            depths += str(d)
+        return f"Segformer_{depths}"
+
+    def predict(self, img: torch.Tensor) -> SegmentorOutput:
+
+        x = self.segformer(img[:, 0, :, :, :]).logits
+        x = self.upscaler1(x)
+        model_out = self.upscaler2(x)
+
+        return SegmentorOutput(
+            pred=model_out,
+            take_indices_start=0,
+            take_indices_end=img.shape[2],
+        )
+
+
+
 
 
 if __name__ == "__main__":
