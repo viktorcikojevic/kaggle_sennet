@@ -1,9 +1,9 @@
 defaults:
   - _self_
   - model: smp_unet_resnext50_32x4d
-  - augmentation: multi_channel_augmentation
   - early_stopping: normal
-#  - augmentation: noop
+#  - augmentation: multi_channel_augmentation
+  - augmentation: noop
   - scheduler: none
   - optimiser: adamw
   - override hydra/sweeper: optuna
@@ -88,6 +88,10 @@ dataset:
     seg_fill_val: 0
     crop_location_noise: 0.5
     p_crop_location_noise: 1.0
+    p_random_3d_rotation: 1.0
+#    p_random_3d_rotation: 0.0
+    rot_magnitude_normal_deg: 20.0
+    rot_magnitude_plane_deg: 90.0
 
     # These three allow for rotation and flip augmentation
     add_depth_along_channel: true

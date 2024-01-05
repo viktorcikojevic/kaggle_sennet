@@ -26,15 +26,18 @@ class ThreeDSegmentationDataset(Dataset):
             add_depth_along_width: bool = False,
             add_depth_along_height: bool = False,
 
-            crop_size_range: Optional[Tuple[int, int]] = None,
-            output_crop_size: Optional[int] = None,
+            crop_size_range: tuple[float, float] | None = None,
+            output_crop_size: int | None = None,
             to_float32: bool = False,
             load_ann: bool = True,
             seg_fill_val: int = 255,
-            crop_location_noise: int = 0,
+            crop_location_noise: float = 0.0,
             p_crop_location_noise: float = 0.0,
             p_crop_size_noise: float = 0.0,
-            p_crop_size_keep_ar: float = 0.0,
+            p_crop_size_keep_ar: float = 0.5,
+            p_random_3d_rotation: float = 0.0,
+            rot_magnitude_normal_deg: float = 0.0,
+            rot_magnitude_plane_deg: float = 0.0,
 
             augmenter_class: Optional[str] = None,
             augmenter_kwargs: Optional[Dict[str, Any]] = None,
@@ -78,6 +81,9 @@ class ThreeDSegmentationDataset(Dataset):
             p_crop_location_noise=p_crop_location_noise,
             p_crop_size_noise=p_crop_size_noise,
             p_crop_size_keep_ar=p_crop_size_keep_ar,
+            p_random_3d_rotation=p_random_3d_rotation,
+            rot_magnitude_normal_deg=rot_magnitude_normal_deg,
+            rot_magnitude_plane_deg=rot_magnitude_plane_deg,
         )
 
         self.augmenter_class = augmenter_class
@@ -110,15 +116,6 @@ class ThreeDSegmentationDataset(Dataset):
                 print(f"can't run {t}: {repr(e)}")
                 raise
         
-        if self.n_appereant_channels < self.n_take_channels:
-            # take a subset of the channels
-            channel_start = np.random.randint(0, self.n_take_channels - self.n_appereant_channels)
-            channel_end = channel_start + self.n_appereant_channels
-            take_channels = np.arange(channel_start, channel_end)
-            data["img"] = data["img"][take_channels]
-            if "gt_seg_map" in data:
-                data["gt_seg_map"] = data["gt_seg_map"][take_channels]
-        
         # unsqueeze(0) are there to create a channel dimension
         if "gt_seg_map" in data:
             data["gt_seg_map"] = torch.from_numpy(data["gt_seg_map"]).unsqueeze(0)
@@ -135,15 +132,15 @@ if __name__ == "__main__":
         "kidney_1_dense",
         # "kidney_3_dense",
         512,
-        12,
-        crop_location_noise=100,
-        crop_size_range=(400, 600),
+        1,
+        crop_location_noise=0.5,
+        crop_size_range=(0.8, 1.2),
         output_crop_size=512,
         substride=1.0,
         load_ann=True,
         sample_with_mask=True,
-        add_depth_along_channel=False,
-        add_depth_along_height=False,
+        add_depth_along_channel=True,
+        add_depth_along_height=True,
         add_depth_along_width=True,
     )
     print(f"{len(_ds) = }")

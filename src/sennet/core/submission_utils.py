@@ -182,6 +182,7 @@ def sanitise_val_dataset_kwargs(kwargs, load_ann: bool = False) -> dict[str, any
     kwargs["p_crop_size_noise"] = 0
     kwargs["augmenter_class"] = None
     kwargs["augmenter_kwargs"] = None
+    kwargs["p_random_3d_rotation"] = 0.0
     return kwargs
 
 

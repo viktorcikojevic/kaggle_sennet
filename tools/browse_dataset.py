@@ -53,7 +53,7 @@ def main(cfg: DictConfig):
 
     train_save_dir = AUG_DUMP_DIR / "train"
     val_save_dir = AUG_DUMP_DIR / "val"
-    _browse_dataset(cfg, val_dataset, val_save_dir)
+    # _browse_dataset(cfg, val_dataset, val_save_dir)
     _browse_dataset(cfg, train_dataset, train_save_dir)
 
 

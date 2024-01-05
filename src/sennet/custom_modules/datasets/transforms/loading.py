@@ -4,7 +4,62 @@ from sennet.core.utils import DEPTH_ALONG_CHANNEL, DEPTH_ALONG_HEIGHT, DEPTH_ALO
 from pathlib import Path
 import cv2
 from line_profiler_pycharm import profile
-from copy import deepcopy
+from scipy.spatial.transform import Rotation
+from dataclasses import dataclass
+
+
+@dataclass
+class BboxInfo:
+    bbox: tuple[int, int, int, int, int, int]
+    crop_size_x: int
+    crop_size_y: int
+    n_take_channels: int
+
+
+def slice_3d_array(
+        rot: np.ndarray,
+        center_xyz: tuple[float, float, float] | np.ndarray,
+        bbox_size_xyz: tuple[int, int, int] | np.ndarray,
+        image: np.ndarray,
+) -> np.ndarray:
+    """
+
+    :param rot: 3x3 rotation matrix
+    :param center_xyz: center of the bbox along xyz
+    :param bbox_size_xyz: bbox size along xyz
+    :param image: (c, h, w): image to slice
+    :return: sliced image
+    """
+    (
+        pixels_z,
+        pixels_y,
+        pixels_x,
+    ) = np.meshgrid(
+        (
+            np.linspace(-0.5 * bbox_size_xyz[2], 0.5 * bbox_size_xyz[2], num=bbox_size_xyz[2])
+            if bbox_size_xyz[2] > 1 else
+            np.zeros(bbox_size_xyz[2])
+        ),
+        np.linspace(-0.5 * bbox_size_xyz[1], 0.5 * bbox_size_xyz[1], num=bbox_size_xyz[1]),
+        np.linspace(-0.5 * bbox_size_xyz[0], 0.5 * bbox_size_xyz[0], num=bbox_size_xyz[0]),
+        indexing="ij",
+    )
+
+    n_rotated_pixels_x = rot[0, 0] * pixels_x + rot[0, 1] * pixels_y + rot[0, 2] * pixels_z
+    n_rotated_pixels_y = rot[1, 0] * pixels_x + rot[1, 1] * pixels_y + rot[1, 2] * pixels_z
+    n_rotated_pixels_z = rot[2, 0] * pixels_x + rot[2, 1] * pixels_y + rot[2, 2] * pixels_z
+    rotated_pixels_x = n_rotated_pixels_x + center_xyz[0]
+    rotated_pixels_y = n_rotated_pixels_y + center_xyz[1]
+    rotated_pixels_z = n_rotated_pixels_z + center_xyz[2]
+
+    sliced_image = image[
+        np.clip(np.round(rotated_pixels_z).astype(int), 0, image.shape[0]),
+        np.clip(np.round(rotated_pixels_y).astype(int), 0, image.shape[1]),
+        np.clip(np.round(rotated_pixels_x).astype(int), 0, image.shape[2]),
+    ]
+    _expected_out_size = bbox_size_xyz[2], bbox_size_xyz[1], bbox_size_xyz[0]
+    assert sliced_image.shape == _expected_out_size, f"{sliced_image.shape=} != {_expected_out_size=}"
+    return sliced_image
 
 
 class LoadMultiChannelImageAndAnnotationsFromFile:
@@ -19,6 +74,9 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             p_crop_location_noise: float = 0.0,
             p_crop_size_noise: float = 0.0,
             p_crop_size_keep_ar: float = 0.5,
+            p_random_3d_rotation: float = 0.0,
+            rot_magnitude_normal_deg: float = 0.0,
+            rot_magnitude_plane_deg: float = 0.0,
     ):
         if crop_size_range is not None:
             assert crop_size_range[0] <= crop_size_range[1], f"{crop_size_range=}"
@@ -31,12 +89,15 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         self.p_crop_location_noise = p_crop_location_noise
         self.p_crop_size_noise = p_crop_size_noise
         self.p_crop_size_keep_ar = p_crop_size_keep_ar
+        self.p_random_3d_rotation = p_random_3d_rotation
+        self.rot_magnitude_normal_rad = rot_magnitude_normal_deg / 180.0 * np.pi
+        self.rot_magnitude_plane_rad = rot_magnitude_plane_deg / 180.0 * np.pi
         self.loaded_image_mmaps: dict[str, MmapArray] = {}
         self.loaded_seg_mmaps: dict[str, MmapArray] = {}
 
     # @profile
     @profile
-    def _get_pixel_bbox(self, results: dict) -> tuple[int, int, int, int, int, int]:
+    def _get_pixel_bbox(self, results: dict) -> BboxInfo:
         lc = results["bbox"][0]
         lx = results["bbox"][1]
         ly = results["bbox"][2]
@@ -45,12 +106,6 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         uy = results["bbox"][5]
 
         # _original_box = deepcopy(results["bbox"])
-
-        should_randomise_crop_location = self.crop_location_noise > 0 and np.random.binomial(p=self.p_crop_location_noise, n=1) > 0.5
-        should_randomise_crop_size = self.crop_size_range is not None and np.random.binomial(p=self.p_crop_size_noise, n=1) > 0.5
-        if not (should_randomise_crop_location or should_randomise_crop_size):
-            return lc, lx, ly, uc, ux, uy
-
         # "new" cuz they'll be permuted during aug later
         new_crop_size_c = uc - lc
         new_crop_size_x = ux - lx
@@ -58,15 +113,28 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         bbox_type = results["bbox_type"]
         if bbox_type == DEPTH_ALONG_CHANNEL:
             crop_size = new_crop_size_x
+            n_take_channels = new_crop_size_c
             min_size = int(min(results["img_w"], results["img_h"]))
         elif bbox_type == DEPTH_ALONG_HEIGHT:
             crop_size = new_crop_size_c
+            n_take_channels = new_crop_size_y
             min_size = int(min(results["img_w"], results["img_c"]))
         elif bbox_type == DEPTH_ALONG_WIDTH:
             crop_size = new_crop_size_c
+            n_take_channels = new_crop_size_x
             min_size = int(min(results["img_h"], results["img_c"]))
         else:
             raise RuntimeError(f"unknown {bbox_type=}")
+
+        should_randomise_crop_location = self.crop_location_noise > 0 and np.random.binomial(p=self.p_crop_location_noise, n=1) > 0.5
+        should_randomise_crop_size = self.crop_size_range is not None and np.random.binomial(p=self.p_crop_size_noise, n=1) > 0.5
+        if not (should_randomise_crop_location or should_randomise_crop_size):
+            return BboxInfo(
+                bbox=(lc, lx, ly, uc, ux, uy),
+                crop_size_x=crop_size,
+                crop_size_y=crop_size,
+                n_take_channels=n_take_channels,
+            )
 
         if should_randomise_crop_location:
             crop_location_noise = int(self.crop_location_noise * crop_size)
@@ -85,6 +153,13 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         crop_size_lb = int(self.crop_size_range[0] * crop_size)
         crop_size_ub = min(int(self.crop_size_range[1] * crop_size), min_size)
         new_crop_size = np.random.randint(crop_size_lb, crop_size_ub)
+
+        bbox_info = BboxInfo(
+            bbox=(0, 0, 0, 0, 0, 0),
+            crop_size_x=crop_size,
+            crop_size_y=crop_size,
+            n_take_channels=n_take_channels,
+        )
         if should_randomise_crop_size:
             if bbox_type == DEPTH_ALONG_CHANNEL:
                 mid_x += mid_x_noise
@@ -95,6 +170,9 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
                 else:
                     new_crop_size_x = np.random.randint(crop_size_lb, crop_size_ub)
                     new_crop_size_y = np.random.randint(crop_size_lb, crop_size_ub)
+                bbox_info.crop_size_x = new_crop_size_x
+                bbox_info.crop_size_y = new_crop_size_y
+                bbox_info.n_take_channels = new_crop_size_c
             elif bbox_type == DEPTH_ALONG_HEIGHT:
                 mid_c += mid_c_noise
                 mid_x += mid_x_noise
@@ -104,6 +182,9 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
                 else:
                     new_crop_size_c = np.random.randint(crop_size_lb, crop_size_ub)
                     new_crop_size_x = np.random.randint(crop_size_lb, crop_size_ub)
+                bbox_info.crop_size_x = new_crop_size_c
+                bbox_info.crop_size_y = new_crop_size_x
+                bbox_info.n_take_channels = new_crop_size_y
             elif bbox_type == DEPTH_ALONG_WIDTH:
                 mid_c += mid_c_noise
                 mid_y += mid_y_noise
@@ -113,6 +194,9 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
                 else:
                     new_crop_size_c = np.random.randint(crop_size_lb, crop_size_ub)
                     new_crop_size_y = np.random.randint(crop_size_lb, crop_size_ub)
+                bbox_info.crop_size_x = new_crop_size_c
+                bbox_info.crop_size_y = new_crop_size_y
+                bbox_info.n_take_channels = new_crop_size_x
             else:
                 raise RuntimeError(f"unknown {bbox_type=}")
         lc = int(np.clip(mid_c - 0.5*new_crop_size_c, 0, results["img_c"] - new_crop_size_c))
@@ -124,37 +208,112 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
 
         _new_box = lc, lx, ly, uc, ux, uy
         # print(f"augmented bbox from: {_original_box} -> {_new_box}, {bbox_type=}")
-        return _new_box
+        bbox_info.bbox = _new_box
+        return bbox_info
 
     @profile
     def transform(self, results: dict) -> dict | None:
         crop_bbox = self._get_pixel_bbox(results)
-        img, seg = self._read_image_and_seg(
-            results,
-            crop_bbox,
-        )
+        should_do_3d_aug = bool(np.random.binomial(p=self.p_random_3d_rotation, n=1))
+        image_mmap, seg_mmap = self._load_image_and_seg(results)
+        if should_do_3d_aug:
+            img, seg = self._get_rotated_3d_slice(results, crop_bbox, image_mmap, seg_mmap)
+        else:
+            img, seg = self._read_image_and_seg(results, crop_bbox.bbox, image_mmap, seg_mmap)
         results["img"] = img
         results["img_shape"] = img.shape[:2]
         if seg is not None:
             results["gt_seg_map"] = seg
         return results
 
-    @profile
-    def _read_image_and_seg(
-            self,
-            results: dict[str, any],
-            crop_bbox: tuple[int, int, int, int, int, int],
-    ):
+    def _load_image_and_seg(self, results: dict) -> tuple[MmapArray, MmapArray | None]:
         img_path = results["image_dir"]
         if img_path not in self.loaded_image_mmaps:
             self.loaded_image_mmaps[img_path] = read_mmap_array(Path(img_path), mode="r")
-        image_mmap = self.loaded_image_mmaps[img_path]
-        img = self._get_3d_slice(results, image_mmap.data, crop_bbox)
         if self.load_ann:
             seg_path = results["seg_dir"]
             if seg_path not in self.loaded_seg_mmaps:
                 self.loaded_seg_mmaps[seg_path] = read_mmap_array(Path(seg_path), mode="r")
             seg_mmap = self.loaded_seg_mmaps[seg_path]
+        else:
+            seg_mmap = None
+        return self.loaded_image_mmaps[img_path], seg_mmap
+
+    @profile
+    def _get_rotated_3d_slice(
+            self,
+            results: dict[str, any],
+            crop_bbox: BboxInfo,
+            image_mmap: MmapArray,
+            seg_mmap: MmapArray | None,
+    ):
+        rot_bound = np.array([self.rot_magnitude_plane_rad, self.rot_magnitude_plane_rad, self.rot_magnitude_normal_rad])
+        rot_vec = np.random.uniform(-rot_bound, rot_bound)
+        rot = Rotation.from_rotvec(rot_vec).as_matrix()
+        bbox_type = results["bbox_type"]
+        if bbox_type == DEPTH_ALONG_CHANNEL:
+            prefix_rot = np.eye(3)
+        elif bbox_type == DEPTH_ALONG_HEIGHT:
+            prefix_rot = Rotation.from_rotvec([np.pi/2, 0, 0]).as_matrix()
+        elif bbox_type == DEPTH_ALONG_WIDTH:
+            prefix_rot = Rotation.from_rotvec([np.pi/2, 0, 0]).as_matrix()
+        else:
+            raise RuntimeError(f"unknown {bbox_type=}")
+        combined_rot = prefix_rot @ rot
+
+        # note: override the bbox to have its normals pointing to z again
+        bbox_size_xyz = (
+            crop_bbox.crop_size_x,
+            crop_bbox.crop_size_y,
+            crop_bbox.n_take_channels,
+        )
+        center_xyz = (
+            crop_bbox.bbox[0] + 0.5 * bbox_size_xyz[0],
+            crop_bbox.bbox[1] + 0.5 * bbox_size_xyz[1],
+            crop_bbox.bbox[2] + 0.5 * bbox_size_xyz[2],
+        )
+        img_path = results["image_dir"]
+        if img_path not in self.loaded_image_mmaps:
+            self.loaded_image_mmaps[img_path] = read_mmap_array(Path(img_path), mode="r")
+        img = slice_3d_array(
+            rot=combined_rot,
+            center_xyz=center_xyz,
+            bbox_size_xyz=bbox_size_xyz,
+            image=image_mmap.data,
+        )
+        if self.load_ann:
+            assert seg_mmap is not None, f"seg_mmap given as None when self.load_ann is True"
+            seg_map = slice_3d_array(
+                rot=combined_rot,
+                center_xyz=center_xyz,
+                bbox_size_xyz=bbox_size_xyz,
+                image=seg_mmap.data,
+            )
+        else:
+            seg_map = None
+        is_fast_path = crop_bbox.crop_size_x == crop_bbox.crop_size_y == self.output_crop_size
+        if is_fast_path:
+            img = np.ascontiguousarray(img)
+            seg_map = np.ascontiguousarray(seg_map)
+        else:
+            resized_img_arrays = [self._resize_to_output_size(img[c, ...]) for c in range(img.shape[0])]
+            img = np.ascontiguousarray(np.stack(resized_img_arrays, axis=0))
+
+            resized_seg_arrays = [self._resize_to_output_size(seg_map[c, ...]) for c in range(seg_map.shape[0])]
+            seg_map = np.ascontiguousarray(np.stack(resized_seg_arrays, axis=0))
+        return img, seg_map
+
+    @profile
+    def _read_image_and_seg(
+            self,
+            results: dict[str, any],
+            crop_bbox: tuple[int, int, int, int, int, int],
+            image_mmap: MmapArray,
+            seg_mmap: MmapArray | None,
+    ):
+        img = self._get_3d_slice(results, image_mmap.data, crop_bbox)
+        if self.load_ann:
+            assert seg_mmap is not None, f"seg_mmap given as None when self.load_ann is True"
             seg_map = self._get_3d_slice(results, seg_mmap.data, crop_bbox)
         else:
             seg_map = None
