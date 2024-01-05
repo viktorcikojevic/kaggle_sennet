@@ -16,7 +16,6 @@ class ThreeDSegmentationDataset(Dataset):
             folder: str,
             crop_size: int,
             n_take_channels: int,
-            n_appereant_channels: int,
             reduce_zero_label=True,
             assert_label_exists: bool = False,
             substride: float = 0.25,
@@ -43,14 +42,16 @@ class ThreeDSegmentationDataset(Dataset):
             transforms: Optional[List] = None,
             normalisation_kwargs: Optional[Dict] = None,
             cropping_border: int = 0,
+
+            **kwargs,
     ):
         Dataset.__init__(self)
+        print(f"unused kwargs: {kwargs}")
 
         if output_crop_size is None:
             output_crop_size = crop_size
 
         self.n_take_channels = n_take_channels
-        self.n_appereant_channels = n_appereant_channels
 
         self.dataset = MultiChannelDataset(
             folder=folder,
