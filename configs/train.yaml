@@ -1,6 +1,7 @@
 defaults:
   - _self_
-  - model: smp_unet_resnext50_32x4d
+#  - model: smp_unet_resnext50_32x4d
+  - model: smp_unet_r50
   - early_stopping: normal
 #  - augmentation: multi_channel_augmentation
   - augmentation: vanilla
@@ -12,7 +13,7 @@ defaults:
 
 val_check_interval: 40000
 batch_size: 32 # final batch size.
-apparent_batch_size: 16 # batch size during training
+apparent_batch_size: 10 # batch size during training
 num_workers: 16
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
@@ -54,6 +55,7 @@ train_folders:
 val_folders:
 #  - kidney_1_dense
    - kidney_3_dense
+#   - kidney_3_merged
 #  - kidney_2
 #   - kidney_3_sparse
 
@@ -72,7 +74,6 @@ dataset:
 #    crop_size: 896
     cropping_border: 0
     n_take_channels: 1 # Number of channels to take from the dataset
-    n_appereant_channels: 1 # After augmentation and preprocessing, how many channels you will take.
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0

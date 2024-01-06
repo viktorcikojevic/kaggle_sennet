@@ -17,8 +17,9 @@ def objective(
         chunk_dirs: List[Union[str, Path]],
         labels: dict[str, np.ndarray],
 ) -> float:
-    threshold: float = trial.suggest_float("threshold", 0.01, 0.2)
-    do_dust: bool = trial.suggest_categorical("do_dust", [False, True])
+    percentile_threshold: float | None = trial.suggest_float("percentile_threshold", 98.0, 100.0)
+    # do_dust: bool = trial.suggest_categorical("do_dust", [False, True])
+    do_dust: bool = False
     if do_dust:
         dust_threshold: int = trial.suggest_int("dust_threshold", 1, 10000000, log=True)
     else:
@@ -27,14 +28,18 @@ def objective(
     chunk_dirs = [Path(d) for d in chunk_dirs]
     mean_dice = 0.0
     dice_scores = {}
+    threshold = None
     for folder in chunk_dirs:
         chunk_dir_names = sorted([c.name for c in folder.glob("chunk*") if c.is_dir()])
+        assert len(chunk_dir_names) == 1, f"many chunks is now deprecated, got: {len(chunk_dir_names)}"
+        mean_prob_chunks = [np.ascontiguousarray(read_mmap_array(folder / cd / "mean_prob", mode="r").data.copy()) for cd in chunk_dir_names]
 
-        mean_prob_chunks = [read_mmap_array(folder / cd / "mean_prob", mode="r").data for cd in chunk_dir_names]
-        thresholded_pred = np.concatenate([
-            m > threshold
-            for m in mean_prob_chunks
-        ], axis=0)
+        threshold = np.percentile(mean_prob_chunks[0], percentile_threshold)
+        if threshold < 1e-5:
+            print(f"{threshold=}: pruned")
+            return 0.0
+        # print(f"thresholds: {np.percentile(mean_prob_chunks[0].data, [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0])}")
+        thresholded_pred = mean_prob_chunks[0] > threshold
         if do_dust:
             filtered_pred = filter_out_small_blobs(
                 thresholded_pred,
@@ -55,6 +60,7 @@ def objective(
         dice_scores[folder.name] = dice_score
         mean_dice += dice_score / len(chunk_dirs)
     print("---")
+    print(f"{percentile_threshold=}, threshold={float(threshold):.5f}")
     print(json.dumps(dice_scores, indent=4))
     print("---")
     return mean_dice

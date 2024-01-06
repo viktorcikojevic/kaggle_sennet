@@ -42,3 +42,4 @@ dependencies:
     - pytorch_toolbelt
     - torcheval
     - lightning-bolts
+    - deepspeed

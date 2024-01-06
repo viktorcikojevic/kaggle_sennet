@@ -108,12 +108,26 @@ class WrappedMedicalNetResnet3D(Base3DSegmentor):
 
 
 class SMPModel(Base3DSegmentor):
-    def __init__(self, version: str, **kw):
+    def __init__(self, version: str, replace_batch_norm_with_layer_norm: bool = False, **kw):
         Base3DSegmentor.__init__(self)
         self.version = version
         self.kw = kw
+        self.replace_batch_norm_with_layer_norm = replace_batch_norm_with_layer_norm
         constructor = getattr(smp, self.version)
         self.model = constructor(**kw)
+        if self.replace_batch_norm_with_layer_norm:
+            self.replace_bn_with_ln(self.model)
+
+    def __repr__(self):
+        return str(self.model)
+
+    def replace_bn_with_ln(self, module: torch.nn.Module):
+        for child_name, child in module.named_children():
+            if isinstance(child, torch.nn.BatchNorm2d):
+                setattr(module, child_name, torch.nn.GroupNorm(1, child.num_features))
+                print(f"replaced: {child_name} with GroupNorm(1, {child.num_features})")
+            else:
+                self.replace_bn_with_ln(child)
 
     def get_name(self) -> str:
         return f"SMP_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
@@ -158,10 +172,12 @@ if __name__ == "__main__":
         "Unet",
         encoder_name="resnet34",
         encoder_weights="imagenet",
+        replace_batch_norm_with_layer_norm=True,
         in_channels=_c,
         classes=_c,
     ).to(_device).train()
     _data = torch.randn((2, 1, _c, 512, 512)).to(_device)
     _out = _model.predict(_data)
+    print(_model)
     print(f"{_out.pred.shape=}, {_out.pred.max()=}, {_out.pred.min()=}")
     print(":D")
