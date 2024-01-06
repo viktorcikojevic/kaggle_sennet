@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - model: segformer_mit_b1
+  - model: smp_unet_r18_upsample
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: multi_channel_augmentation
@@ -11,16 +11,15 @@ defaults:
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 40000
-batch_size: 8 # final batch size.
-apparent_batch_size: 8 # batch size during training
+val_check_interval: 20000
+batch_size: 16 # final batch size.
+apparent_batch_size: 16 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
-#exp_name: three_d_seg
-exp_name: r50_three_d_aug
-group_name: "smp_unet_r50_hyptun" # maybe this would be useful for grouping experiments when we do hyperparameter search
-max_epochs: 20
+exp_name: three_d_seg
+group_name: "r18_upsample" # maybe this would be useful for grouping experiments when we do hyperparameter search
+max_epochs: 100
 max_steps: -1
 
 loss:
@@ -70,7 +69,7 @@ dataset:
   train_substride: 1.0
   val_substride: 1.0
   kwargs:
-    crop_size: 256
+    crop_size: 512
 #    crop_size: 896
     cropping_border: 0
     n_take_channels: 1 # Number of channels to take from the dataset

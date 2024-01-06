@@ -1,6 +1,7 @@
 from sennet.custom_modules.models.unet3d import model as unet_model
 from sennet.custom_modules.models.base_model import Base3DSegmentor, SegmentorOutput
 from sennet.custom_modules.models import medical_net_resnet3d as resnet3ds
+from sennet.custom_modules.models import layers
 from sennet.environments.constants import PRETRAINED_DIR
 import segmentation_models_pytorch as smp
 from typing import Union, Optional
@@ -170,6 +171,32 @@ class SegformerModel(Base3DSegmentor):
         )
 
 
+
+
+class SMPModelUpsampleBy2(Base3DSegmentor):
+    def __init__(self, version: str, **kw):
+        Base3DSegmentor.__init__(self)
+        self.version = version
+        self.kw = kw
+        self.upsampler = layers.PixelShuffleUpsample(in_channels=1, upscale_factor=2)
+        constructor = getattr(smp, self.version)
+        self.model = constructor(**kw)
+        self.downscale_layer = nn.Conv2d(1, 1, kernel_size=3, stride=2, padding=1)
+
+
+    def get_name(self) -> str:
+        return f"SMP_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
+
+    def predict(self, img: torch.Tensor) -> SegmentorOutput:
+        assert img.shape[1] == 1, f"{self.__class__.__name__} works in 1 channel images only (for now), expected to have c=1, got {img.shape=}"
+        img_upsampled = self.upsampler(img[:, 0, :, :, :])
+        model_out = self.model(img_upsampled)
+        model_out = self.downscale_layer(model_out)
+        return SegmentorOutput(
+            pred=model_out,
+            take_indices_start=0,
+            take_indices_end=img.shape[2],
+        )
 
 
 
