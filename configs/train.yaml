@@ -1,7 +1,7 @@
 defaults:
   - _self_
-#  - model: smp_unet_resnext50_32x4d
-  - model: smp_unet_r50
+  - model: segformer_mit_b1
+  - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: multi_channel_augmentation
   - augmentation: vanilla
@@ -12,8 +12,8 @@ defaults:
   - override hydra/sweeper/sampler: tpe
 
 val_check_interval: 40000
-batch_size: 32 # final batch size.
-apparent_batch_size: 16 # batch size during training
+batch_size: 8 # final batch size.
+apparent_batch_size: 8 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
@@ -70,7 +70,7 @@ dataset:
   train_substride: 1.0
   val_substride: 1.0
   kwargs:
-    crop_size: 512
+    crop_size: 256
 #    crop_size: 896
     cropping_border: 0
     n_take_channels: 1 # Number of channels to take from the dataset

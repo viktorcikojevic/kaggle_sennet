@@ -135,7 +135,7 @@ def main(cfg: DictConfig):
         logger.experiment.config["aug"] = str(train_dataset.datasets[0].augmenter)
         logger.experiment.config["model_full"] = str(model)
     callbacks = [
-        pl.callbacks.LearningRateMonitor(),
+        # pl.callbacks.LearningRateMonitor(),
         # pl.callbacks.RichProgressBar(),
         pl.callbacks.RichModelSummary(max_depth=3),
     ]

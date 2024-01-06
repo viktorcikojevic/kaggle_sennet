@@ -147,10 +147,9 @@ class SegformerModel(Base3DSegmentor):
     def __init__(self, **kw):
         Base3DSegmentor.__init__(self)
         self.kw = kw
+        self.upsampler = nn.Upsample(scale_factor=4, mode='bilinear', align_corners=True)
         segformer_config =  SegformerConfig(**kw)
         self.segformer = SegformerForSemanticSegmentation(segformer_config)
-        self.upscaler1 = nn.ConvTranspose2d(1, 1, kernel_size=(4,4), stride=2, padding=1)
-        self.upscaler2 = nn.ConvTranspose2d(1, 1, kernel_size=(4,4), stride=2, padding=1)
 
     def get_name(self) -> str:
         # concatenate all depths in self.kw['depths']
@@ -161,9 +160,8 @@ class SegformerModel(Base3DSegmentor):
 
     def predict(self, img: torch.Tensor) -> SegmentorOutput:
 
-        x = self.segformer(img[:, 0, :, :, :]).logits
-        x = self.upscaler1(x)
-        model_out = self.upscaler2(x)
+        x = self.upsampler(img[:, 0, :, :, :])
+        model_out = self.segformer(x).logits
 
         return SegmentorOutput(
             pred=model_out,
