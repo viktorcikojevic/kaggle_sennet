@@ -56,6 +56,10 @@ def main(cfg: DictConfig):
 
     dataset_kwargs = cfg_dict["dataset"]["kwargs"]
     augmentation_kwargs = cfg_dict["augmentation"]
+    print("train_dataset_kwargs")
+    print(json.dumps(dataset_kwargs, indent=4))
+    print("train_aug_kwargs")
+    print(json.dumps(augmentation_kwargs, indent=4))
     train_dataset = ConcatDataset([
         ThreeDSegmentationDataset(
             folder=folder,
@@ -71,6 +75,8 @@ def main(cfg: DictConfig):
     val_dataset_kwargs["add_depth_along_width"] = False
     val_dataset_kwargs["add_depth_along_height"] = False
     val_dataset_kwargs["n_take_channels"] = val_dataset_kwargs["n_appereant_channels"]
+    print("val_dataset_kwargs")
+    print(json.dumps(val_dataset_kwargs, indent=4))
     # TODO(Sumo): fix this so training works with multiple val sets
     val_dataset = ThreeDSegmentationDataset(
         folder=cfg.val_folders[0],
@@ -104,6 +110,7 @@ def main(cfg: DictConfig):
     
     accumulate_grad_batches = max(1, int(cfg.batch_size / cfg.apparent_batch_size))
     print(f"{accumulate_grad_batches = }")
+    print(model)
     task = ThreeDSegmentationTask(
         model,
         train_loader=train_loader,
@@ -123,6 +130,7 @@ def main(cfg: DictConfig):
         logger = WandbLogger(project=cfg.exp_name, name=experiment_name)
         logger.experiment.config.update(OmegaConf.to_container(cfg, resolve=True))
         logger.experiment.config["experiment_name"] = experiment_name
+        logger.experiment.config["aug"] = str(train_dataset.datasets[0].augmenter)
     callbacks = [
         pl.callbacks.LearningRateMonitor(),
         # pl.callbacks.RichProgressBar(),

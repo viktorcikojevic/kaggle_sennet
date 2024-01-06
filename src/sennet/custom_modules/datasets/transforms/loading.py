@@ -1,6 +1,6 @@
 import numpy as np
 from sennet.core.mmap_arrays import read_mmap_array, MmapArray
-from sennet.core.utils import DEPTH_ALONG_CHANNEL, DEPTH_ALONG_HEIGHT, DEPTH_ALONG_WIDTH
+from sennet.core.utils import DEPTH_ALONG_CHANNEL, DEPTH_ALONG_HEIGHT, DEPTH_ALONG_WIDTH, DEPTH_ALONG_NOTHING
 from pathlib import Path
 import cv2
 from line_profiler_pycharm import profile
@@ -30,6 +30,9 @@ def slice_3d_array(
     :param image: (c, h, w): image to slice
     :return: sliced image
     """
+    # print(f"> computing meshgrid: {bbox_size_xyz=}, {center_xyz=}, {image.shape=}")
+    # print(Rotation.from_matrix(rot).as_rotvec())
+    # print(rot)
     (
         pixels_z,
         pixels_y,
@@ -45,6 +48,7 @@ def slice_3d_array(
         indexing="ij",
     )
 
+    # print(f"> rotating mat")
     n_rotated_pixels_x = rot[0, 0] * pixels_x + rot[0, 1] * pixels_y + rot[0, 2] * pixels_z
     n_rotated_pixels_y = rot[1, 0] * pixels_x + rot[1, 1] * pixels_y + rot[1, 2] * pixels_z
     n_rotated_pixels_z = rot[2, 0] * pixels_x + rot[2, 1] * pixels_y + rot[2, 2] * pixels_z
@@ -52,13 +56,17 @@ def slice_3d_array(
     rotated_pixels_y = n_rotated_pixels_y + center_xyz[1]
     rotated_pixels_z = n_rotated_pixels_z + center_xyz[2]
 
+    # print(f"> slicing image")
     sliced_image = image[
-        np.clip(np.round(rotated_pixels_z).astype(int), 0, image.shape[0]),
-        np.clip(np.round(rotated_pixels_y).astype(int), 0, image.shape[1]),
-        np.clip(np.round(rotated_pixels_x).astype(int), 0, image.shape[2]),
+        np.clip(np.round(rotated_pixels_z).astype(int), 0, image.shape[0]-1),
+        np.clip(np.round(rotated_pixels_y).astype(int), 0, image.shape[1]-1),
+        np.clip(np.round(rotated_pixels_x).astype(int), 0, image.shape[2]-1),
     ]
+
+    # print(f"> asserting")
     _expected_out_size = bbox_size_xyz[2], bbox_size_xyz[1], bbox_size_xyz[0]
     assert sliced_image.shape == _expected_out_size, f"{sliced_image.shape=} != {_expected_out_size=}"
+    # print(f"> done")
     return sliced_image
 
 
@@ -256,9 +264,10 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         elif bbox_type == DEPTH_ALONG_HEIGHT:
             prefix_rot = Rotation.from_rotvec([np.pi/2, 0, 0]).as_matrix()
         elif bbox_type == DEPTH_ALONG_WIDTH:
-            prefix_rot = Rotation.from_rotvec([np.pi/2, 0, 0]).as_matrix()
+            prefix_rot = Rotation.from_rotvec([0, np.pi/2, 0]).as_matrix()
         else:
             raise RuntimeError(f"unknown {bbox_type=}")
+        results["bbox_type"] = DEPTH_ALONG_NOTHING
         combined_rot = prefix_rot @ rot
 
         # note: override the bbox to have its normals pointing to z again
@@ -272,15 +281,14 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             crop_bbox.bbox[1] + 0.5 * bbox_size_xyz[1],
             crop_bbox.bbox[2] + 0.5 * bbox_size_xyz[2],
         )
-        img_path = results["image_dir"]
-        if img_path not in self.loaded_image_mmaps:
-            self.loaded_image_mmaps[img_path] = read_mmap_array(Path(img_path), mode="r")
+        # print(f"getting image")
         img = slice_3d_array(
             rot=combined_rot,
             center_xyz=center_xyz,
             bbox_size_xyz=bbox_size_xyz,
             image=image_mmap.data,
         )
+        # print(f"getting seg map")
         if self.load_ann:
             assert seg_mmap is not None, f"seg_mmap given as None when self.load_ann is True"
             seg_map = slice_3d_array(
@@ -292,6 +300,7 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         else:
             seg_map = None
         is_fast_path = crop_bbox.crop_size_x == crop_bbox.crop_size_y == self.output_crop_size
+        # print(f"getting contiguous array: {is_fast_path=}")
         if is_fast_path:
             img = np.ascontiguousarray(img)
             seg_map = np.ascontiguousarray(seg_map)
@@ -301,6 +310,8 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
 
             resized_seg_arrays = [self._resize_to_output_size(seg_map[c, ...]) for c in range(seg_map.shape[0])]
             seg_map = np.ascontiguousarray(np.stack(resized_seg_arrays, axis=0))
+        # print("done")
+        # print("---")
         return img, seg_map
 
     @profile

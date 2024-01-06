@@ -3,7 +3,8 @@ defaults:
   - model: smp_unet_resnext50_32x4d
   - early_stopping: normal
 #  - augmentation: multi_channel_augmentation
-  - augmentation: noop
+  - augmentation: vanilla
+#  - augmentation: noop
   - scheduler: none
   - optimiser: adamw
   - override hydra/sweeper: optuna
@@ -16,9 +17,9 @@ num_workers: 16
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 #exp_name: three_d_seg
-exp_name: r18_recovery_test
+exp_name: three_d_aug
 group_name: "smp_unet_r50_hyptun" # maybe this would be useful for grouping experiments when we do hyperparameter search
-max_epochs: 100
+max_epochs: 20
 max_steps: -1
 
 loss:
@@ -88,9 +89,10 @@ dataset:
     seg_fill_val: 0
     crop_location_noise: 0.5
     p_crop_location_noise: 1.0
-    p_random_3d_rotation: 1.0
-#    p_random_3d_rotation: 0.0
-    rot_magnitude_normal_deg: 20.0
+
+#    p_random_3d_rotation: 1.0
+    p_random_3d_rotation: 0.0
+    rot_magnitude_normal_deg: 90.0
     rot_magnitude_plane_deg: 90.0
 
     # These three allow for rotation and flip augmentation
@@ -116,7 +118,8 @@ hydra:
       # model.kwargs.encoder_name: choice("resnet18", "resnet34", "resnet50", "resnet101")
       # optimiser.log_lr: range(-5, -3, 0.1)
       # dataset.kwargs.crop_size: range(64, 512, 64)
-      dataset.kwargs.n_take_channels: range(1, 5, 1)
+#      dataset.kwargs.n_take_channels: range(1, 5, 1)
+      dataset.kwargs.p_random_3d_rotation: range(0.0, 1.0, 0.1)
       # dataset.kwargs.p_crop_size_noise: range(0.2, 1.0, 0.2)
 #      batch_size: range(4, 128, 4)
 

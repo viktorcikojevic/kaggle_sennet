@@ -40,6 +40,9 @@ class VanillaAugmentation:
             # ], p=p)
         ])
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._transform})"
+
     def transform(self, data):
         img = data["img"]
         gt_seg_map = data["gt_seg_map"]
@@ -57,3 +60,8 @@ class VanillaAugmentation:
         data["gt_seg_map"] = np.transpose(gt_seg_map_augmented, (2, 0, 1))
 
         return data
+
+
+if __name__ == "__main__":
+    _a = VanillaAugmentation()
+    print(_a)
