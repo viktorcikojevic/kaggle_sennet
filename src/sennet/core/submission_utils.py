@@ -192,6 +192,7 @@ def build_data_loader(
         cfg: Dict,
         cropping_border: int | None = None,
         batch_size: int = 1,
+        num_workers: int = 0,
 ):
     kwargs = sanitise_val_dataset_kwargs(cfg["dataset"]["kwargs"], load_ann=False)
     if cropping_border is not None:
@@ -205,7 +206,7 @@ def build_data_loader(
         dataset,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=0,
+        num_workers=num_workers,
         pin_memory=True,
         drop_last=False,
     )

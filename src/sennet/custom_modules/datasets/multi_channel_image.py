@@ -41,6 +41,7 @@ def generate_crop_bboxes(
     x_take_range = n_take_channels if depth_mode == DEPTH_ALONG_WIDTH else crop_size
 
     for c in _get_1d_box_lower_points(shape[0], c_eff_box_size, substride):
+        # print(f"{c=}: num_boxes={_get_1d_box_lower_points(shape[1], y_eff_box_size, substride).shape[0] * _get_1d_box_lower_points(shape[2], x_eff_box_size, substride).shape[0]}")
         for i in _get_1d_box_lower_points(shape[1], y_eff_box_size, substride):
             for j in _get_1d_box_lower_points(shape[2], x_eff_box_size, substride):
                 # this clips the bboxes against the max sides

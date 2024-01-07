@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 import argparse
+from line_profiler_pycharm import profile
 import torch
 import yaml
 import json
@@ -182,6 +183,7 @@ def main():
                 cfg=cfg,
                 cropping_border=submission_cfg["predictors"]["cropping_border"],
                 batch_size=batch_size,
+                num_workers=0,
             )
             generate_submission_df(
                 model=model,
