@@ -216,6 +216,10 @@ class ThreeDSegmentationTask(pl.LightningModule):
             best_threshold_current = thresholds[np.argmax(surface_dice_scores)]
             best_f1_score = np.max(metrics.f1_scores)
             print("--------------------------------")
+            print("precisions:")
+            print(json.dumps({t: d for t, d in zip(thresholds, metrics.precisions)}, indent=4))
+            print("recalls:")
+            print(json.dumps({t: d for t, d in zip(thresholds, metrics.recalls)}, indent=4))
             print(f"f1_scores:")
             print(f"{json.dumps({t: d for t, d in zip(thresholds, metrics.f1_scores)}, indent=4)}")
             print("dice_scores:")
@@ -231,6 +235,8 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 self.best_f1_score = best_f1_score
             self.log_dict({
                 "f1_score": best_f1_score,
+                "precision": np.max(metrics.precisions),
+                "recall": np.max(metrics.recalls),
                 "threshold": best_threshold_current,
                 "surface_dice": best_dice_current,
                 "crude_f1": crude_f1,
