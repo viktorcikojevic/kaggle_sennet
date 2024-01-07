@@ -28,16 +28,16 @@ class VanillaAugmentation:
                 A.GaussianBlur(always_apply=True),
                 A.MotionBlur(always_apply=True),
             ], p=p),
-            # A.OneOf([
-            #     A.GridDistortion(num_steps=5, distort_limit=0.3, p=p, always_apply=True),
-            #     # A.ElasticTransform(
-            #     #     alpha=1,
-            #     #     sigma=50,
-            #     #     alpha_affine=50,
-            #     #     interpolation=cv2.INTER_AREA,
-            #     #     always_apply=True,
-            #     # ),
-            # ], p=p)
+            A.OneOf([
+                A.GridDistortion(num_steps=5, distort_limit=0.3, p=p, always_apply=True),
+                # A.ElasticTransform(
+                #     alpha=1,
+                #     sigma=50,
+                #     alpha_affine=50,
+                #     interpolation=cv2.INTER_AREA,
+                #     always_apply=True,
+                # ),
+            ], p=p)
         ])
 
     def __repr__(self) -> str:

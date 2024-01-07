@@ -1,13 +1,13 @@
 predictors:
-  n_chunks: 5
   threshold: 0.05
   dust_threshold: null
-#  substride: 0.5
-  substride: 1.0
-  cropping_border: 32
+  substride: 0.25
+#  substride: 1.0
+  cropping_border: 0
   tta_kwargs:
     add_flips: true
 #    add_flips: false
   models:
 #    - SMP_Unet_tu-maxvit_small_tf_512_imagenet-c512x1-bs32-llr-4.3-t111-sm0-2023-12-28-20-07-29
-    - SMP_Unet_resnet18_imagenet-c896x1-bs32-llr-1-t111-sm0-2023-12-31-13-05-48
+    - SMP_Unet_resnet50_imagenet-c512x1-bs32-abs16-llr-4-t111-sm0-ema1-cb0-2024-01-07-02-39-29
+    - SMP_Unet_resnet50_imagenet-c512x1-bs32-abs16-llr-4-t111-sm0-ema1-cb0-2024-01-07-00-00-25

@@ -13,12 +13,12 @@ defaults:
 
 val_check_interval: 40000
 batch_size: 32 # final batch size.
-apparent_batch_size: 10 # batch size during training
+apparent_batch_size: 16 # batch size during training
 num_workers: 16
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 #exp_name: three_d_seg
-exp_name: three_d_aug
+exp_name: r50_three_d_aug
 group_name: "smp_unet_r50_hyptun" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 20
 max_steps: -1
@@ -74,6 +74,7 @@ dataset:
 #    crop_size: 896
     cropping_border: 0
     n_take_channels: 1 # Number of channels to take from the dataset
+    n_appereant_channels: 1
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
