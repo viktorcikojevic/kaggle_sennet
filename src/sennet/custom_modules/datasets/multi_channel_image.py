@@ -12,7 +12,7 @@ def _get_1d_box_lower_points(
         substride: float,
 ) -> np.ndarray:
     n_boxes = int(np.ceil(dim / box_size / substride))
-    return np.linspace(0, dim-box_size, num=n_boxes).astype(int)
+    return np.sort(np.unique(np.linspace(0, dim-box_size, num=n_boxes).astype(int)))
 
 
 def generate_crop_bboxes(
@@ -40,10 +40,13 @@ def generate_crop_bboxes(
     x_eff_box_size = n_take_channels if depth_mode == DEPTH_ALONG_WIDTH else effective_crop_size
     x_take_range = n_take_channels if depth_mode == DEPTH_ALONG_WIDTH else crop_size
 
-    for c in _get_1d_box_lower_points(shape[0], c_eff_box_size, substride):
-        # print(f"{c=}: num_boxes={_get_1d_box_lower_points(shape[1], y_eff_box_size, substride).shape[0] * _get_1d_box_lower_points(shape[2], x_eff_box_size, substride).shape[0]}")
-        for i in _get_1d_box_lower_points(shape[1], y_eff_box_size, substride):
-            for j in _get_1d_box_lower_points(shape[2], x_eff_box_size, substride):
+    c_lows = _get_1d_box_lower_points(shape[0], c_eff_box_size, substride)
+    i_lows = _get_1d_box_lower_points(shape[1], y_eff_box_size, substride)
+    j_lows = _get_1d_box_lower_points(shape[2], x_eff_box_size, substride)
+    # print(f"generated: {len(c_lows)}cs, {len(i_lows)}is, {len(j_lows)}js")
+    for c in c_lows:
+        for i in i_lows:
+            for j in j_lows:
                 # this clips the bboxes against the max sides
                 uc = min(c + c_take_range, shape[0])
                 uy = min(i + y_take_range, shape[1])
@@ -79,6 +82,14 @@ def generate_crop_bboxes(
     assert np.all(bboxes[:, 3] <= shape[0]), f"invalid bbox c ub: {bboxes[bboxes[:, 3] > shape[0], 3]}, {depth_mode=}, {shape[0]=}"
     assert np.all(bboxes[:, 4] <= shape[2]), f"invalid bbox x ub: {bboxes[bboxes[:, 4] > shape[2], 4]}, {depth_mode=}, {shape[2]=}"
     assert np.all(bboxes[:, 5] <= shape[1]), f"invalid bbox y ub: {bboxes[bboxes[:, 5] > shape[1], 5]}, {depth_mode=}, {shape[1]=}"
+
+    # so the order of depth channels are sorted and it's easier for submission to manage memory
+    if depth_mode == DEPTH_ALONG_CHANNEL:
+        bboxes = bboxes[(bboxes[:, 0] + 1e-6 * bboxes[:, 1] + 1e-12 * bboxes[:, 1]).argsort()]
+    elif depth_mode == DEPTH_ALONG_WIDTH:
+        bboxes = bboxes[bboxes[:, 1].argsort()]
+    elif depth_mode == DEPTH_ALONG_HEIGHT:
+        bboxes = bboxes[bboxes[:, 2].argsort()]
     return bboxes
 
 
@@ -199,14 +210,24 @@ class MultiChannelDataset:
 
 
 if __name__ == "__main__":
-    _ds = MultiChannelDataset(
-        "kidney_1_dense",
-        512,
-        12,
-        substride=1.0,
-        sample_with_mask=True,
-        add_depth_along_channel=False,
-        add_depth_along_height=True,
-        add_depth_along_width=False,
-    )
+    # _ds = MultiChannelDataset(
+    #     "kidney_1_dense",
+    #     512,
+    #     12,
+    #     substride=1.0,
+    #     sample_with_mask=True,
+    #     add_depth_along_channel=False,
+    #     add_depth_along_height=True,
+    #     add_depth_along_width=False,
+    # )
+    _bboxes = {}
+    for ss in [1.0, 0.5, 0.25]:
+        _bboxes[ss] = generate_crop_bboxes(
+            crop_size=512,
+            n_take_channels=1,
+            substride=ss,
+            shape=(1, 1706, 1510),
+            depth_mode=DEPTH_ALONG_CHANNEL,
+            cropping_border=0
+        )
     print(":D")
