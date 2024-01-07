@@ -189,6 +189,7 @@ def main():
                 model=model,
                 data_loader=data_loader,
                 threshold=submission_cfg["predictors"]["threshold"],
+                percentile_threshold=submission_cfg["predictors"].get("percentile_threshold", None),
                 parallelization_settings=ParallelizationSettings(
                     run_as_single_process=run_as_single_process,
                 ),
