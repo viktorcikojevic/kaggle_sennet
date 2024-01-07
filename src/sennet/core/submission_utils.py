@@ -45,39 +45,38 @@ def generate_submission_df_from_one_chunked_inference(
 
 @dataclasses.dataclass
 class ChunkedMetrics:
-    f1_score: float
+    f1_scores: list[float]
     # binary_au_roc: float
     surface_dices: list[float]
 
 
+@torch.no_grad()
 def evaluate_chunked_inference(
         root_dir: Union[str, Path],
         label_dir: Union[str, Path],
         thresholds: list[float] = (0.2,),
         device: str = "cuda",
 ) -> ChunkedMetrics:
-    with torch.no_grad():
-        root_dir = Path(root_dir)
-        label_dir = Path(label_dir)
+    root_dir = Path(root_dir)
+    label_dir = Path(label_dir)
 
-        chunk_dirs = sorted(list(root_dir.glob("chunk*")))
-        label = read_mmap_array(label_dir / "label", mode="r")
+    chunk_dirs = sorted(list(root_dir.glob("chunk*")))
+    label = read_mmap_array(label_dir / "label", mode="r")
 
-        surface_dices = []
-        for t in tqdm(thresholds, desc="dice"):
-            dice = compute_surface_dice_score_from_mmap(
-                mean_prob_chunks=[
-                    read_mmap_array(d / "mean_prob", mode="r").data
-                    for d in chunk_dirs
-                ],
-                label=label.data,
-                threshold=t,
-            )
-            surface_dices.append(dice)
+    surface_dices = []
+    f1_scores = []
+    for t in tqdm(thresholds, desc="dice"):
+        dice = compute_surface_dice_score_from_mmap(
+            mean_prob_chunks=[
+                read_mmap_array(d / "mean_prob", mode="r").data
+                for d in chunk_dirs
+            ],
+            label=label.data,
+            threshold=t,
+        )
+        surface_dices.append(dice)
 
         f1_metric = BinaryF1Score()
-        # au_roc_metric = BinaryAUROC()
-
         i = 0
         for d in tqdm(chunk_dirs, position=0):
             pred = read_mmap_array(d / "thresholded_prob", mode="r")
@@ -91,12 +90,13 @@ def evaluate_chunked_inference(
 
                 i += 1
         f1_score = float(f1_metric.compute().cpu().item())
-        # au_roc_score = float(au_roc_metric.compute().cpu().item())
-        return ChunkedMetrics(
-            f1_score=f1_score,
-            # binary_au_roc=au_roc_score,
-            surface_dices=surface_dices,
-        )
+        f1_scores.append(f1_score)
+    # au_roc_score = float(au_roc_metric.compute().cpu().item())
+    return ChunkedMetrics(
+        f1_scores=f1_scores,
+        # binary_au_roc=au_roc_score,
+        surface_dices=surface_dices,
+    )
 
 
 def load_config_from_dir(model_dir: str | Path) -> Dict:
