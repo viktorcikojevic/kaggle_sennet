@@ -141,7 +141,7 @@ def main(cfg: DictConfig):
     ]
     callbacks += [
         pl.callbacks.EarlyStopping(
-            monitor="surface_dice",
+            monitor=cfg.early_stopping_metric,
             mode="max",
             **cfg.early_stopping,
         ),
