@@ -21,9 +21,9 @@ def main():
     paths = [
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_1_dense/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_1_dense/submission.csv",
-        # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_dense/submission.csv",
+        "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_dense/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_3_dense/submission.csv",
-        "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_merged/submission.csv",
+        # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_merged/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_2/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_2/submission.csv",
     ]

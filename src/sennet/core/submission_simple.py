@@ -57,34 +57,38 @@ class TensorReceivingProcess:
 
         self.current_total_count = None
         self.current_mean_prob = None
-        self.thresholded_prob = None
 
         self.current_folder = None
         self.cropping_border = cropping_border
 
+    @profile
     def _finalise_image_if_holding_any(self):
         if self.current_folder is not None and self.current_mean_prob is not None and self.current_total_count is not None:
-            # image_paths = self.all_image_paths[self.current_folder]
+            current_total_count = create_mmap_array(self.out_dir / "total_count", self.current_total_count.shape, np.uint8).data
+            current_mean_prob = create_mmap_array(self.out_dir / "mean_prob", self.current_mean_prob.shape, float).data
+            thresholded_prob = create_mmap_array(self.out_dir / "thresholded_prob", self.current_mean_prob.shape, bool).data
+
             print(f"computing mean")
-            for c in range(self.current_mean_prob.shape[0]):
-                self.current_mean_prob[c, ...] /= (self.current_total_count[c, ...] + 1e-8)
+            self.current_mean_prob /= (self.current_total_count + 1e-8)
 
             print(f"flushing mean prob")
-            self.current_mean_prob.flush()
-
-            print(f"flushing total count")
-            self.current_total_count.flush()
+            current_mean_prob[:] = self.current_mean_prob.cpu().numpy()
+            current_mean_prob.flush()
 
             if self.percentile_threshold is not None:
-                threshold = np.percentile(self.current_mean_prob, self.percentile_threshold)
+                threshold = np.percentile(current_mean_prob, self.percentile_threshold)
                 print(f"thresholding prob with percentile threshold: pct={self.percentile_threshold}, thr={threshold}")
-                self.thresholded_prob[:] = self.current_mean_prob > threshold
+                thresholded_prob[:] = (self.current_mean_prob > threshold).cpu().numpy()
             else:
                 print(f"thresholding prob with absolute threshold: {self.threshold}")
-                self.thresholded_prob[:] = self.current_mean_prob > self.threshold
+                thresholded_prob[:] = (self.current_mean_prob > self.threshold).cpu().numpy()
+
+            print(f"flushing total count")
+            current_total_count[:] = self.current_total_count.cpu().numpy()
+            current_total_count.flush()
 
             print(f"flushing thresholded prob")
-            self.thresholded_prob.flush()
+            thresholded_prob.flush()
 
             print(f"done")
 
@@ -123,7 +127,6 @@ class TensorReceivingProcess:
         assert bbox_type is not None, f"bbox_type be None if terminate is False"
         assert data.model_start_idx is not None, f"data.model_start_idx be None if terminate is False"
         assert data.model_end_idx is not None, f"data.model_end_idx be None if terminate is False"
-        pred = pred.cpu().numpy()
         bbox = batch["bbox"][i].cpu().numpy()
         folder = batch["folder"][i]
 
@@ -172,9 +175,8 @@ class TensorReceivingProcess:
             img_c = int(batch["img_c"][i])
 
             self.current_folder = folder
-            self.current_total_count = create_mmap_array(self.out_dir / "total_count", [img_c, img_h, img_w], np.uint8).data
-            self.current_mean_prob = create_mmap_array(self.out_dir / "mean_prob", [img_c, img_h, img_w], float).data
-            self.thresholded_prob = create_mmap_array(self.out_dir / "thresholded_prob", [img_c, img_h, img_w], bool).data
+            self.current_total_count = torch.zeros((img_c, img_h, img_w), dtype=torch.uint8, device=pred.device)
+            self.current_mean_prob = torch.zeros((img_c, img_h, img_w), dtype=torch.float16, device=pred.device)
         else:
             assert self.current_folder == folder, f"can't handle more than one folder: {self.current_folder=}, {folder=}"
 
