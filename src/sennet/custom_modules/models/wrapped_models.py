@@ -115,22 +115,14 @@ class SMPModel(Base3DSegmentor):
         Base3DSegmentor.__init__(self)
         self.version = version
         self.kw = kw
-        self.replace_batch_norm_with_layer_norm = replace_batch_norm_with_layer_norm
+        if 'replace_batch_norm_with_layer_norm' in kw:
+            replace_batch_norm_with_layer_norm = kw.pop('replace_batch_norm_with_layer_norm')
+        else:
+            replace_batch_norm_with_layer_norm = False
         constructor = getattr(smp, self.version)
         self.model = constructor(**kw)
-        if self.replace_batch_norm_with_layer_norm:
+        if replace_batch_norm_with_layer_norm:
             self.replace_bn_with_ln(self.model)
-
-    def __repr__(self):
-        return str(self.model)
-
-    def replace_bn_with_ln(self, module: torch.nn.Module):
-        for child_name, child in module.named_children():
-            if isinstance(child, torch.nn.BatchNorm2d):
-                setattr(module, child_name, torch.nn.GroupNorm(1, child.num_features))
-                print(f"replaced: {child_name} with GroupNorm(1, {child.num_features})")
-            else:
-                self.replace_bn_with_ln(child)
 
     def get_name(self) -> str:
         return f"SMP_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
@@ -143,6 +135,18 @@ class SMPModel(Base3DSegmentor):
             take_indices_start=0,
             take_indices_end=img.shape[2],
         )
+        
+    def replace_bn_with_ln(self, module):
+        for child_name, child in module.named_children():
+            if isinstance(child, nn.BatchNorm2d):
+                # Get the number of channels in the BatchNorm layer
+                num_channels = child.num_features
+                # Replace with LayerNorm2d
+                setattr(module, child_name, layers.LayerNorm2d(num_channels))
+            else:
+                # Recursively apply to child modules
+                self.replace_bn_with_ln(child)
+        
 
 class SegformerModel(Base3DSegmentor):
     def __init__(self, **kw):

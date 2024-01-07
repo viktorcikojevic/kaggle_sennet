@@ -13,3 +13,19 @@ class PixelShuffleUpsample(nn.Module):
         x = self.conv(x)
         x = self.pixel_shuffle(x)
         return x
+    
+    
+class LayerNorm2d(nn.Module):
+    def __init__(self, num_channels: int, eps: float = 1e-6) -> None:
+        super().__init__()
+        # initialize weight and bias with a mean of 1 and a small standard deviation
+        self.weight = nn.Parameter(torch.randn(num_channels) * 0.05 + 0.1)
+        self.bias = nn.Parameter(torch.randn(num_channels) * 0.01)
+        self.eps = eps
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        u = x.mean(1, keepdim=True)
+        s = (x - u).pow(2).mean(1, keepdim=True)
+        x = (x - u) / torch.sqrt(s + self.eps)
+        x = self.weight[:, None, None] * x + self.bias[:, None, None]
+        return x
