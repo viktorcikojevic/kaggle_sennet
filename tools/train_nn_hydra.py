@@ -8,7 +8,7 @@ from sennet.custom_modules.losses.loss import CombinedLoss
 from sennet.custom_modules.datasets.transforms.batch_transforms import BatchTransform
 from sennet.custom_modules.models.base_model import Base3DSegmentor
 # from pytorch_lightning.strategies import DeepSpeedStrategy
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import DataLoader, ConcatDataset, TensorDataset
 import sennet.custom_modules.models as models
 from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
@@ -85,7 +85,14 @@ def main(cfg: DictConfig):
         substride=cfg.dataset.val_substride,
         **val_dataset_kwargs,
     )
-
+    dummy_val_loader = DataLoader(
+        TensorDataset(torch.ones(1, 100)),
+        batch_size=1,
+        shuffle=False,
+        num_workers=0,
+        pin_memory=True,
+        drop_last=False,
+    )
     train_loader = DataLoader(
         train_dataset,
         batch_size=cfg.apparent_batch_size,
@@ -112,7 +119,7 @@ def main(cfg: DictConfig):
     
     accumulate_grad_batches = max(1, int(cfg.batch_size / cfg.apparent_batch_size))
     print(f"{accumulate_grad_batches = }")
-    print(model)
+    # print(model)
     task = ThreeDSegmentationTask(
         model,
         train_loader=train_loader,
@@ -183,7 +190,7 @@ def main(cfg: DictConfig):
     trainer.fit(
         model=task,
         train_dataloaders=train_loader,
-        val_dataloaders=val_loader,
+        val_dataloaders=dummy_val_loader,
     )
     if not cfg.dry_logger:
         logger.experiment.config["best_surface_dice"] = task.best_surface_dice
