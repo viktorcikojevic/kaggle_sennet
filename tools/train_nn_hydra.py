@@ -7,6 +7,7 @@ from sennet.environments.constants import MODEL_OUT_DIR, PRETRAINED_DIR
 from sennet.custom_modules.losses.loss import CombinedLoss
 from sennet.custom_modules.datasets.transforms.batch_transforms import BatchTransform
 from sennet.custom_modules.models.base_model import Base3DSegmentor
+# from pytorch_lightning.strategies import DeepSpeedStrategy
 from torch.utils.data import DataLoader, ConcatDataset
 import sennet.custom_modules.models as models
 from datetime import datetime
@@ -43,9 +44,12 @@ def main(cfg: DictConfig):
         f"{model.get_name()}"
         f"-c{cfg.dataset.kwargs.crop_size}x{cfg.dataset.kwargs.n_take_channels}"
         f"-bs{cfg.batch_size}"
+        f"-abs{cfg.apparent_batch_size}"
         f"-llr{cfg.optimiser.log_lr}"
         f"-t{int(cfg.dataset.kwargs.add_depth_along_channel)}{int(cfg.dataset.kwargs.add_depth_along_width)}{int(cfg.dataset.kwargs.add_depth_along_height)}"
         f"-sm{int(cfg.dataset.kwargs.sample_with_mask)}"
+        f"-ema{int(cfg.task.kwargs.ema_momentum is not None)}"
+        f"-cb{int(cfg.dataset.kwargs.cropping_border)}"
         f"-{time_now}"
     )
     model_out_dir = MODEL_OUT_DIR / experiment_name
@@ -54,6 +58,10 @@ def main(cfg: DictConfig):
 
     dataset_kwargs = cfg_dict["dataset"]["kwargs"]
     augmentation_kwargs = cfg_dict["augmentation"]
+    print("train_dataset_kwargs")
+    print(json.dumps(dataset_kwargs, indent=4))
+    print("train_aug_kwargs")
+    print(json.dumps(augmentation_kwargs, indent=4))
     train_dataset = ConcatDataset([
         ThreeDSegmentationDataset(
             folder=folder,
@@ -69,6 +77,8 @@ def main(cfg: DictConfig):
     val_dataset_kwargs["add_depth_along_width"] = False
     val_dataset_kwargs["add_depth_along_height"] = False
     val_dataset_kwargs["n_take_channels"] = val_dataset_kwargs["n_appereant_channels"]
+    print("val_dataset_kwargs")
+    print(json.dumps(val_dataset_kwargs, indent=4))
     # TODO(Sumo): fix this so training works with multiple val sets
     val_dataset = ThreeDSegmentationDataset(
         folder=cfg.val_folders[0],
@@ -86,7 +96,7 @@ def main(cfg: DictConfig):
     )
     val_loader = DataLoader(
         val_dataset,
-        batch_size=2*cfg.apparent_batch_size,
+        batch_size=1,
         shuffle=False,
         num_workers=0,
         pin_memory=True,
@@ -102,6 +112,7 @@ def main(cfg: DictConfig):
     
     accumulate_grad_batches = max(1, int(cfg.batch_size / cfg.apparent_batch_size))
     print(f"{accumulate_grad_batches = }")
+    print(model)
     task = ThreeDSegmentationTask(
         model,
         train_loader=train_loader,
@@ -121,6 +132,8 @@ def main(cfg: DictConfig):
         logger = WandbLogger(project=cfg.exp_name, name=experiment_name)
         logger.experiment.config.update(OmegaConf.to_container(cfg, resolve=True))
         logger.experiment.config["experiment_name"] = experiment_name
+        logger.experiment.config["aug"] = str(train_dataset.datasets[0].augmenter)
+        logger.experiment.config["model_full"] = str(model)
     callbacks = [
         pl.callbacks.LearningRateMonitor(),
         # pl.callbacks.RichProgressBar(),
@@ -154,13 +167,18 @@ def main(cfg: DictConfig):
         val_check_interval=val_check_interval,
         max_epochs=cfg.max_epochs,
         max_steps=cfg.max_steps,
-        precision="16-mixed",
+        precision="16",
         benchmark=True,
         log_every_n_steps=20,
         # gradient_clip_val=1.0,
         # gradient_clip_algorithm="norm",
         accumulate_grad_batches=accumulate_grad_batches,
         callbacks=callbacks,
+        # strategy=DeepSpeedStrategy(
+        #     stage=3,
+        #     offload_optimizer=True,
+        #     offload_parameters=True,
+        # ),
     )
     trainer.fit(
         model=task,

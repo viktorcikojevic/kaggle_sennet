@@ -203,7 +203,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             #     connectivity=26,
             # )
 
-            thresholds = [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.4]
+            thresholds = [0.005, 0.01, 0.02, 0.03, 0.04]
             metrics: ChunkedMetrics = evaluate_chunked_inference(
                 root_dir=out_dir,
                 # root_dir=cc3d_out_dir,

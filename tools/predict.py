@@ -108,9 +108,10 @@ def main():
     parser.add_argument("--folders", required=False, type=str)
     parser.add_argument("--run-all", required=False, action="store_true", default=False)
     parser.add_argument("--keep-model-chunks", required=False, action="store_true", default=False)
-    parser.add_argument("--n-chunks", required=False, type=int, default=None)
+    parser.add_argument("--n-chunks", required=False, type=int, default=None)  # actually deprecated
     parser.add_argument("--run-as-single-process", required=False, action="store_true", default=False)
     parser.add_argument("--no-cc3d", required=False, action="store_true", default=False)
+    parser.add_argument("--batch-size", required=False, type=int, default=1)
 
     submission_cfg_path = CONFIG_DIR / "submission.yaml"
     with open(submission_cfg_path, "rb") as f:
@@ -119,16 +120,14 @@ def main():
     args, _ = parser.parse_known_args()
     out_dir = Path(args.out_dir)
     run_all = args.run_all
-    n_chunks_override = args.n_chunks
     run_as_single_process = args.run_as_single_process
     keep_model_chunks = args.keep_model_chunks
     no_cc3d = args.no_cc3d
+    batch_size = args.batch_size
 
     if submission_cfg["predictors"]["dust_threshold"] is None:
         print(f"dust_threshold is None, turning off cc3d")
         no_cc3d = True
-    if n_chunks_override is not None:
-        print(f"{n_chunks_override=} given, override n_chunks to it")
     if run_as_single_process:
         print(f"{run_as_single_process=}: removing all multi processing")
     if run_all:
@@ -182,6 +181,7 @@ def main():
                 substride=submission_cfg["predictors"]["substride"],
                 cfg=cfg,
                 cropping_border=submission_cfg["predictors"]["cropping_border"],
+                batch_size=batch_size,
             )
             generate_submission_df(
                 model=model,
@@ -189,8 +189,6 @@ def main():
                 threshold=submission_cfg["predictors"]["threshold"],
                 parallelization_settings=ParallelizationSettings(
                     run_as_single_process=run_as_single_process,
-                    # n_chunks=submission_cfg["predictors"]["n_chunks"] if n_chunks_override is None else n_chunks_override,
-                    # finalise_one_by_one=True,
                 ),
                 out_dir=data_out_dir,
                 device="cuda",

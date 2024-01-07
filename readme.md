@@ -45,27 +45,23 @@ python3 tools/evaluate.py
 python tools/generate_rle_labels.py --path "${DATASET_DIR}/train_rles.csv"
 ```
 
-
-## Generate debug dataset (optional) (not working yet!)
-
-
-Create a debug dataset with 10 channels.
-```bash
-bash create_debug_dataset.sh
-```
-
 ---
 
-# Auto Albumentation
+# Installing Pyinterp
+it's a bit of a headache because of this funny library called boost
 
+## Installing Boost
+1. download this and extract it https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.gz
+2. go inside the extracted dir, run the following:
 ```bash
-python3 tools/auto_alb_search.py \
-  --config-dir /home/clay/research/kaggle/sennet/src/sennet/auto_alb_demo
-  
-# baseline
-python3 tools/train_aa_hydra.py
+sudo apt update
+sudo apt install -y build-essential g++ cmake libeigen3-dev libboost-dev libgsl-dev python3-numpy 
+./bootstrap.sh --prefix=/usr/
+sudo ./b2 install
+```
+this should be enough, if things go wrong refer to this guy: https://stackoverflow.com/questions/12578499/how-to-install-boost-on-ubuntu
 
-# auto alb
-python3 tools/train_aa_hydra.py \
-  --aug-path /home/clay/research/kaggle/sennet/policy/latest.json
+## Easy Part
+```bash
+pip3 install pyinterp
 ```

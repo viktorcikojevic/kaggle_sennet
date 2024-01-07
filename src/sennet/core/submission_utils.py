@@ -182,10 +182,17 @@ def sanitise_val_dataset_kwargs(kwargs, load_ann: bool = False) -> dict[str, any
     kwargs["p_crop_size_noise"] = 0
     kwargs["augmenter_class"] = None
     kwargs["augmenter_kwargs"] = None
+    kwargs["p_random_3d_rotation"] = 0.0
     return kwargs
 
 
-def build_data_loader(folder: str, substride: float, cfg: Dict, cropping_border: int | None = None):
+def build_data_loader(
+        folder: str,
+        substride: float,
+        cfg: Dict,
+        cropping_border: int | None = None,
+        batch_size: int = 1,
+):
     kwargs = sanitise_val_dataset_kwargs(cfg["dataset"]["kwargs"], load_ann=False)
     if cropping_border is not None:
         kwargs["cropping_border"] = cropping_border
@@ -196,7 +203,7 @@ def build_data_loader(folder: str, substride: float, cfg: Dict, cropping_border:
     )
     data_loader = DataLoader(
         dataset,
-        batch_size=1,
+        batch_size=batch_size,
         shuffle=False,
         num_workers=0,
         pin_memory=True,

@@ -30,24 +30,16 @@ def generate_crop_bboxes(
 
     effective_crop_size = int(crop_size - 2*cropping_border)
     assert effective_crop_size > 0, f"crop size too small wrt border: {crop_size=}, {cropping_border=} -> {effective_crop_size=}"
-    # crop_stride = max(1, int(substride * effective_crop_size))
-    # channel_stride = max(1, int(substride * n_take_channels))
 
     c_eff_box_size = n_take_channels if depth_mode == DEPTH_ALONG_CHANNEL else effective_crop_size
-    # c_stride = channel_stride if depth_mode == DEPTH_ALONG_CHANNEL else crop_stride
     c_take_range = n_take_channels if depth_mode == DEPTH_ALONG_CHANNEL else crop_size
 
     y_eff_box_size = n_take_channels if depth_mode == DEPTH_ALONG_HEIGHT else effective_crop_size
-    # y_stride = channel_stride if depth_mode == DEPTH_ALONG_HEIGHT else crop_stride
     y_take_range = n_take_channels if depth_mode == DEPTH_ALONG_HEIGHT else crop_size
 
     x_eff_box_size = n_take_channels if depth_mode == DEPTH_ALONG_WIDTH else effective_crop_size
-    # x_stride = channel_stride if depth_mode == DEPTH_ALONG_WIDTH else crop_stride
     x_take_range = n_take_channels if depth_mode == DEPTH_ALONG_WIDTH else crop_size
 
-    # for c in range(0, shape[0], c_stride):
-    #     for i in range(0, shape[1], y_stride):
-    #         for j in range(0, shape[2], x_stride):
     for c in _get_1d_box_lower_points(shape[0], c_eff_box_size, substride):
         for i in _get_1d_box_lower_points(shape[1], y_eff_box_size, substride):
             for j in _get_1d_box_lower_points(shape[2], x_eff_box_size, substride):

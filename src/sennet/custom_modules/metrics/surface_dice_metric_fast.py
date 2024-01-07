@@ -151,7 +151,8 @@ def compute_surface_dice_score_from_thresholded_mmap(
     note: this is basically a shameless copy of the function below, I'm just too lazy to make it right
     """
     # submit and label must contain exact same id in same order
-    assert sum(p.shape[0] for p in thresholded_chunks) == label.shape[0]
+    total_chunk_channels = sum(p.shape[0] for p in thresholded_chunks)
+    assert total_chunk_channels == label.shape[0], f"{total_chunk_channels=} != {label.shape[0]=}"
 
     # Surface area lookup table: Tensor[float32] (256, )
     area = create_table_neighbour_code_to_surface_area((1, 1, 1))

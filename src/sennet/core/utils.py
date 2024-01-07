@@ -5,6 +5,7 @@ from typing import Tuple
 DEPTH_ALONG_CHANNEL = 0
 DEPTH_ALONG_HEIGHT = 1
 DEPTH_ALONG_WIDTH = 2
+DEPTH_ALONG_NOTHING = 3  # eg. when doing 3d augs
 
 
 def resize_3d_image(img: torch.Tensor, new_whd: Tuple[int, int, int]):

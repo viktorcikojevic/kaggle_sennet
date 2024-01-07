@@ -20,6 +20,7 @@ TMP_SUB_MMAP_DIR = DATA_DUMPS_DIR / "tmp_mmaps"
 PRETRAINED_DIR = DATA_DUMPS_DIR / "pretrained_checkpoints"
 CONFIG_DIR = REPO_DIR / "configs"
 STAGING_DIR = DATA_DUMPS_DIR / "staging"
+FG_MASK_DIR = DATA_DIR.parent / "labeled_masks"
 
 
 if __name__ == "__main__":
