@@ -69,22 +69,23 @@ class TensorReceivingProcess:
             thresholded_prob = create_mmap_array(self.out_dir / "thresholded_prob", self.current_mean_prob.shape, bool).data
 
             print(f"computing mean")
-            self.current_mean_prob /= (self.current_total_count + 1e-8)
+            _total_prob = self.current_mean_prob.cpu().numpy()
+            _total_count = self.current_total_count.cpu().numpy()
+            current_mean_prob[:] = _total_prob / (_total_count + 1e-8)
 
             print(f"flushing mean prob")
-            current_mean_prob[:] = self.current_mean_prob.cpu().numpy()
             current_mean_prob.flush()
 
             if self.percentile_threshold is not None:
                 threshold = np.percentile(current_mean_prob, self.percentile_threshold)
                 print(f"thresholding prob with percentile threshold: pct={self.percentile_threshold}, thr={threshold}")
-                thresholded_prob[:] = (self.current_mean_prob > threshold).cpu().numpy()
+                thresholded_prob[:] = current_mean_prob > threshold
             else:
                 print(f"thresholding prob with absolute threshold: {self.threshold}")
-                thresholded_prob[:] = (self.current_mean_prob > self.threshold).cpu().numpy()
+                thresholded_prob[:] = current_mean_prob > self.threshold
 
             print(f"flushing total count")
-            current_total_count[:] = self.current_total_count.cpu().numpy()
+            current_total_count[:] = _total_count
             current_total_count.flush()
 
             print(f"flushing thresholded prob")
