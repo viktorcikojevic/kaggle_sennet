@@ -48,9 +48,11 @@ class TensorReceivingProcess:
             threshold: float,
             out_dir: str | Path | None = None,
             cropping_border: int = 0,
+            percentile_threshold: float | None = None,
     ):
         self.data_queue = data_queue
         self.threshold = threshold
+        self.percentile_threshold = percentile_threshold
         self.out_dir = out_dir
 
         self.current_total_count = None
@@ -73,8 +75,13 @@ class TensorReceivingProcess:
             print(f"flushing total count")
             self.current_total_count.flush()
 
-            print(f"thresholding prob")
-            self.thresholded_prob[:] = self.current_mean_prob > self.threshold
+            if self.percentile_threshold is not None:
+                threshold = np.percentile(self.current_mean_prob, self.percentile_threshold)
+                print(f"thresholding prob with percentile threshold: pct={self.percentile_threshold}, thr={threshold}")
+                self.thresholded_prob[:] = self.current_mean_prob > threshold
+            else:
+                print(f"thresholding prob with absolute threshold: {self.threshold}")
+                self.thresholded_prob[:] = self.current_mean_prob > self.threshold
 
             print(f"flushing thresholded prob")
             self.thresholded_prob.flush()
@@ -202,6 +209,7 @@ def generate_submission_df(
         out_dir: str | Path | None = None,
         device: str = "cuda",
         save_sub: bool = True,
+        percentile_threshold: float | None = None,
 ) -> SubmissionOutput:
     ps = parallelization_settings
     if ps.run_as_single_process:
@@ -225,6 +233,7 @@ def generate_submission_df(
     tensor_receiving_process = TensorReceivingProcess(
         data_queue=q,
         threshold=threshold,
+        percentile_threshold=percentile_threshold,
         # all_image_paths=dataset.dataset.image_paths,
         out_dir=out_dir / f"chunk_00",
         cropping_border=cropping_border,
