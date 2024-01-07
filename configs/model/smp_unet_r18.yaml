@@ -5,4 +5,4 @@ kwargs:
     encoder_weights: "imagenet"
     in_channels: ${dataset.kwargs.n_take_channels}
     classes: ${dataset.kwargs.n_take_channels}
-    replace_batch_norm_with_layer_norm: true
+    replace_batch_norm_with_layer_norm: false
