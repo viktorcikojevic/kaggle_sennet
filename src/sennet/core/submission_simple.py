@@ -191,6 +191,8 @@ class SubmissionOutput:
     submission_df: pd.DataFrame
 
 
+@torch.autocast(device_type="cuda")
+@torch.no_grad()
 @profile
 def generate_submission_df(
         model: Base3DSegmentor,
@@ -234,52 +236,52 @@ def generate_submission_df(
             target=tensor_receiving_process.spin,
         )
     saver_process.start()
-    with torch.no_grad():
-        for batch in tqdm(data_loader, total=len(data_loader)):
-            seg_pred: SegmentorOutput = model.predict(batch["img"].to(device))
-            raw_pred_batch = seg_pred.pred
-            un_reshaped_pred_batch = torch.nn.functional.sigmoid(raw_pred_batch)
+    for batch in tqdm(data_loader, total=len(data_loader)):
+        batch_img = batch["img"].to(device)
+        seg_pred: SegmentorOutput = model.predict(batch_img)
+        raw_pred_batch = seg_pred.pred
+        un_reshaped_pred_batch = torch.nn.functional.sigmoid(raw_pred_batch)
 
-            # reshape pred to original image size for submission
-            _, _, img_d, img_h, img_w = batch["img"].shape
-            pred_batch = resize_3d_image(un_reshaped_pred_batch.unsqueeze(1), (img_w, img_h, img_d))[:, 0, :, :, :]
-            if "gt_seg_map" in batch:
-                batch.pop("gt_seg_map")
+        # reshape pred to original image size for submission
+        _, _, img_d, img_h, img_w = batch["img"].shape
+        pred_batch = resize_3d_image(un_reshaped_pred_batch.unsqueeze(1), (img_w, img_h, img_d))[:, 0, :, :, :]
+        if "gt_seg_map" in batch:
+            batch.pop("gt_seg_map")
 
-            batch.pop("img")  # no need to ship image across process
-            for i, pred in enumerate(pred_batch):
-                # pred = (c, h, w)
-                bbox_type = batch["bbox_type"][i].cpu().item()
+        batch.pop("img")  # no need to ship image across process
+        for i, pred in enumerate(pred_batch):
+            # pred = (c, h, w)
+            bbox_type = batch["bbox_type"][i].cpu().item()
 
-                if bbox_type == DEPTH_ALONG_CHANNEL:
-                    permuted_pred = pred
-                elif bbox_type == DEPTH_ALONG_HEIGHT:
-                    # permuted_pred = torch.concat([
-                    #     pred[c, :, :].unsqueeze(1)
-                    #     for c in range(pred.shape[0])
-                    # ], dim=1)
-                    # equivalent, checked
-                    permuted_pred = pred.permute((1, 0, 2))
-                elif bbox_type == DEPTH_ALONG_WIDTH:
-                    # permuted_pred = torch.concat([
-                    #     pred[c, :, :].unsqueeze(2)
-                    #     for c in range(pred.shape[0])
-                    # ], dim=2)
-                    # equivalent, checked
-                    permuted_pred = pred.permute((1, 2, 0))
-                else:
-                    raise RuntimeError(f"unknown {bbox_type=}")
-                q.put(Data(
-                    idx=i,
-                    pred=permuted_pred,
-                    batch=batch,
-                    bbox_type=bbox_type,
-                    model_start_idx=seg_pred.take_indices_start,
-                    model_end_idx=seg_pred.take_indices_end,
-                ))
-                if ps.run_as_single_process:
-                    if q.has_val:
-                        saver_process.spin_once()
+            if bbox_type == DEPTH_ALONG_CHANNEL:
+                permuted_pred = pred
+            elif bbox_type == DEPTH_ALONG_HEIGHT:
+                # permuted_pred = torch.concat([
+                #     pred[c, :, :].unsqueeze(1)
+                #     for c in range(pred.shape[0])
+                # ], dim=1)
+                # equivalent, checked
+                permuted_pred = pred.permute((1, 0, 2))
+            elif bbox_type == DEPTH_ALONG_WIDTH:
+                # permuted_pred = torch.concat([
+                #     pred[c, :, :].unsqueeze(2)
+                #     for c in range(pred.shape[0])
+                # ], dim=2)
+                # equivalent, checked
+                permuted_pred = pred.permute((1, 2, 0))
+            else:
+                raise RuntimeError(f"unknown {bbox_type=}")
+            q.put(Data(
+                idx=i,
+                pred=permuted_pred,
+                batch=batch,
+                bbox_type=bbox_type,
+                model_start_idx=seg_pred.take_indices_start,
+                model_end_idx=seg_pred.take_indices_end,
+            ))
+            if ps.run_as_single_process:
+                if q.has_val:
+                    saver_process.spin_once()
 
     q.put(Data(terminate=True))
     saver_process.join()
