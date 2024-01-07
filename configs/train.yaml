@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - model: smp_unet_r50
+  - model: smp_unet_r50_upsample
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
@@ -10,13 +10,13 @@ defaults:
   - override hydra/sweeper/sampler: tpe
 
 val_check_interval: 20000
-batch_size: 16 # final batch size.
-apparent_batch_size: 16 # batch size during training
+batch_size: 8 # final batch size.
+apparent_batch_size: 8 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-group_name: "r50_k12_k3" # maybe this would be useful for grouping experiments when we do hyperparameter search
+group_name: "r18_upsample" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 100
 max_steps: -1
 
@@ -46,7 +46,6 @@ task:
 
 train_folders:
   - kidney_1_dense
-  - kidney_2
   # - kidney_3_dense
 #  - kidney_2
 
