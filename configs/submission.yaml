@@ -11,4 +11,4 @@ predictors:
   models:
 #    - SMP_Unet_tu-maxvit_small_tf_512_imagenet-c512x1-bs32-llr-4.3-t111-sm0-2023-12-28-20-07-29
     - SMP_Unet_resnet50_imagenet-c512x1-bs32-abs16-llr-4-t111-sm0-ema1-cb0-2024-01-07-02-39-29
-#    - SMP_Unet_resnet50_imagenet-c512x1-bs32-abs16-llr-4-t111-sm0-ema1-cb0-2024-01-07-00-00-25
+    - SMP_Unet_resnet50_imagenet-c512x1-bs32-abs16-llr-4-t111-sm0-ema1-cb0-2024-01-07-00-00-25
