@@ -1,10 +1,8 @@
 defaults:
   - _self_
-  - model: smp_unet_r18
+  - model: smp_unet_r50
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
-#  - augmentation: multi_channel_augmentation
-  - augmentation: vanilla
 #  - augmentation: noop
   - scheduler: none
   - optimiser: adamw
@@ -18,7 +16,7 @@ num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-group_name: "r18_replace_bn_with_ln" # maybe this would be useful for grouping experiments when we do hyperparameter search
+group_name: "r50_k12_k3" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 100
 max_steps: -1
 
@@ -48,6 +46,7 @@ task:
 
 train_folders:
   - kidney_1_dense
+  - kidney_2
   # - kidney_3_dense
 #  - kidney_2
 
