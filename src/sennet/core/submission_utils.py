@@ -62,33 +62,31 @@ def evaluate_chunked_inference(
 
     chunk_dirs = sorted(list(root_dir.glob("chunk*")))
     label = read_mmap_array(label_dir / "label", mode="r")
+    mean_prob_chunks = [
+        read_mmap_array(d / "mean_prob", mode="r").data
+        for d in chunk_dirs
+    ]
+    assert len(mean_prob_chunks) == 1, f"{len(mean_prob_chunks)} != 1"
+    mean_prob_chunk = mean_prob_chunks[0]
 
     surface_dices = []
     f1_scores = []
     for t in tqdm(thresholds, desc="dice"):
         dice = compute_surface_dice_score_from_mmap(
-            mean_prob_chunks=[
-                read_mmap_array(d / "mean_prob", mode="r").data
-                for d in chunk_dirs
-            ],
+            mean_prob_chunks=[mean_prob_chunk],
             label=label.data,
             threshold=t,
         )
         surface_dices.append(dice)
 
         f1_metric = BinaryF1Score()
-        i = 0
-        for d in tqdm(chunk_dirs, position=0):
-            pred = read_mmap_array(d / "thresholded_prob", mode="r")
-            for c in tqdm(range(pred.shape[0]), position=1, leave=False):
-                pred_tensor = torch.from_numpy(pred.data[c, :, :].copy()).reshape(-1).to(device)
-                # mean_prob_tensor = torch.from_numpy(mean_prob.data[c, :, :].copy()).reshape(-1).to(device)
-                target_tensor = torch.from_numpy(label.data[i, :, :].copy()).reshape(-1).to(device)
+        for i in tqdm(range(mean_prob_chunk.data.shape[0]), position=1, leave=False):
+            pred_tensor = torch.from_numpy(mean_prob_chunk.data[i, :, :].copy() > t).reshape(-1).to(device)
+            # mean_prob_tensor = torch.from_numpy(mean_prob.data[c, :, :].copy()).reshape(-1).to(device)
+            target_tensor = torch.from_numpy(label.data[i, :, :].copy()).reshape(-1).to(device)
 
-                f1_metric.update(pred_tensor, target_tensor)
-                # au_roc_metric.update(mean_prob_tensor[::10], target_tensor[::10])
-
-                i += 1
+            f1_metric.update(pred_tensor, target_tensor)
+            # au_roc_metric.update(mean_prob_tensor[::10], target_tensor[::10])
         f1_score = float(f1_metric.compute().cpu().item())
         f1_scores.append(f1_score)
     # au_roc_score = float(au_roc_metric.compute().cpu().item())
