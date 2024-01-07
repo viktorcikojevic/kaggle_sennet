@@ -1,3 +1,4 @@
+from sennet.environments.environments import KAGGLE_USER
 from sennet.environments.constants import STAGING_DIR, REPO_DIR, MODEL_OUT_DIR
 from sennet.core.submission_utils import load_model_from_dir
 from distutils.dir_util import copy_tree
@@ -32,7 +33,7 @@ def main():
     print(f"dataset will be staged at: {dataset_name = }")
 
     meta = dict(
-        id=f"viktorcikojevic/{dataset_name}",
+        id=f"{KAGGLE_USER}/{dataset_name}",
         title=dataset_name,
         isPrivate=True,
         licenses=[dict(name="other")]
