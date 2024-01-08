@@ -22,6 +22,8 @@ exp_name: r50_three_d_aug
 group_name: "smp_unet_r50_hyptun" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 20
 max_steps: -1
+early_stopping_metric: "surface_dice"
+#early_stopping_metric: "f1_score"
 
 loss:
   - type: BCELoss
@@ -93,7 +95,7 @@ dataset:
     p_crop_location_noise: 1.0
 
 #    p_random_3d_rotation: 1.0
-    p_random_3d_rotation: 0.0
+    p_random_3d_rotation: 0.1
     rot_magnitude_normal_deg: 90.0
     rot_magnitude_plane_deg: 90.0
 
@@ -106,7 +108,9 @@ dataset:
       mean: 0.5
       std: 0.235
       normalise_by_mean_and_std: false
+#      normalise_by_mean_and_std: true
       normalisation_percentile: 1
+      leak_gradient: 1e-3
 
 hydra:
   sweeper:

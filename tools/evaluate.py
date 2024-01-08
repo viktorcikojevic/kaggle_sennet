@@ -11,16 +11,23 @@ from line_profiler_pycharm import profile
 
 @profile
 def main():
-    label = pd.read_csv(DATA_DIR / "train_rles.csv")
+    labels = []
+    for p in PROCESSED_DATA_DIR.rglob("rle.csv"):
+        print(f"building label: {p}")
+        label = pd.read_csv(p)
+        labels.append(label)
+    label = pd.concat(labels)
 
     paths = [
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_1_dense/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_1_dense/submission.csv",
         "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_dense/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_3_dense/submission.csv",
+        # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_merged/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_2/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_2/submission.csv",
     ]
+    vis = False
 
     for path in paths:
         path = Path(path)
@@ -38,37 +45,38 @@ def main():
         )
         print(f"{path}: {score = }")
 
-    for path in paths:
-        path = Path(path)
-        if not path.is_file():
-            print(f"{path}: not found")
-            continue
-        dir_name = path.parent.name
-        pred = read_mmap_array(path.parent / "chunk_00" / "thresholded_prob")
-        image = read_mmap_array(PROCESSED_DATA_DIR / dir_name / "image")
-        label = read_mmap_array(PROCESSED_DATA_DIR / dir_name / "label")
-        out_dir = DATA_DUMPS_DIR / "evaluated" / dir_name
-        out_dir.mkdir(exist_ok=True, parents=True)
+    if vis:
+        for path in paths:
+            path = Path(path)
+            if not path.is_file():
+                print(f"{path}: not found")
+                continue
+            dir_name = path.parent.name
+            pred = read_mmap_array(path.parent / "chunk_00" / "thresholded_prob")
+            image = read_mmap_array(PROCESSED_DATA_DIR / dir_name / "image")
+            label = read_mmap_array(PROCESSED_DATA_DIR / dir_name / "label")
+            out_dir = DATA_DUMPS_DIR / "evaluated" / dir_name
+            out_dir.mkdir(exist_ok=True, parents=True)
 
-        rendered_vis = np.zeros((pred.data.shape[0], pred.data.shape[1], pred.data.shape[2], 3), dtype=np.uint8)
-        print("copying pred out")
-        copied_pred = np.ascontiguousarray(pred.data.copy()).astype(bool)
-        print("copying labels out")
-        copied_label = np.ascontiguousarray(label.data.copy()).astype(bool)
-        print("computing TP")
-        rendered_vis[copied_pred & copied_label, :] = (0, 255, 0)  # green
-        print("computing FP")
-        rendered_vis[copied_pred & ~copied_label, :] = (0, 0, 255)  # red
-        print("computing FN")
-        rendered_vis[~copied_pred & copied_label, :] = (255, 0, 0)  # blue
+            rendered_vis = np.zeros((pred.data.shape[0], pred.data.shape[1], pred.data.shape[2], 3), dtype=np.uint8)
+            print("copying pred out")
+            copied_pred = np.ascontiguousarray(pred.data.copy()).astype(bool)
+            print("copying labels out")
+            copied_label = np.ascontiguousarray(label.data.copy()).astype(bool)
+            print("computing TP")
+            rendered_vis[copied_pred & copied_label, :] = (0, 255, 0)  # green
+            print("computing FP")
+            rendered_vis[copied_pred & ~copied_label, :] = (0, 0, 255)  # red
+            print("computing FN")
+            rendered_vis[~copied_pred & copied_label, :] = (255, 0, 0)  # blue
 
-        print("saving images")
-        for c in tqdm(range(rendered_vis.shape[0])):
-            channel = np.ascontiguousarray(image.data[c, ...].copy())
-            channel = np.stack((channel, channel, channel), axis=2)
-            save_img = cv2.addWeighted(channel, 0.5, rendered_vis[c, ...], 0.5, 0.0)
-            cv2.imwrite(str(out_dir / f"{str(c).zfill(3)}.png"), save_img)
-        print("done")
+            print("saving images")
+            for c in tqdm(range(rendered_vis.shape[0])):
+                channel = np.ascontiguousarray(image.data[c, ...].copy())
+                channel = np.stack((channel, channel, channel), axis=2)
+                save_img = cv2.addWeighted(channel, 0.5, rendered_vis[c, ...], 0.5, 0.0)
+                cv2.imwrite(str(out_dir / f"{str(c).zfill(3)}.png"), save_img)
+            print("done")
 
 
 if __name__ == "__main__":

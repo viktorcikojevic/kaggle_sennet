@@ -3,6 +3,7 @@ from sennet.custom_modules.models.base_model import Base3DSegmentor, SegmentorOu
 from sennet.custom_modules.models import medical_net_resnet3d as resnet3ds
 from sennet.environments.constants import PRETRAINED_DIR
 import segmentation_models_pytorch as smp
+from line_profiler_pycharm import profile
 from typing import Union, Optional
 from pathlib import Path
 import torch
@@ -132,9 +133,11 @@ class SMPModel(Base3DSegmentor):
     def get_name(self) -> str:
         return f"SMP_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
 
+    @profile
     def predict(self, img: torch.Tensor) -> SegmentorOutput:
         assert img.shape[1] == 1, f"{self.__class__.__name__} works in 1 channel images only (for now), expected to have c=1, got {img.shape=}"
-        model_out = self.model(img[:, 0, :, :, :])
+        # model_out = self.model(img[:, 0, :, :, :])
+        model_out = self.model(img.squeeze(1))
         return SegmentorOutput(
             pred=model_out,
             take_indices_start=0,

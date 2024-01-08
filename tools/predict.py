@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 import argparse
+from line_profiler_pycharm import profile
 import torch
 import yaml
 import json
@@ -182,11 +183,13 @@ def main():
                 cfg=cfg,
                 cropping_border=submission_cfg["predictors"]["cropping_border"],
                 batch_size=batch_size,
+                num_workers=0,
             )
             generate_submission_df(
                 model=model,
                 data_loader=data_loader,
                 threshold=submission_cfg["predictors"]["threshold"],
+                percentile_threshold=submission_cfg["predictors"].get("percentile_threshold", None),
                 parallelization_settings=ParallelizationSettings(
                     run_as_single_process=run_as_single_process,
                 ),

@@ -45,58 +45,70 @@ def generate_submission_df_from_one_chunked_inference(
 
 @dataclasses.dataclass
 class ChunkedMetrics:
-    f1_score: float
+    f1_scores: list[float]
+    precisions: list[float]
+    recalls: list[float]
     # binary_au_roc: float
     surface_dices: list[float]
 
 
+@torch.no_grad()
 def evaluate_chunked_inference(
         root_dir: Union[str, Path],
         label_dir: Union[str, Path],
         thresholds: list[float] = (0.2,),
         device: str = "cuda",
 ) -> ChunkedMetrics:
-    with torch.no_grad():
-        root_dir = Path(root_dir)
-        label_dir = Path(label_dir)
+    root_dir = Path(root_dir)
+    label_dir = Path(label_dir)
 
-        chunk_dirs = sorted(list(root_dir.glob("chunk*")))
-        label = read_mmap_array(label_dir / "label", mode="r")
+    chunk_dirs = sorted(list(root_dir.glob("chunk*")))
+    label = read_mmap_array(label_dir / "label", mode="r")
+    mean_prob_chunks = [
+        read_mmap_array(d / "mean_prob", mode="r").data
+        for d in chunk_dirs
+    ]
+    assert len(mean_prob_chunks) == 1, f"{len(mean_prob_chunks)} != 1"
+    mean_prob_chunk = mean_prob_chunks[0]
+    copied_mean_prob_chunk = mean_prob_chunk.copy()
+    copied_label = label.data.copy()
 
-        surface_dices = []
-        for t in tqdm(thresholds, desc="dice"):
-            dice = compute_surface_dice_score_from_mmap(
-                mean_prob_chunks=[
-                    read_mmap_array(d / "mean_prob", mode="r").data
-                    for d in chunk_dirs
-                ],
-                label=label.data,
-                threshold=t,
-            )
-            surface_dices.append(dice)
-
-        f1_metric = BinaryF1Score()
-        # au_roc_metric = BinaryAUROC()
-
-        i = 0
-        for d in tqdm(chunk_dirs, position=0):
-            pred = read_mmap_array(d / "thresholded_prob", mode="r")
-            for c in tqdm(range(pred.shape[0]), position=1, leave=False):
-                pred_tensor = torch.from_numpy(pred.data[c, :, :].copy()).reshape(-1).to(device)
-                # mean_prob_tensor = torch.from_numpy(mean_prob.data[c, :, :].copy()).reshape(-1).to(device)
-                target_tensor = torch.from_numpy(label.data[i, :, :].copy()).reshape(-1).to(device)
-
-                f1_metric.update(pred_tensor, target_tensor)
-                # au_roc_metric.update(mean_prob_tensor[::10], target_tensor[::10])
-
-                i += 1
-        f1_score = float(f1_metric.compute().cpu().item())
-        # au_roc_score = float(au_roc_metric.compute().cpu().item())
-        return ChunkedMetrics(
-            f1_score=f1_score,
-            # binary_au_roc=au_roc_score,
-            surface_dices=surface_dices,
+    surface_dices = []
+    f1_scores = []
+    precisions = []
+    recalls = []
+    for t in tqdm(thresholds, desc="dice"):
+        dice = compute_surface_dice_score_from_mmap(
+            mean_prob_chunks=[mean_prob_chunk],
+            label=label.data,
+            threshold=t,
         )
+        surface_dices.append(dice)
+
+        fp = 0
+        fn = 0
+        tp = 0
+        for i in tqdm(range(mean_prob_chunk.data.shape[0])):
+            pred_tensor = torch.from_numpy(copied_mean_prob_chunk[i, :, :]).reshape(-1).to(device) > t
+            target_tensor = torch.from_numpy(copied_label[i, :, :]).reshape(-1).to(device)
+
+            tp += (pred_tensor & target_tensor).sum().item()
+            fp += (pred_tensor & ~target_tensor).sum().item()
+            fn += (~pred_tensor & target_tensor).sum().item()
+
+        precision = tp / (tp + fp + 1e-8)
+        recall = tp / (tp + fn + 1e-8)
+        f1_score = 2 * precision * recall / (precision + recall + 1e-8)
+        precisions.append(precision)
+        recalls.append(recall)
+        f1_scores.append(f1_score)
+    # au_roc_score = float(au_roc_metric.compute().cpu().item())
+    return ChunkedMetrics(
+        f1_scores=f1_scores,
+        precisions=precisions,
+        recalls=recalls,
+        surface_dices=surface_dices,
+    )
 
 
 def load_config_from_dir(model_dir: str | Path) -> Dict:
@@ -192,6 +204,7 @@ def build_data_loader(
         cfg: Dict,
         cropping_border: int | None = None,
         batch_size: int = 1,
+        num_workers: int = 0,
 ):
     kwargs = sanitise_val_dataset_kwargs(cfg["dataset"]["kwargs"], load_ann=False)
     if cropping_border is not None:
@@ -205,7 +218,7 @@ def build_data_loader(
         dataset,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=0,
+        num_workers=num_workers,
         pin_memory=True,
         drop_last=False,
     )

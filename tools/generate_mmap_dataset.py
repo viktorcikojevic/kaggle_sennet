@@ -13,9 +13,11 @@ import cv2
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", type=str, required=True)
+    parser.add_argument("--ignore-mask", action="store_true", required=False)
     args, _ = parser.parse_known_args()
     path = Path(args.path)
     output_dir = (PROCESSED_DATA_DIR / path.name)
+    ignore_mask = args.ignore_mask
     assert path.is_dir(), f"{path=} doesn't exist"
     images_dir = path / "images"
     labels_dir = path / "labels"
@@ -29,7 +31,7 @@ def main():
         mask_mmap_array: Optional[MmapArray] = None
         fg_mask_dir = FG_MASK_DIR / images_dir.parent.name
         fg_mask_paths = sorted(list(fg_mask_dir.glob("*")))
-        if len(fg_mask_paths) > 0:
+        if not ignore_mask and len(fg_mask_paths) > 0:
             assert len(fg_mask_paths) == len(image_paths), f"{len(fg_mask_paths)=} != {len(image_paths)=}"
         print(f"{fg_mask_dir=}, {len(fg_mask_paths)=}")
         for i, image_path in enumerate(image_paths):
@@ -46,7 +48,7 @@ def main():
             # # if fg_mask.mean() > 0.9:
             # #     print(f"big mask found on {i}")
             # mask_mmap_array.data[i, :, :] = fg_mask
-            if len(fg_mask_paths) > 0:
+            if not ignore_mask and len(fg_mask_paths) > 0:
                 fg_mask_path = fg_mask_paths[i]
                 mask = cv2.imread(str(fg_mask_path), 0)
                 resized_mask = cv2.resize(mask, dsize=(image.shape[1], image.shape[0])) > 0

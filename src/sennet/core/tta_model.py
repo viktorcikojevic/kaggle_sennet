@@ -56,7 +56,7 @@ class Tta3DSegmentor(Base3DSegmentor):
         if self.add_flips:
             h_flipped = torch.flip(img, [3])
             v_flipped = torch.flip(img, [2])
-            hv_flipped = torch.flip(img, [2, 3])
+            hv_flipped = torch.flip(v_flipped, [3])
             tta_imgs += [
                 h_flipped,
                 v_flipped,
@@ -64,6 +64,7 @@ class Tta3DSegmentor(Base3DSegmentor):
             ]
         return torch.stack(tta_imgs, dim=0)
 
+    @profile
     def _decode_model_outputs(self, preds: torch.Tensor) -> torch.Tensor:
         """
         :param preds:  (b, z, h, w)

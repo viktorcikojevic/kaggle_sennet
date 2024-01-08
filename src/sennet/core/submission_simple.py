@@ -48,36 +48,42 @@ class TensorReceivingProcess:
             threshold: float,
             out_dir: str | Path | None = None,
             cropping_border: int = 0,
+            percentile_threshold: float | None = None,
     ):
         self.data_queue = data_queue
         self.threshold = threshold
+        self.percentile_threshold = percentile_threshold
         self.out_dir = out_dir
 
         self.current_total_count = None
         self.current_mean_prob = None
-        self.thresholded_prob = None
 
         self.current_folder = None
         self.cropping_border = cropping_border
 
+    @profile
     def _finalise_image_if_holding_any(self):
         if self.current_folder is not None and self.current_mean_prob is not None and self.current_total_count is not None:
-            # image_paths = self.all_image_paths[self.current_folder]
+            current_total_count = create_mmap_array(self.out_dir / "total_count", self.current_total_count.shape, np.uint8).data
+            current_mean_prob = create_mmap_array(self.out_dir / "mean_prob", self.current_mean_prob.shape, float).data
+            thresholded_prob = create_mmap_array(self.out_dir / "thresholded_prob", self.current_mean_prob.shape, bool).data
+
             print(f"computing mean")
-            for c in range(self.current_mean_prob.shape[0]):
-                self.current_mean_prob[c, ...] /= (self.current_total_count[c, ...] + 1e-8)
+            for c in tqdm(range(self.current_mean_prob.shape[0])):
+                _total_prob_slice = self.current_mean_prob[c, ...].cpu().numpy()
+                _total_count_slice = self.current_total_count[c, ...].cpu().numpy()
+                current_mean_prob[c, ...] = _total_prob_slice / (_total_count_slice + 1e-8)
+                current_total_count[c, ...] = _total_count_slice
+                thresholded_prob[c, ...] = current_mean_prob[c, ...] > self.threshold  # revive percentile threshold?
 
             print(f"flushing mean prob")
-            self.current_mean_prob.flush()
+            current_mean_prob.flush()
 
             print(f"flushing total count")
-            self.current_total_count.flush()
-
-            print(f"thresholding prob")
-            self.thresholded_prob[:] = self.current_mean_prob > self.threshold
+            current_total_count.flush()
 
             print(f"flushing thresholded prob")
-            self.thresholded_prob.flush()
+            thresholded_prob.flush()
 
             print(f"done")
 
@@ -116,7 +122,6 @@ class TensorReceivingProcess:
         assert bbox_type is not None, f"bbox_type be None if terminate is False"
         assert data.model_start_idx is not None, f"data.model_start_idx be None if terminate is False"
         assert data.model_end_idx is not None, f"data.model_end_idx be None if terminate is False"
-        pred = pred.cpu().numpy()
         bbox = batch["bbox"][i].cpu().numpy()
         folder = batch["folder"][i]
 
@@ -165,9 +170,8 @@ class TensorReceivingProcess:
             img_c = int(batch["img_c"][i])
 
             self.current_folder = folder
-            self.current_total_count = create_mmap_array(self.out_dir / "total_count", [img_c, img_h, img_w], np.uint8).data
-            self.current_mean_prob = create_mmap_array(self.out_dir / "mean_prob", [img_c, img_h, img_w], float).data
-            self.thresholded_prob = create_mmap_array(self.out_dir / "thresholded_prob", [img_c, img_h, img_w], bool).data
+            self.current_total_count = torch.zeros((img_c, img_h, img_w), dtype=torch.uint8, device=pred.device)
+            self.current_mean_prob = torch.zeros((img_c, img_h, img_w), dtype=torch.float16, device=pred.device)
         else:
             assert self.current_folder == folder, f"can't handle more than one folder: {self.current_folder=}, {folder=}"
 
@@ -191,6 +195,8 @@ class SubmissionOutput:
     submission_df: pd.DataFrame
 
 
+@torch.autocast(device_type="cuda")
+@torch.no_grad()
 @profile
 def generate_submission_df(
         model: Base3DSegmentor,
@@ -200,6 +206,7 @@ def generate_submission_df(
         out_dir: str | Path | None = None,
         device: str = "cuda",
         save_sub: bool = True,
+        percentile_threshold: float | None = None,
 ) -> SubmissionOutput:
     ps = parallelization_settings
     if ps.run_as_single_process:
@@ -223,6 +230,7 @@ def generate_submission_df(
     tensor_receiving_process = TensorReceivingProcess(
         data_queue=q,
         threshold=threshold,
+        percentile_threshold=percentile_threshold,
         # all_image_paths=dataset.dataset.image_paths,
         out_dir=out_dir / f"chunk_00",
         cropping_border=cropping_border,
@@ -234,52 +242,52 @@ def generate_submission_df(
             target=tensor_receiving_process.spin,
         )
     saver_process.start()
-    with torch.no_grad():
-        for batch in tqdm(data_loader, total=len(data_loader)):
-            seg_pred: SegmentorOutput = model.predict(batch["img"].to(device))
-            raw_pred_batch = seg_pred.pred
-            un_reshaped_pred_batch = torch.nn.functional.sigmoid(raw_pred_batch)
+    for batch in tqdm(data_loader, total=len(data_loader)):
+        batch_img = batch["img"].to(device)
+        seg_pred: SegmentorOutput = model.predict(batch_img)
+        raw_pred_batch = seg_pred.pred
+        un_reshaped_pred_batch = torch.nn.functional.sigmoid(raw_pred_batch)
 
-            # reshape pred to original image size for submission
-            _, _, img_d, img_h, img_w = batch["img"].shape
-            pred_batch = resize_3d_image(un_reshaped_pred_batch.unsqueeze(1), (img_w, img_h, img_d))[:, 0, :, :, :]
-            if "gt_seg_map" in batch:
-                batch.pop("gt_seg_map")
+        # reshape pred to original image size for submission
+        _, _, img_d, img_h, img_w = batch["img"].shape
+        pred_batch = resize_3d_image(un_reshaped_pred_batch.unsqueeze(1), (img_w, img_h, img_d))[:, 0, :, :, :]
+        if "gt_seg_map" in batch:
+            batch.pop("gt_seg_map")
 
-            batch.pop("img")  # no need to ship image across process
-            for i, pred in enumerate(pred_batch):
-                # pred = (c, h, w)
-                bbox_type = batch["bbox_type"][i].cpu().item()
+        batch.pop("img")  # no need to ship image across process
+        for i, pred in enumerate(pred_batch):
+            # pred = (c, h, w)
+            bbox_type = batch["bbox_type"][i].cpu().item()
 
-                if bbox_type == DEPTH_ALONG_CHANNEL:
-                    permuted_pred = pred
-                elif bbox_type == DEPTH_ALONG_HEIGHT:
-                    # permuted_pred = torch.concat([
-                    #     pred[c, :, :].unsqueeze(1)
-                    #     for c in range(pred.shape[0])
-                    # ], dim=1)
-                    # equivalent, checked
-                    permuted_pred = pred.permute((1, 0, 2))
-                elif bbox_type == DEPTH_ALONG_WIDTH:
-                    # permuted_pred = torch.concat([
-                    #     pred[c, :, :].unsqueeze(2)
-                    #     for c in range(pred.shape[0])
-                    # ], dim=2)
-                    # equivalent, checked
-                    permuted_pred = pred.permute((1, 2, 0))
-                else:
-                    raise RuntimeError(f"unknown {bbox_type=}")
-                q.put(Data(
-                    idx=i,
-                    pred=permuted_pred,
-                    batch=batch,
-                    bbox_type=bbox_type,
-                    model_start_idx=seg_pred.take_indices_start,
-                    model_end_idx=seg_pred.take_indices_end,
-                ))
-                if ps.run_as_single_process:
-                    if q.has_val:
-                        saver_process.spin_once()
+            if bbox_type == DEPTH_ALONG_CHANNEL:
+                permuted_pred = pred
+            elif bbox_type == DEPTH_ALONG_HEIGHT:
+                # permuted_pred = torch.concat([
+                #     pred[c, :, :].unsqueeze(1)
+                #     for c in range(pred.shape[0])
+                # ], dim=1)
+                # equivalent, checked
+                permuted_pred = pred.permute((1, 0, 2))
+            elif bbox_type == DEPTH_ALONG_WIDTH:
+                # permuted_pred = torch.concat([
+                #     pred[c, :, :].unsqueeze(2)
+                #     for c in range(pred.shape[0])
+                # ], dim=2)
+                # equivalent, checked
+                permuted_pred = pred.permute((1, 2, 0))
+            else:
+                raise RuntimeError(f"unknown {bbox_type=}")
+            q.put(Data(
+                idx=i,
+                pred=permuted_pred,
+                batch=batch,
+                bbox_type=bbox_type,
+                model_start_idx=seg_pred.take_indices_start,
+                model_end_idx=seg_pred.take_indices_end,
+            ))
+            if ps.run_as_single_process:
+                if q.has_val:
+                    saver_process.spin_once()
 
     q.put(Data(terminate=True))
     saver_process.join()
