@@ -69,23 +69,17 @@ class TensorReceivingProcess:
             thresholded_prob = create_mmap_array(self.out_dir / "thresholded_prob", self.current_mean_prob.shape, bool).data
 
             print(f"computing mean")
-            _total_prob = self.current_mean_prob.cpu().numpy()
-            _total_count = self.current_total_count.cpu().numpy()
-            current_mean_prob[:] = _total_prob / (_total_count + 1e-8)
+            for c in tqdm(range(self.current_mean_prob.shape[0])):
+                _total_prob_slice = self.current_mean_prob[c, ...].cpu().numpy()
+                _total_count_slice = self.current_total_count[c, ...].cpu().numpy()
+                current_mean_prob[c, ...] = _total_prob_slice / (_total_count_slice + 1e-8)
+                current_total_count[c, ...] = _total_count_slice
+                thresholded_prob[c, ...] = current_mean_prob[c, ...] > self.threshold  # revive percentile threshold?
 
             print(f"flushing mean prob")
             current_mean_prob.flush()
 
-            if self.percentile_threshold is not None:
-                threshold = np.percentile(current_mean_prob, self.percentile_threshold)
-                print(f"thresholding prob with percentile threshold: pct={self.percentile_threshold}, thr={threshold}")
-                thresholded_prob[:] = current_mean_prob > threshold
-            else:
-                print(f"thresholding prob with absolute threshold: {self.threshold}")
-                thresholded_prob[:] = current_mean_prob > self.threshold
-
             print(f"flushing total count")
-            current_total_count[:] = _total_count
             current_total_count.flush()
 
             print(f"flushing thresholded prob")
