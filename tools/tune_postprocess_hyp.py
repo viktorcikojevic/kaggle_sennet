@@ -90,7 +90,7 @@ def main():
     print("found labels:")
     print(json.dumps({k: v.shape for k, v in labels.items()}))
 
-    percentile_low = 98.0
+    percentile_low = 90.0
     percentile_high = 100.0
     percentile_range = np.linspace(percentile_low, percentile_high, num=1000)
     cached_percentiles = {}
@@ -100,7 +100,7 @@ def main():
         assert len(chunk_dir_names) == 1, f"many chunks is now deprecated, got: {len(chunk_dir_names)}"
         mean_prob_chunks = [np.ascontiguousarray(read_mmap_array(folder / cd / "mean_prob", mode="r").data) for cd in chunk_dir_names]
         cached_percentiles[folder.name] = np.percentile(mean_prob_chunks[0], percentile_range)
-        print(f"cached percentiles for {folder.name}")
+        print(f"cached percentiles for {folder.name}: {cached_percentiles[folder.name].min()} -> {cached_percentiles[folder.name].max()}")
 
     study = optuna.create_study(direction="maximize")
     study.optimize(lambda t: objective(
