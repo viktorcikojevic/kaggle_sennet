@@ -43,3 +43,4 @@ dependencies:
     - torcheval
     - lightning-bolts
     - deepspeed
+    - transformers

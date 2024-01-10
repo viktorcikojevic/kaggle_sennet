@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - model: smp_unet_r50_upsample
+  - model: smp_unet_maxvit_small_upsample
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
@@ -10,13 +10,13 @@ defaults:
   - override hydra/sweeper/sampler: tpe
 
 val_check_interval: 20000
-batch_size: 8 # final batch size.
-apparent_batch_size: 8 # batch size during training
+batch_size: 2 # final batch size.
+apparent_batch_size: 2 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-group_name: "r50_upsample_scan_prob" # maybe this would be useful for grouping experiments when we do hyperparameter search
+group_name: "maxvit_champs" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 100
 max_steps: -1
 early_stopping_metric: "surface_dice"
@@ -41,7 +41,7 @@ task:
   kwargs:
     eval_threshold: 0.2
     compute_crude_metrics: false
-    ema_momentum: 0.00025
+    ema_momentum: 0.000025
 #    ema_momentum: null
 #    ignore_border_loss: true
     ignore_border_loss: false

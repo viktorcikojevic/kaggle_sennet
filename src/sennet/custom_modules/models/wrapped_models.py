@@ -184,12 +184,26 @@ class SMPModelUpsampleBy2(Base3DSegmentor):
     def __init__(self, version: str, **kw):
         Base3DSegmentor.__init__(self)
         self.version = version
+        if 'freeze_bn_layers' in kw:
+            freeze_bn_layers = kw.pop('freeze_bn_layers')
+        else: 
+            freeze_bn_layers = False
+        self.freeze_bn_layers = freeze_bn_layers 
         self.kw = kw
         self.upsampler = layers.PixelShuffleUpsample(in_channels=1, upscale_factor=2)
         constructor = getattr(smp, self.version)
         self.model = constructor(**kw)
         self.downscale_layer = nn.Conv2d(1, 1, kernel_size=3, stride=2, padding=1)
+        
+        if self.freeze_bn_layers:
+            self.freeze_bn(self.model)
 
+    def freeze_bn(self, module):
+        for child_name, child in module.named_children():
+            if isinstance(child, nn.BatchNorm2d):
+                child.eval()
+            else:
+                self.freeze_bn(child)
 
     def get_name(self) -> str:
         return f"SMP_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
