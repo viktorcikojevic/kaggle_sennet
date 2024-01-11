@@ -67,9 +67,11 @@ def main():
             out_path = DATA_DUMPS_DIR / "plots" / f"{folder.name}_{name}.png"
             out_path.parent.mkdir(parents=True, exist_ok=True)
             plt.figure(figsize=(20, 10))
-            plt.title(folder.name)
+            plt.title(f"{folder.name}_{thresholds[np.argmax(item)]}")
             plt.plot(thresholds, item, label=name)
             plt.scatter(thresholds, item)
+            for t, i in zip(thresholds, item):
+                plt.annotate(f"{t:.5f}", (t, i))
             plt.legend()
             plt.savefig(out_path)
 

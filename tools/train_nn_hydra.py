@@ -154,6 +154,18 @@ def main(cfg: DictConfig):
         ),
         pl.callbacks.ModelCheckpoint(
             dirpath=model_out_dir,
+            save_top_k=-1,
+            filename=f"{cfg.model.type}" + "-{epoch:02d}",
+        ),
+        pl.callbacks.ModelCheckpoint(
+            dirpath=model_out_dir,
+            save_top_k=1,
+            monitor="f1_score",
+            mode="max",
+            filename=f"{cfg.model.type}" + "-{epoch:02d}-{f1_score:.2f}",
+        ),
+        pl.callbacks.ModelCheckpoint(
+            dirpath=model_out_dir,
             save_top_k=1,
             monitor="surface_dice",
             mode="max",
