@@ -154,10 +154,10 @@ def main(cfg: DictConfig):
         ),
         pl.callbacks.ModelCheckpoint(
             dirpath=model_out_dir,
-            save_top_k=1,
+            save_top_k=10,
             monitor="surface_dice",
             mode="max",
-            filename=f"{cfg.model.type}" + "-{epoch:02d}-{surface_dice:.2f}",
+            filename=f"{cfg.model.type}" + "-{epoch:02d}-{step:06d}-{surface_dice:.2f}",
         ),
     ]
     # the weird adjustment is because the original val check interval was designed for apparent batch size of 2
