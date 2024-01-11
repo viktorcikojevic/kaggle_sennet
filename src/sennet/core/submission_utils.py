@@ -53,25 +53,14 @@ class ChunkedMetrics:
 
 
 @torch.no_grad()
-def evaluate_chunked_inference(
-        root_dir: Union[str, Path],
-        label_dir: Union[str, Path],
+def evaluate_chunked_inference_in_memory(
+        mean_prob_chunk: np.ndarray,
+        label: np.ndarray,
         thresholds: list[float] = (0.2,),
         device: str = "cuda",
 ) -> ChunkedMetrics:
-    root_dir = Path(root_dir)
-    label_dir = Path(label_dir)
-
-    chunk_dirs = sorted(list(root_dir.glob("chunk*")))
-    label = read_mmap_array(label_dir / "label", mode="r")
-    mean_prob_chunks = [
-        read_mmap_array(d / "mean_prob", mode="r").data
-        for d in chunk_dirs
-    ]
-    assert len(mean_prob_chunks) == 1, f"{len(mean_prob_chunks)} != 1"
-    mean_prob_chunk = mean_prob_chunks[0]
     copied_mean_prob_chunk = mean_prob_chunk.copy()
-    copied_label = label.data.copy()
+    copied_label = label
 
     surface_dices = []
     f1_scores = []
@@ -80,7 +69,7 @@ def evaluate_chunked_inference(
     for t in tqdm(thresholds, desc="dice"):
         dice = compute_surface_dice_score_from_mmap(
             mean_prob_chunks=[mean_prob_chunk],
-            label=label.data,
+            label=label,
             threshold=t,
         )
         surface_dices.append(dice)
@@ -108,6 +97,35 @@ def evaluate_chunked_inference(
         precisions=precisions,
         recalls=recalls,
         surface_dices=surface_dices,
+    )
+
+
+@torch.no_grad()
+def evaluate_chunked_inference(
+        root_dir: Union[str, Path],
+        label_dir: Union[str, Path],
+        thresholds: list[float] = (0.2,),
+        device: str = "cuda",
+) -> ChunkedMetrics:
+    root_dir = Path(root_dir)
+    label_dir = Path(label_dir)
+
+    chunk_dirs = sorted(list(root_dir.glob("chunk*")))
+    label = read_mmap_array(label_dir / "label", mode="r")
+    mean_prob_chunks = [
+        read_mmap_array(d / "mean_prob", mode="r").data
+        for d in chunk_dirs
+    ]
+    assert len(mean_prob_chunks) == 1, f"{len(mean_prob_chunks)} != 1"
+    mean_prob_chunk = mean_prob_chunks[0]
+    copied_mean_prob_chunk = mean_prob_chunk.copy()
+    copied_label = label.data.copy()
+
+    return evaluate_chunked_inference_in_memory(
+        copied_mean_prob_chunk,
+        copied_label,
+        thresholds,
+        device
     )
 
 

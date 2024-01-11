@@ -21,13 +21,15 @@ def main():
     paths = [
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_1_dense/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_1_dense/submission.csv",
-        "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_dense/submission.csv",
+        "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_sparse/submission.csv",
+        # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_dense/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_3_dense/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_merged/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_2/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_2/submission.csv",
     ]
-    vis = False
+    # vis = False
+    vis = True
 
     for path in paths:
         path = Path(path)
@@ -74,7 +76,7 @@ def main():
             for c in tqdm(range(rendered_vis.shape[0])):
                 channel = np.ascontiguousarray(image.data[c, ...].copy())
                 channel = np.stack((channel, channel, channel), axis=2)
-                save_img = cv2.addWeighted(channel, 0.5, rendered_vis[c, ...], 0.5, 0.0)
+                save_img = cv2.addWeighted(channel, 1.0, rendered_vis[c, ...], 0.5, 0.0)
                 cv2.imwrite(str(out_dir / f"{str(c).zfill(3)}.png"), save_img)
             print("done")
 
