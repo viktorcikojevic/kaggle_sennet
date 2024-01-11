@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - model: smp_unet_r50_upsample
+  - model: smp_unet_r50_upsample_x4
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
@@ -10,14 +10,14 @@ defaults:
   - override hydra/sweeper/sampler: tpe
 
 val_check_interval: 20000
-batch_size: 8 # final batch size.
-apparent_batch_size: 8 # batch size during training
+batch_size: 32 # final batch size.
+apparent_batch_size: 2 # batch size during training
 num_workers: 1
-dry_logger: false
+dry_logger: true
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-group_name: "r50_champ" # maybe this would be useful for grouping experiments when we do hyperparameter search
-max_epochs: 15
+group_name: "r50_champ_x4" # maybe this would be useful for grouping experiments when we do hyperparameter search
+max_epochs: 45
 max_steps: -1
 early_stopping_metric: "surface_dice"
 #early_stopping_metric: "f1_score"
@@ -92,7 +92,7 @@ dataset:
     p_crop_location_noise: 1.0
 
 #    p_random_3d_rotation: 1.0
-    p_random_3d_rotation: 0.2
+    p_random_3d_rotation: 0.0
     rot_magnitude_normal_deg: 90.0
     rot_magnitude_plane_deg: 90.0
 
