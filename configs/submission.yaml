@@ -23,6 +23,6 @@ predictors:
     add_flips: true
 #    add_flips: false
   models:
-    - SMP_Unet_resnet50_imagenet-c512x1-bs8-abs8-llr-4-t111-sm0-ema1-cb0-2024-01-11-01-05-51
+    - SMP_Unet_resnet50_imagenet-c512x1-bs8-abs8-llr-4-t111-sm0-ema1-cb0-2024-01-07-18-44-21
 
     
