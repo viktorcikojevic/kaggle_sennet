@@ -1,0 +1,7 @@
+type: SMPModelUpsampleBy2
+kwargs:
+    version: "Unet"
+    encoder_name: "resnet101"
+    encoder_weights: "imagenet"
+    in_channels: ${dataset.kwargs.n_take_channels}
+    classes: ${dataset.kwargs.n_take_channels}
