@@ -43,3 +43,5 @@ dependencies:
     - torcheval
     - lightning-bolts
     - deepspeed
+    - randomcolor
+    - Cython

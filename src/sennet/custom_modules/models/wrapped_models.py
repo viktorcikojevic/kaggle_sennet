@@ -145,39 +145,106 @@ class SMPModel(Base3DSegmentor):
         )
 
 
+class SMPModel3DDecoder(Base3DSegmentor):
+    def __init__(
+            self,
+            encoder_version: str,
+            encoder_kwargs: dict[str, any],
+            decoder_version: str,
+            decoder_kwargs: dict[str, any],
+    ):
+        Base3DSegmentor.__init__(self)
+        self.encoder_version = encoder_version
+        self.encoder_kwargs = encoder_kwargs
+        self.decoder_version = decoder_version
+        self.decoder_kwargs = decoder_kwargs
+
+        encoder_constructor = getattr(smp, self.encoder_version)
+        self.encoder = encoder_constructor(**self.encoder_kwargs).encoder
+
+        decoder_constructor = getattr(unet_model, self.decoder_version)
+        self.decoder = decoder_constructor(**self.decoder_kwargs).decoders
+
+    def __repr__(self):
+        return f"encoder:{str(self.encoder)}\ndecoder:{str(self.decoder)}"
+
+    def get_name(self) -> str:
+        return f"SMPModel3DDecoder_{self.encoder_version}_{self.encoder_kwargs['encoder_name']}_{self.encoder_kwargs['encoder_weights']}_{self.decoder_version}"
+
+    @profile
+    def predict(self, img: torch.Tensor) -> SegmentorOutput:
+        batch_size, channels, z_dim, y_dim, x_dim = img.shape
+        assert channels == 1, f"{self.__class__.__name__} works in 1 channel images only (for now), expected to have c=1, got {img.shape=}"
+
+        encoders_features = self.encoder(img.reshape((batch_size*channels*z_dim, 1, y_dim, x_dim)))
+
+        # this was the transform the 3d unet is doing
+        x = encoders_features[-1].reshape((batch_size, -1, z_dim, encoders_features[-1].shape[2], encoders_features[-1].shape[3]))
+        reshaped_encoder_features = []
+        for ef in encoders_features[::-1][1:]:
+            ef_batch_size, ef_channels, ef_y_dim, ef_x_dim = ef.shape
+            assert y_dim % ef_y_dim == 0, f"{y_dim%ef_y_dim=} != 0"
+            # down_sample_factor = int(y_dim / ef_y_dim)
+            # ef_z_dim = int(z_dim / down_sample_factor)
+            ef_z_dim = z_dim
+            reshaped_ef = ef.reshape((batch_size, -1, ef_z_dim, ef_y_dim, ef_x_dim))
+            reshaped_encoder_features.append(reshaped_ef)
+
+        assert len(encoders_features) == len(self.decoder), f"{len(encoders_features)=} != {len(self.decoder)=}"
+        for decoder, encoder_features in zip(self.decoders, encoders_features):
+            x = decoder(encoder_features, x)
+        x = self.final_conv(x)
+
+        return SegmentorOutput(
+            pred=x,
+            take_indices_start=0,
+            take_indices_end=img.shape[2],
+        )
+
+
 if __name__ == "__main__":
     _device = "cuda"
-    # _model = WrappedMedicalNetResnet3D(
-    #     "resnet18",
-    #     "medical_nets/resnet_18.pth",
-    #     num_seg_classes=1,
-    #     shortcut_type="A",
-    # ).to(_device)
     # _model = WrappedUNet3D(
     #     "UNet3D",
     #     None,
     #     in_channels=1,
     #     out_channels=1,
     #     num_groups=8,
-    #     f_maps=32,
+    #     f_maps=(1, 64, 64, 128, 256),
     #     final_sigmoid=False,
     #     is_segmentation=False,
     #     is3d=True,
-    # ).to(_device)
-    # _model = WrappedMedicalNetResnet3D(
-    #     "resnet200",
-    #     None,
-    #     num_seg_classes=1,
+    #     num_levels=6,
     # ).to(_device)
     # smp.UnetPlusPlus
-    _c = 3
-    _model = SMPModel(
-        "Unet",
-        encoder_name="resnet34",
-        encoder_weights="imagenet",
-        replace_batch_norm_with_layer_norm=True,
-        in_channels=_c,
-        classes=_c,
+    _c = 32
+    # _model = SMPModel(
+    #     "Unet",
+    #     encoder_name="resnet34",
+    #     encoder_weights="imagenet",
+    #     replace_batch_norm_with_layer_norm=True,
+    #     in_channels=_c,
+    #     classes=_c,
+    # ).to(_device).train()
+    _model = SMPModel3DDecoder(
+        encoder_version="Unet",
+        encoder_kwargs=dict(
+            encoder_name="resnet34",
+            encoder_weights="imagenet",
+            in_channels=1,
+            classes=1,
+        ),
+        decoder_version="UNet3D",
+        decoder_kwargs=dict(
+            in_channels=1,
+            out_channels=1,
+            num_levels=6,
+            num_groups=8,
+            f_maps=32,
+            final_sigmoid=False,
+            is_segmentation=False,
+            is3d=True,
+        ),
     ).to(_device).train()
     _data = torch.randn((2, 1, _c, 512, 512)).to(_device)
     _out = _model.predict(_data)

@@ -133,6 +133,10 @@ def main(cfg: DictConfig):
         accumulate_grad_batches=accumulate_grad_batches,
         **cfg_dict["task"]["kwargs"],
     )
+    callbacks = [
+        # pl.callbacks.RichProgressBar(),
+        pl.callbacks.RichModelSummary(max_depth=3),
+    ]
     if cfg.dry_logger:
         logger = None
     else:
@@ -141,11 +145,7 @@ def main(cfg: DictConfig):
         logger.experiment.config["experiment_name"] = experiment_name
         logger.experiment.config["aug"] = str(train_dataset.datasets[0].augmenter)
         logger.experiment.config["model_full"] = str(model)
-    callbacks = [
-        pl.callbacks.LearningRateMonitor(),
-        # pl.callbacks.RichProgressBar(),
-        pl.callbacks.RichModelSummary(max_depth=3),
-    ]
+        callbacks.append(pl.callbacks.LearningRateMonitor())
     callbacks += [
         pl.callbacks.EarlyStopping(
             monitor=cfg.early_stopping_metric,

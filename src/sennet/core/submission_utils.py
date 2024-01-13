@@ -261,7 +261,7 @@ def load_model_from_dir(model_dir: str | Path) -> Tuple[Dict, Optional[models.Ba
     return cfg, model
 
 
-def sanitise_val_dataset_kwargs(kwargs, load_ann: bool = False) -> dict[str, any]:
+def sanitise_val_dataset_kwargs(kwargs, load_ann: bool = False, fast_mode: bool = False) -> dict[str, any]:
     kwargs = deepcopy(kwargs)
     kwargs["crop_size_range"] = None
     kwargs["load_ann"] = load_ann
@@ -272,6 +272,10 @@ def sanitise_val_dataset_kwargs(kwargs, load_ann: bool = False) -> dict[str, any
     kwargs["augmenter_class"] = None
     kwargs["augmenter_kwargs"] = None
     kwargs["p_random_3d_rotation"] = 0.0
+    if fast_mode:
+        kwargs["add_depth_along_channel"] = True
+        kwargs["add_depth_along_width"] = False
+        kwargs["add_depth_along_height"] = False
     return kwargs
 
 
@@ -282,8 +286,9 @@ def build_data_loader(
         cropping_border: int | None = None,
         batch_size: int = 1,
         num_workers: int = 0,
+        fast_mode: bool = False,
 ):
-    kwargs = sanitise_val_dataset_kwargs(cfg["dataset"]["kwargs"], load_ann=False)
+    kwargs = sanitise_val_dataset_kwargs(cfg["dataset"]["kwargs"], load_ann=False, fast_mode=fast_mode)
     if cropping_border is not None:
         kwargs["cropping_border"] = cropping_border
     dataset = ThreeDSegmentationDataset(

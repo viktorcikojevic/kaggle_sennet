@@ -47,21 +47,14 @@ python tools/generate_rle_labels.py --path "${DATASET_DIR}/train_rles.csv"
 
 ---
 
-# Installing Pyinterp
-it's a bit of a headache because of this funny library called boost
-
-## Installing Boost
-1. download this and extract it https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.gz
-2. go inside the extracted dir, run the following:
 ```bash
-sudo apt update
-sudo apt install -y build-essential g++ cmake libeigen3-dev libboost-dev libgsl-dev python3-numpy 
-./bootstrap.sh --prefix=/usr/
-sudo ./b2 install
-```
-this should be enough, if things go wrong refer to this guy: https://stackoverflow.com/questions/12578499/how-to-install-boost-on-ubuntu
-
-## Easy Part
-```bash
-pip3 install pyinterp
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled_0005/kidney_2 --stride 2 && \
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled_0005/kidney_3_sparse --stride 2 && \
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled/kidney_2 --stride 2 && \
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled/kidney_3_sparse --stride 2 && \
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled_0005/kidney_2 && \
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled_0005/kidney_3_sparse && \
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled/kidney_2 && \
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled/kidney_3_sparse && \
+echo "done :D"
 ```
