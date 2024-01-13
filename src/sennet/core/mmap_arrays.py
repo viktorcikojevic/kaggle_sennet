@@ -15,7 +15,7 @@ class MmapArray:
 
 
 def read_mmap_array(
-        root_path: Path,
+        root_path: str | Path,
         read_json: Optional[Dict] = None,
         mode: str = "c",
 ) -> MmapArray:
@@ -49,7 +49,7 @@ def read_mmap_array(
 
 
 def create_mmap_array(
-        output_dir: Path,
+        output_dir: str | Path,
         shape: List[int],
         dtype: type,
         order: Literal["C", "F"] = "C",
@@ -59,6 +59,7 @@ def create_mmap_array(
         "dtype": dtype.__name__,
         "order": order,
     }
+    output_dir = Path(output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
     (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=4))
     data = np.memmap(
