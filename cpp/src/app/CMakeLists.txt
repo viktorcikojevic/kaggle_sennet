@@ -3,6 +3,8 @@ add_executable(solveWatershed
 )
 target_link_libraries(solveWatershed
         SennetLib
+        CLI11::CLI11
+        glog::glog
 )
 
 add_executable(mmapExample

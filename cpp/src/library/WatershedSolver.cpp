@@ -48,6 +48,7 @@ public:
             const std::shared_ptr<MmapArray>& image,
             const std::shared_ptr<MmapArray>& meanProb,
             const std::shared_ptr<MmapArray>& seed,
+            const std::shared_ptr<MmapArray>& outputMask,
             double imageDiffThreshold,
             double labelUpperThreshold,
             double labelLowerBound
@@ -55,12 +56,14 @@ public:
             image(image)
             , meanProb(meanProb)
             , seed(seed)
+            , outputMask(outputMask)
             , imageDiffThreshold(imageDiffThreshold)
             , labelUpperThreshold(labelUpperThreshold)
             , labelLowerBound(labelLowerBound)
     {
         checkSize(image, meanProb, "image", "meanProb");
         checkSize(image, seed, "image", "seed");
+        checkSize(image, outputMask, "image", "outputMask");
     }
 
     void solve() {
@@ -123,6 +126,7 @@ WatershedSolver::WatershedSolver(
         const std::shared_ptr<MmapArray>& image,
         const std::shared_ptr<MmapArray>& meanProb,
         const std::shared_ptr<MmapArray>& seed,
+        const std::shared_ptr<MmapArray>& outputMask,
         double imageDiffThreshold,
         double labelUpperThreshold,
         double labelLowerBound
@@ -131,6 +135,7 @@ WatershedSolver::WatershedSolver(
             image,
             meanProb,
             seed,
+            outputMask,
             imageDiffThreshold,
             labelUpperThreshold,
             labelLowerBound

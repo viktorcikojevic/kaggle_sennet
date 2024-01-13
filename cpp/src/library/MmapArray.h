@@ -12,6 +12,7 @@ public:
     ~MmapArray();
     [[nodiscard]] std::vector<size_t> shape() const;
     [[nodiscard]] float get(size_t z, size_t y, size_t x) const;
+    void set(size_t z, size_t y, size_t x, float val);
 
 private:
     class Impl;
