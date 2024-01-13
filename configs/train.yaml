@@ -1,26 +1,23 @@
 defaults:
   - _self_
-#  - model: smp_unet_resnext50_32x4d
-  - model: smp_unet_r50
+  - model: smp_unet_r50_upsample
+  - augmentation: multi_channel_augmentation
   - early_stopping: normal
-#  - augmentation: multi_channel_augmentation
-  - augmentation: vanilla
 #  - augmentation: noop
   - scheduler: none
   - optimiser: adamw
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 40000
-batch_size: 32 # final batch size.
-apparent_batch_size: 16 # batch size during training
-num_workers: 16
+val_check_interval: 20000
+batch_size: 10 # final batch size.
+apparent_batch_size: 10 # batch size during training
+num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
-#exp_name: three_d_seg
-exp_name: r50_three_d_aug
-group_name: "smp_unet_r50_hyptun" # maybe this would be useful for grouping experiments when we do hyperparameter search
-max_epochs: 20
+exp_name: three_d_seg
+group_name: "r50_k12" # maybe this would be useful for grouping experiments when we do hyperparameter search
+max_epochs: 16
 max_steps: -1
 early_stopping_metric: "surface_dice"
 #early_stopping_metric: "f1_score"
@@ -51,6 +48,7 @@ task:
 
 train_folders:
   - kidney_1_dense
+  - kidney_2_ml_labeled
   # - kidney_3_dense
 #  - kidney_2
 
@@ -95,7 +93,7 @@ dataset:
     p_crop_location_noise: 1.0
 
 #    p_random_3d_rotation: 1.0
-    p_random_3d_rotation: 0.1
+    p_random_3d_rotation: 0.3
     rot_magnitude_normal_deg: 90.0
     rot_magnitude_plane_deg: 90.0
 
