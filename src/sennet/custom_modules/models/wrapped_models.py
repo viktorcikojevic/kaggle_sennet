@@ -208,6 +208,7 @@ class SMPModelUpsampleBy2(Base3DSegmentor):
     def get_name(self) -> str:
         return f"SMP_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
 
+    @profile
     def predict(self, img: torch.Tensor) -> SegmentorOutput:
         assert img.shape[1] == 1, f"{self.__class__.__name__} works in 1 channel images only (for now), expected to have c=1, got {img.shape=}"
         img_upsampled = self.upsampler(img[:, 0, :, :, :])
