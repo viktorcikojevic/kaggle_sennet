@@ -58,6 +58,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
         pl.LightningModule.__init__(self)
         print(f"unused kwargs: {kwargs}")
         self.model = model
+        self.freezing_parameters = self.get_freezing_parameters()
         self.ema_momentum = ema_momentum
         if self.ema_momentum is not None:
             print(f"{ema_momentum=} is given, evaluations will be done using ema")
@@ -90,10 +91,21 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.total_val_loss = 0.0
         self.val_count = 0
 
+    def get_freezing_parameters(self):
+        return self.model.freezing_parameters if hasattr(self.model, "freezing_parameters") else []
+
+
     def training_step(self, batch: Dict, batch_idx: int):
         if self.batch_transform is not None:
             batch = self.batch_transform(batch)
-        self.model = self.model.train()
+        # self.model = self.model.train()
+        # freeze layers
+        for name, param in self.model.model.named_parameters():
+            if name in self.freezing_parameters:
+                param.requires_grad = False
+            else:
+                param.requires_grad = True
+        
         seg_pred = self.model.predict(batch["img"])
         preds = seg_pred.pred
         gt_seg_map = batch["gt_seg_map"].float()

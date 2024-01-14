@@ -226,11 +226,23 @@ class SMPModelUpsampleBy4(Base3DSegmentor):
         self.version = version
         self.kw = kw
         self.upsampler = layers.PixelShuffleUpsample(in_channels=1, upscale_factor=4)
+        self.freeze_bn_layers = kw.pop('freeze_bn_layers')
         constructor = getattr(smp, self.version)
         self.model = constructor(**kw)
         self.downscale_layer_1 = nn.Conv2d(1, 1, kernel_size=3, stride=2, padding=1)
         self.downscale_layer_2 = nn.Conv2d(1, 1, kernel_size=3, stride=2, padding=1)
 
+        if self.freeze_bn_layers:
+            self.freezing_parameters = self.get_list_of_bn_parameters()
+        else:
+            self.freezing_parameters = []
+
+    def get_list_of_bn_parameters(self):
+        bn_params = []
+        for name, param in self.model.named_parameters():
+            if any(part.startswith('bn') for part in name.split('.')):
+                bn_params.append(name)
+        return bn_params
 
     def get_name(self) -> str:
         return f"SMP_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
