@@ -16,7 +16,7 @@ num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-group_name: "r50_k12" # maybe this would be useful for grouping experiments when we do hyperparameter search
+group_name: "r50_k123" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 16
 max_steps: -1
 early_stopping_metric: "surface_dice"
@@ -49,7 +49,7 @@ task:
 train_folders:
   - kidney_1_dense
   - kidney_2_ml_labeled
-  # - kidney_3_dense
+  - kidney_3_sparse_ml_labeled
 #  - kidney_2
 
 val_folders:

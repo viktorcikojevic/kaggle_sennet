@@ -18,8 +18,6 @@ predictors:
   dust_threshold: null
 #  substride: 0.25
   substride: 1.0
-#  substride: 0.25
-  substride: 1.0
   cropping_border: 0
   tta_kwargs:
     add_flips: true
