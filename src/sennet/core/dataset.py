@@ -45,8 +45,6 @@ class ThreeDSegmentationDataset(Dataset):
             transforms: Optional[List] = None,
             normalisation_kwargs: Optional[Dict] = None,
             cropping_border: int = 0,
-            
-            cache_mmaps: bool = False,
 
             **kwargs,
     ):
@@ -86,7 +84,6 @@ class ThreeDSegmentationDataset(Dataset):
             p_random_3d_rotation=p_random_3d_rotation,
             rot_magnitude_normal_deg=rot_magnitude_normal_deg,
             rot_magnitude_plane_deg=rot_magnitude_plane_deg,
-            cache_mmaps=cache_mmaps
         )
 
         self.augmenter_class = augmenter_class

@@ -7,7 +7,7 @@ import json
 
 @dataclass
 class MmapArray:
-    data: np.memmap | np.ndarray
+    data: np.memmap
     shape: List[int]
     metadata: Dict
     dtype: type
@@ -18,7 +18,6 @@ def read_mmap_array(
         root_path: Path,
         read_json: Optional[Dict] = None,
         mode: str = "c",
-        load_numpy_array: bool = False,
 ) -> MmapArray:
     root_path = Path(root_path)
     if read_json is None:
@@ -39,8 +38,6 @@ def read_mmap_array(
         shape=tuple(shape),
         order=order,
     )
-    if load_numpy_array:
-        data = np.array(data)
     arr = MmapArray(
         data=data,
         shape=shape,

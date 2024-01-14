@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - model: smp_unet_r50_upsample
+  - model: smp_unet_r50_upsample_x4
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
@@ -9,7 +9,7 @@ defaults:
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 20
+val_check_interval: 20000
 batch_size: 2 # final batch size.
 apparent_batch_size: 2 # batch size during training
 num_workers: 1
