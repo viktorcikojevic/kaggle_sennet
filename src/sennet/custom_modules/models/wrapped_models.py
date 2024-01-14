@@ -185,7 +185,7 @@ class SMPModelUpsampleBy2(Base3DSegmentor):
         Base3DSegmentor.__init__(self)
         self.version = version
         if 'freeze_bn_layers' in kw:
-            freeze_bn_layers = kw.pop('freeze_bn_layers')
+            freeze_bn_layers = kw.pop('freeze_bn_layers') if kw['freeze_bn_layers'] is not None else False
         else: 
             freeze_bn_layers = False
         self.freeze_bn_layers = freeze_bn_layers 
@@ -226,7 +226,7 @@ class SMPModelUpsampleBy4(Base3DSegmentor):
         self.version = version
         self.kw = kw
         self.upsampler = layers.PixelShuffleUpsample(in_channels=1, upscale_factor=4)
-        self.freeze_bn_layers = kw.pop('freeze_bn_layers')
+        self.freeze_bn_layers = kw.pop('freeze_bn_layers') if 'freeze_bn_layers' in kw else False
         constructor = getattr(smp, self.version)
         self.model = constructor(**kw)
         self.downscale_layer_1 = nn.Conv2d(1, 1, kernel_size=3, stride=2, padding=1)
