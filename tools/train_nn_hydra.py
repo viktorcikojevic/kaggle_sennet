@@ -48,7 +48,7 @@ def main(cfg: DictConfig):
         f"-llr{cfg.optimiser.log_lr}"
         f"-t{int(cfg.dataset.kwargs.add_depth_along_channel)}{int(cfg.dataset.kwargs.add_depth_along_width)}{int(cfg.dataset.kwargs.add_depth_along_height)}"
         f"-sm{int(cfg.dataset.kwargs.sample_with_mask)}"
-        f"-ema{int(cfg.task.kwargs.ema_momentum is not None)}"
+        f"-ema{int(cfg.task.kwargs.ema_momentum if 'ema_momentum' in cfg.task.kwargs else 0.0)}"
         f"-cb{int(cfg.dataset.kwargs.cropping_border)}"
         f"-{time_now}"
     )
@@ -154,7 +154,7 @@ def main(cfg: DictConfig):
         ),
         pl.callbacks.ModelCheckpoint(
             dirpath=model_out_dir,
-            save_top_k=10,
+            save_top_k=1,
             monitor="surface_dice" if cfg.task.type == "ThreeDSegmentationTask" else "val_loss",
             mode="max",
             filename=f"{cfg.model.type}" + "-{epoch:02d}-{step:06d}-{surface_dice:.2f}",
