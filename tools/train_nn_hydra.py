@@ -1,7 +1,7 @@
 from pytorch_lightning.loggers import WandbLogger
 import pytorch_lightning as pl
 from sennet.core.submission_utils import sanitise_val_dataset_kwargs
-from sennet.core.three_d_segmentation_task import ThreeDSegmentationTask
+import sennet.core.three_d_segmentation_task as tasks
 from sennet.core.dataset import ThreeDSegmentationDataset
 from sennet.environments.constants import MODEL_OUT_DIR, PRETRAINED_DIR
 from sennet.custom_modules.losses.loss import CombinedLoss
@@ -120,7 +120,7 @@ def main(cfg: DictConfig):
     accumulate_grad_batches = max(1, int(cfg.batch_size / cfg.apparent_batch_size))
     print(f"{accumulate_grad_batches = }")
     # print(model)
-    task = ThreeDSegmentationTask(
+    task = getattr(tasks, cfg_dict["task"]["type"])(
         model,
         train_loader=train_loader,
         val_loader=val_loader,
@@ -155,7 +155,7 @@ def main(cfg: DictConfig):
         pl.callbacks.ModelCheckpoint(
             dirpath=model_out_dir,
             save_top_k=10,
-            monitor="surface_dice",
+            monitor="surface_dice" if cfg.task.type == "ThreeDSegmentationTask" else "val_loss",
             mode="max",
             filename=f"{cfg.model.type}" + "-{epoch:02d}-{step:06d}-{surface_dice:.2f}",
         ),

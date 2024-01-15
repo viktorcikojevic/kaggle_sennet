@@ -12,6 +12,7 @@ import torch.nn as nn
 import torch.optim
 import json
 import numpy as np
+from tqdm import tqdm
 
 
 class EMA(nn.Module):
@@ -287,3 +288,57 @@ class ThreeDSegmentationTask(pl.LightningModule):
         else:
             print("no scheduler")
         return ret_val
+
+
+class DenoiseTask(ThreeDSegmentationTask):
+    def __init__(
+            self,
+            *args,
+            **kwargs
+    ):
+        ThreeDSegmentationTask.__init__(self, *args, **kwargs)
+        self.std_noise = kwargs["std_noise"]
+
+    def training_step(self, batch: Dict, batch_idx: int):
+        self.model = self.model.train()
+        
+        img = batch["img"]
+        
+        noise = torch.randn_like(img) * self.std_noise
+        img = img + noise
+        
+        img_pred = self.model.predict(img).pred.squeeze()
+        
+        # L1 loss between img_true and img_pred
+        loss = nn.L1Loss()(img_pred, noise.squeeze())
+
+        self.log_dict({
+            "train_loss": loss,
+        }, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch: Dict, batch_idx: int):
+        return
+
+    def on_validation_epoch_end(self) -> None:
+        with torch.no_grad():
+            # loop over self.val_loader
+            val_loss = 0
+            for batch in tqdm(self.val_loader, total=len(self.val_loader)):
+                self.model = self.model.eval()
+
+                img = batch["img"].to(self.device)
+                noise = torch.randn_like(img) * self.std_noise
+                noise = noise.to(self.device)
+                img = img + noise
+                img_pred = self.model.predict(img).pred
+
+                # loss is mse between img_true and img_pred
+                loss = nn.L1Loss()(img_pred.squeeze(), noise.squeeze())
+                val_loss += loss
+            
+            val_loss = val_loss / len(self.val_loader)
+            self.log_dict({
+                "val_loss": val_loss,
+            })
+

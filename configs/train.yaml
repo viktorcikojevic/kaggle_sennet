@@ -1,26 +1,28 @@
 defaults:
   - _self_
-  - model: smp_unet_r50_upsample_x4
-  - augmentation: multi_channel_augmentation
+  - model: smp_fpn_r50_upsample
+  - augmentation: noop
   - early_stopping: normal
 #  - augmentation: noop
   - scheduler: none
   - optimiser: adamw
+  - task: three_d_seg
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
 val_check_interval: 20000
-batch_size: 2 # final batch size.
-apparent_batch_size: 2 # batch size during training
+batch_size: 14 # final batch size.
+apparent_batch_size: 14 # batch size during training
 num_workers: 1
-dry_logger: true
+dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-group_name: "r50_champ_x4" # maybe this would be useful for grouping experiments when we do hyperparameter search
+group_name: "smp_fpn_r50_upsample" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 40
 max_steps: -1
 early_stopping_metric: "surface_dice"
 #early_stopping_metric: "f1_score"
+
 
 loss:
   - type: BCELoss
@@ -37,17 +39,10 @@ loss:
     kwargs:
       gamma: 2.0
 
-task:
-  kwargs:
-    eval_threshold: 0.2
-    compute_crude_metrics: false
-    ema_momentum: 0.00025
-#    ema_momentum: null
-#    ignore_border_loss: true
-    ignore_border_loss: false
 
 train_folders:
   - kidney_1_dense
+  # - kidney_2
   # - kidney_2_ml_labeled
   # - kidney_3_sparse_ml_labeled
 #  - kidney_2
