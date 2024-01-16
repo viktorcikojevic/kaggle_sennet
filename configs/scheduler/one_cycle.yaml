@@ -1,7 +1,8 @@
 type: "OneCycleLR"
 override_total_steps:
   key: total_steps
-  num_epochs: 1
+  num_epochs: ${max_epochs}
 kwargs:
-  max_lr: 1.38
-  div_factor: 1000000
+  max_lr: 0.0006
+  pct_start: 0.01
+  total_steps: 30000

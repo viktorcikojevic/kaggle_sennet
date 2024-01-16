@@ -13,7 +13,7 @@
 
 
 predictors:
-  threshold: 0.005
+  threshold: 0.002
   percentile_threshold: null
   dust_threshold: null
 #  substride: 0.25
@@ -23,5 +23,4 @@ predictors:
     add_flips: true
 #    add_flips: false
   models:
-    - "SMP(Unet_resnext50_32x4d_imagenet)-c512x1-bs32-llr-3.5-t111-sm0-2024-01-02-04-43-17"
-    - "SMP_Unet_resnet50_imagenet-c512x1-bs10-abs10-llr-4-t111-sm0-ema1-cb0-2024-01-13-18-38-25"
+    - "SMP_Unet_resnet101_imagenet-c512x1-bs8-abs8-llr-4-t111-sm0-ema0-cb0-2024-01-16-01-09-20"
