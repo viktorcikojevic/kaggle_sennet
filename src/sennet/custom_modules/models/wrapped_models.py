@@ -261,6 +261,93 @@ class SMPModelUpsampleBy4(Base3DSegmentor):
 
 
 
+class SMPModelUpsampleBy2With3DEncoding(Base3DSegmentor):
+    def __init__(self, version: str, **kw):
+        Base3DSegmentor.__init__(self)
+        self.version = version
+        self.kw = kw
+        self.freeze_2d_model = kw.pop('freeze_2d_model') if 'freeze_2d_model' in kw else False
+        pretrained = kw.pop('pretrained') if 'pretrained' in kw else None
+        kw['in_channels'] = 1 
+        kw['classes'] = 1 
+        num_3d_layers = kw.pop('num_3d_layers') if 'num_3d_layers' in kw else 1
+        self.model_2d = SMPModelUpsampleBy2(version, **kw)
+        
+        if pretrained: 
+            self.load_pretrained_2d_model(pretrained)
+        
+        # Define 3D convolutions and batch norm layers
+        self.conv3d_layers = nn.ModuleList()
+        for _ in range(num_3d_layers):
+            conv3d = nn.Conv3d(
+                in_channels=1, 
+                out_channels=1, 
+                kernel_size=3, 
+                padding=1,
+                stride=1
+            )
+            # initialize the weights to be small in the beginning
+            nn.init.normal_(conv3d.weight, mean=0.0, std=0.0002)
+            nn.init.zeros_(conv3d.bias)
+            self.conv3d_layers.append(conv3d)
+
+
+    def get_name(self) -> str:
+        return f"SMPModelUpsampleBy2With3DEncoding_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
+
+    def load_pretrained_2d_model(self, pretrained) -> None:
+        
+        model_state_dict = torch.load(pretrained, map_location='cpu')['state_dict']
+        
+        if any(k.startswith("ema_") for k in model_state_dict.keys()):
+            model_state_dict = OrderedDict([
+                    (k, v)
+                    for k, v in model_state_dict.items()
+                    if k.startswith("ema_model.")
+                ])
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, prefix="ema_model.module.")
+        else:
+            model_state_dict = OrderedDict([
+                    (k, v)
+                    for k, v in model_state_dict.items()
+                    if k.startswith("model.")
+                ])
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, prefix="model.")
+        
+        load_status = self.model_2d.load_state_dict(model_state_dict)
+        print(load_status)
+        
+    def forward_3d(self, x):
+        for layer in self.conv3d_layers:
+            x = F.relu(layer(x)) + x
+        return x
+
+    @profile
+    def predict(self, img: torch.Tensor) -> SegmentorOutput:
+        
+        B, _, C, H, W = img.shape
+        # reshape to B*C, 1, H, W
+        img = img.reshape(B*C, 1, 1, H, W)
+        if self.freeze_2d_model:
+            with torch.no_grad():
+                model_out = self.model_2d.predict(img).pred
+        else:
+            model_out = self.model_2d.predict(img).pred
+        
+        # reshape to B, C, H, W
+        model_out = model_out.reshape(B, C, H, W).unsqueeze(1)
+    
+        # apply 3d convolutions
+        model_out = self.forward_3d(model_out).squeeze(1)
+        
+        
+        return SegmentorOutput(
+            pred=model_out,
+            take_indices_start=0,
+            take_indices_end=C,
+        )
+
+
 if __name__ == "__main__":
     _device = "cuda"
     # _model = WrappedMedicalNetResnet3D(
