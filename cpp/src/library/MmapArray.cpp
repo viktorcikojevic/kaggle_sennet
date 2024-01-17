@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <nlohmann/json.hpp>
 #include <mio/mmap.hpp>
+#include "glog/logging.h"
 
 
 using json = nlohmann::json;
@@ -35,7 +36,15 @@ public:
         }
     }
 
-    ~Impl() = default;
+    ~Impl() {
+        std::error_code error;
+        data.sync(error);
+        if (error) {
+            LOG(ERROR) << "data: " << path << " sync error: " << error;
+        } else {
+            LOG(ERROR) << "data: " << path << " sync ok: " << error;
+        }
+    }
 
     [[nodiscard]] std::vector<size_t> shape() const {
         return mmapShape;

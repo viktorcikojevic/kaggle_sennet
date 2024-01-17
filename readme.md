@@ -58,3 +58,13 @@ python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled/kidney_2
 python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled/kidney_3_sparse && \
 echo "done :D"
 ```
+
+```bash
+--image /home/clay/research/kaggle/sennet/data_dumps/processed/kidney_3_sparse/image
+--pred /home/clay/research/kaggle/sennet/data_dumps/predicted/for_rg/kidney_3_sparse/chunk_00/mean_prob
+--seed /home/clay/research/kaggle/sennet/data_dumps/predicted/for_rg/kidney_3_sparse/chunk_00/seed
+--out /home/clay/research/kaggle/sennet/data_dumps/predicted/for_rg/kidney_3_sparse/chunk_00/out
+--image-diff-threshold 5
+--label-upper-bound 0.2
+--label-lower-bound 0.0001
+```

@@ -45,6 +45,14 @@ int main(int argc, char **argv) {
         labelUpperBound,
         labelLowerBound,
     };
+
+    LOG(INFO) << "imageMmapPath: " << imageMmapPath;
+    LOG(INFO) << "meanPredMmapPath: " << meanPredMmapPath;
+    LOG(INFO) << "seedMmapPath: " << seedMmapPath;
+    LOG(INFO) << "outMmapPath: " << outMmapPath;
+    LOG(INFO) << "imageDiffThreshold: " << imageDiffThreshold;
+    LOG(INFO) << "labelUpperBound: " << labelUpperBound;
+    LOG(INFO) << "labelLowerBound: " << labelLowerBound;
     solver.solve();
     return 0;
 }

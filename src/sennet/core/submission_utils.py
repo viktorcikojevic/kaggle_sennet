@@ -21,13 +21,14 @@ import numpy as np
 
 def generate_submission_df_from_one_chunked_inference(
         root_dir: Path,
+        dir_name: str = "thresholded_prob"
 ) -> pd.DataFrame:
     image_names = (root_dir / "image_names").read_text().split("\n")
     chunk_dirs = sorted(list(root_dir.glob("chunk*")))
     i = 0
     data = {"id": [], "rle": [], "height": [], "width": []}
     for d in tqdm(chunk_dirs, position=0):
-        pred = read_mmap_array(d / "thresholded_prob", mode="r")
+        pred = read_mmap_array(d / dir_name, mode="r")
         for c in tqdm(range(pred.shape[0]), position=1, leave=False):
             rle = rle_encode(pred.data[c, :, :])
             if rle == "":

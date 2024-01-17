@@ -16,16 +16,21 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", type=str, required=False)
     parser.add_argument("--stride", type=int, required=False, default=1)
+    parser.add_argument("--dir-name", type=str, required=False, default=None)
     args, _ = parser.parse_known_args()
     data_dir = Path(args.path)
     stride = args.stride
+    dir_name = args.dir_name
 
-    chunk_dirs = sorted([d / "thresholded_prob" for d in data_dir.glob("chunk_*") if d.is_dir()])
+    if not dir_name:
+        dir_name = "thresholded_prob"
+
+    chunk_dirs = sorted([d / dir_name for d in data_dir.glob("chunk_*") if d.is_dir()])
     pred = np.ascontiguousarray(read_mmap_array(chunk_dirs[0]).data[::stride, ::stride, ::stride])
     # pred = np.ascontiguousarray(read_mmap_array(chunk_dirs[0]).data[0:300, ::stride, ::stride])
     total_points = pred.sum()
 
-    ply_out_path = data_dir / f"pred_colored_{stride}.ply"
+    ply_out_path = data_dir / f"pred_colored_{stride}_{dir_name}.ply"
     Path(ply_out_path).write_text(
         "ply\n"
         "format binary_little_endian 1.0\n"
@@ -72,7 +77,7 @@ def main():
 
             for c in range(image_tensor.shape[0]):
                 z = c
-                slice_y, slice_x = torch.nonzero(image_tensor[c, ...], as_tuple=True)
+                slice_x, slice_y = torch.nonzero(image_tensor[c, ...], as_tuple=True)
                 xs = torch.cat([xs, slice_x])
                 ys = torch.cat([ys, slice_y])
                 zs = torch.cat([zs, torch.full(slice_x.shape, z, device=device, dtype=torch.int)])
