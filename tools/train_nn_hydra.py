@@ -198,6 +198,7 @@ def main(cfg: DictConfig):
         #     offload_optimizer=True,
         #     offload_parameters=True,
         # ),
+        devices=-1,
     )
     trainer.fit(
         model=task,
