@@ -23,4 +23,4 @@ predictors:
     add_flips: true
 #    add_flips: false
   models:
-    - "SMP_Unet_resnet101_imagenet-c512x1-bs8-abs8-llr-4-t111-sm0-ema0-cb0-2024-01-16-01-09-20"
+    - "SMP_Unet_resnet101_imagenet-c512x1-bs8-abs8-llr-4-t111-sm0-ema0-cb0-2024-01-16-10-03-23"

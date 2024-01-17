@@ -5,4 +5,4 @@ override_total_steps:
 kwargs:
   max_lr: 0.0006
   pct_start: 0.01
-  total_steps: 30000
+  total_steps: 50000
