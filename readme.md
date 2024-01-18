@@ -30,6 +30,7 @@ or wherever you want to store the data dumps.
 parallel --jobs 10 -k --lb --eta --bar --progress \
   python3 tools/generate_mmap_dataset.py \
   --path {} \
+  --label-as-mask \
   --output-dir "${PROCESSED_DATA_DIR}" \
   ::: $(ls -d "${DATASET_DIR}/${MODE}/"*)
 

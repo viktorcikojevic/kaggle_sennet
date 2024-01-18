@@ -1,7 +1,8 @@
 defaults:
   - _self_
   - model: smp_unet_r50_upsample
-  - augmentation: multi_channel_augmentation
+#  - augmentation: multi_channel_augmentation
+  - augmentation: vanilla
   - early_stopping: normal
 #  - augmentation: noop
   - scheduler: none
@@ -62,23 +63,23 @@ batch_transform:
   kwargs:
     alpha_cutmix: 0.4
     alpha_mixup: 0.4
-    cutmix_prob: 0.3
+    cutmix_prob: 0.0
     mixup_prob: 0.0
 
 dataset:
   train_substride: 1.0
   val_substride: 1.0
   kwargs:
-    crop_size: 512
+    crop_size: 128
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 1 # Number of channels to take from the dataset
-    n_appereant_channels: 1
+    n_take_channels: 128 # Number of channels to take from the dataset
+    n_appereant_channels: 64
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
     channel_end: null
-    sample_with_mask: false
+    sample_with_mask: true
 
     crop_size_range: [0.8, 1.2]
 #    crop_size_range: null

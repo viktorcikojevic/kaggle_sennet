@@ -1,5 +1,5 @@
 import cv2
-from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score
+from sennet.custom_modules.metrics.surface_dice_metric_fast import compute_surface_dice_score, create_table_neighbour_code_to_surface_area
 from sennet.core.mmap_arrays import read_mmap_array
 from sennet.environments.constants import DATA_DIR, PROCESSED_DATA_DIR, DATA_DUMPS_DIR
 import pandas as pd
@@ -21,15 +21,16 @@ def main():
     paths = [
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_1_dense/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_1_dense/submission.csv",
-        "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_sparse/submission.csv",
+        # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_sparse/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_dense/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_3_dense/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_merged/submission.csv",
         "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_2/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_2/submission.csv",
     ]
-    # vis = False
-    vis = True
+    vis = False
+    # vis = True
+    return_colored_cloud = True
 
     for path in paths:
         path = Path(path)
@@ -41,11 +42,42 @@ def main():
         filtered_label = label.loc[label["id"].isin(df["id"])].copy().sort_values("id").reset_index()
         filtered_label["width"] = df["width"]
         filtered_label["height"] = df["height"]
+
         score = compute_surface_dice_score(
             submit=df,
             label=filtered_label,
+            return_colored_cloud=return_colored_cloud,
         )
+        if return_colored_cloud:
+            score, cloud = score
+        else:
+            cloud = None
         print(f"{path}: {score = }")
+        if return_colored_cloud:
+            cloud = cloud.cpu().numpy()
+            out_cloud = np.zeros((cloud.shape[0], 6), dtype=np.float32)
+            ply_out_path = path.parent / f"eval.ply"
+            Path(ply_out_path).write_text(
+                "ply\n"
+                "format binary_little_endian 1.0\n"
+                f"element vertex {out_cloud.shape[0]}\n"
+                "property float x\n"
+                "property float y\n"
+                "property float z\n"
+                "property float red\n"
+                "property float green\n"
+                "property float blue\n"
+                "end_header\n"
+            )
+            scaling = 1e-3
+            area_denominator = create_table_neighbour_code_to_surface_area((1, 1, 1)).max()
+            out_cloud[:, :3] = cloud[:, :3] * scaling
+            out_cloud[cloud[:, 4] == 0, 3:] = cloud[cloud[:, 4] == 0, 3][:, None] / area_denominator * np.array([0.0, 1.0, 0.0])[None, :]  # tp
+            out_cloud[cloud[:, 4] == 1, 3:] = cloud[cloud[:, 4] == 1, 3][:, None] / area_denominator * np.array([1.0, 0.0, 0.0])[None, :]  # fp
+            out_cloud[cloud[:, 4] == 2, 3:] = cloud[cloud[:, 4] == 2, 3][:, None] / area_denominator * np.array([0.5, 0.5, 1.0])[None, :]  # fn
+            with open(ply_out_path, "ab") as pred_f:
+                ba = out_cloud.tobytes()
+                pred_f.write(ba)
 
     if vis:
         for path in paths:

@@ -5,12 +5,12 @@ from sennet.core.submission_utils import sanitise_val_dataset_kwargs
 from sennet.environments.constants import AUG_DUMP_DIR
 from sennet.core.dataset import ThreeDSegmentationDataset
 from tqdm import tqdm
-from torch.utils.data import Subset
+from torch.utils.data import Subset, Dataset
 from omegaconf import DictConfig, OmegaConf
 import hydra
 
 
-def _browse_dataset(cfg, dataset: ThreeDSegmentationDataset, save_dir: Path):
+def _browse_dataset(cfg, dataset: Dataset, save_dir: Path):
     save_dir.mkdir(exist_ok=True, parents=True)
 
     save_imgs = True
@@ -29,18 +29,13 @@ def _browse_dataset(cfg, dataset: ThreeDSegmentationDataset, save_dir: Path):
         decoded_img = np.clip((img - img.min()) / (np.ptp(img) + 1e-6) * 255, 0, 255).astype(np.uint8)
         annotated_img = cv2.addWeighted(decoded_img, 0.5, seg_map * 255, 0.5, 0.0)
         if save_imgs:
-            cv2.imwrite(str(save_dir / f"{str(i).zfill(3)}_{'_'.join([str(x) for x in item['bbox']])}_{item['bbox_type']}_{img.min():.2f}_{img.max():.2f}.png"), annotated_img)
+            cv2.imwrite(str(save_dir / f"{str(i).zfill(3)}_{'_'.join([str(x) for x in item['bbox']])}_{Path(item['folder']).stem}_{item['bbox_type']}_{img.min():.2f}_{img.max():.2f}.png"), annotated_img)
         # print(f"dumped image: {img.min()=} {img.max()=} {decoded_img.min()=} {decoded_img.max()=}")
 
 
-@hydra.main(config_path="../configs", config_name="train", version_base="1.2")
+@hydra.main(config_path="../configs", config_name="train_2nd", version_base="1.2")
+# @hydra.main(config_path="../configs", config_name="train", version_base="1.2")
 def main(cfg: DictConfig):
-    train_dataset = ThreeDSegmentationDataset(
-        folder=cfg.train_folders[0],
-        substride=1.0,
-        **cfg.dataset.kwargs,
-        **cfg.augmentation,
-    )
     cfg_dict = OmegaConf.to_container(cfg, resolve=True)
     val_dataset = ThreeDSegmentationDataset(
         folder=cfg.val_folders[0],
@@ -48,13 +43,23 @@ def main(cfg: DictConfig):
         **sanitise_val_dataset_kwargs(cfg_dict["dataset"]["kwargs"], load_ann=True),
     )
 
-    train_dataset = Subset(train_dataset, list(range(0, len(train_dataset), 100)))
-    val_dataset = Subset(val_dataset, list(range(0, len(val_dataset), 100)))
+    # ss = 100
+    ss = 10
 
     train_save_dir = AUG_DUMP_DIR / "train"
+    for d in cfg.train_folders:
+        train_dataset = ThreeDSegmentationDataset(
+            folder=d,
+            substride=1.0,
+            **cfg.dataset.kwargs,
+            **cfg.augmentation,
+        )
+        train_dataset = Subset(train_dataset, list(range(0, len(train_dataset), ss)))
+        _browse_dataset(cfg, train_dataset, train_save_dir)
+
+    val_dataset = Subset(val_dataset, list(range(0, len(val_dataset), ss)))
     val_save_dir = AUG_DUMP_DIR / "val"
     _browse_dataset(cfg, val_dataset, val_save_dir)
-    _browse_dataset(cfg, train_dataset, train_save_dir)
 
 
 if __name__ == "__main__":
