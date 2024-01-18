@@ -77,7 +77,12 @@ def compute_area(y: list, unfold: nn.Unfold, area: torch.Tensor) -> torch.Tensor
     return cubes_area
 
 
-def compute_surface_dice_score(submit: pd.DataFrame, label: pd.DataFrame) -> float:
+@torch.no_grad()
+def compute_surface_dice_score(
+        submit: pd.DataFrame,
+        label: pd.DataFrame,
+        return_colored_cloud: bool = False,
+) -> float | tuple[float, torch.Tensor]:
     """
     Compute surface Dice score for one 3D volume
 
@@ -105,6 +110,19 @@ def compute_surface_dice_score(submit: pd.DataFrame, label: pd.DataFrame) -> flo
 
     # Padding before first slice
     y0 = y0_pred = torch.zeros((h, w), dtype=torch.uint8, device=device)
+    if return_colored_cloud:
+        ys, xs = torch.meshgrid(
+            torch.arange(0, int(label["height"].iloc[0])),
+            torch.arange(0, int(label["width"].iloc[0])),
+            indexing="ij",
+        )
+        xs = xs.to(torch.float16).to(device)
+        ys = ys.to(torch.float16).to(device)
+        unfolded_xs = unfold(torch.stack([xs, xs], dim=0)).squeeze(0).mean(0)
+        unfolded_ys = unfold(torch.stack([ys, ys], dim=0)).squeeze(0).mean(0)
+        return_cloud_points = []
+    else:
+        unfolded_xs = unfolded_ys = return_cloud_points = None
 
     num = 0     # numerator of surface Dice
     denom = 0   # denominator
@@ -128,6 +146,32 @@ def compute_surface_dice_score(submit: pd.DataFrame, label: pd.DataFrame) -> flo
 
         # True positive cube indices
         idx = torch.logical_and(area_pred > 0, area_true > 0)
+        if return_colored_cloud and torch.any(idx):
+            fp_idxs = torch.logical_and(area_pred > 0, area_true == 0)
+            fn_idxs = torch.logical_and(area_pred == 0, area_true > 0)
+
+            tp_xs = unfolded_xs[idx]
+            tp_ys = unfolded_ys[idx]
+            tp_areas = area_pred[idx]
+
+            fp_xs = unfolded_xs[fp_idxs]
+            fp_ys = unfolded_ys[fp_idxs]
+            fp_areas = area_pred[fp_idxs]
+
+            fn_xs = unfolded_xs[fn_idxs]
+            fn_ys = unfolded_ys[fn_idxs]
+            fn_areas = area_true[fn_idxs]
+
+            xs = torch.cat([tp_xs, fp_xs, fn_xs])
+            ys = torch.cat([tp_ys, fp_ys, fn_ys])
+            zs = torch.full_like(xs, i)
+            areas = torch.cat([tp_areas, fp_areas, fn_areas])
+            modes = torch.cat([
+                torch.full_like(tp_xs, 0),
+                torch.full_like(fp_xs, 1),
+                torch.full_like(fn_xs, 2),
+            ])
+            return_cloud_points.append(torch.stack([xs, ys, zs, areas, modes], dim=1))
 
         # Surface dice numerator and denominator
         num += area_pred[idx].sum() + area_true[idx].sum()
@@ -138,7 +182,15 @@ def compute_surface_dice_score(submit: pd.DataFrame, label: pd.DataFrame) -> flo
         y0_pred = y1_pred
 
     dice = num / denom.clamp(min=1e-8)
-    return dice.item()
+    dice = dice.item()
+    if return_colored_cloud:
+        if len(return_cloud_points) > 0:
+            cloud = torch.cat(return_cloud_points, dim=0)
+        else:
+            cloud = torch.zeros((0, 5), dtype=torch.float16, device=device)
+        return dice, cloud
+    else:
+        return dice
 
 
 def compute_surface_dice_score_from_thresholded_mmap(

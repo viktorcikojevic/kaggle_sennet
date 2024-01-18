@@ -21,13 +21,14 @@ import numpy as np
 
 def generate_submission_df_from_one_chunked_inference(
         root_dir: Path,
+        dir_name: str = "thresholded_prob"
 ) -> pd.DataFrame:
     image_names = (root_dir / "image_names").read_text().split("\n")
     chunk_dirs = sorted(list(root_dir.glob("chunk*")))
     i = 0
     data = {"id": [], "rle": [], "height": [], "width": []}
     for d in tqdm(chunk_dirs, position=0):
-        pred = read_mmap_array(d / "thresholded_prob", mode="r")
+        pred = read_mmap_array(d / dir_name, mode="r")
         for c in tqdm(range(pred.shape[0]), position=1, leave=False):
             rle = rle_encode(pred.data[c, :, :])
             if rle == "":
@@ -50,6 +51,83 @@ class ChunkedMetrics:
     recalls: list[float]
     # binary_au_roc: float
     surface_dices: list[float]
+
+
+@torch.no_grad()
+def evaluate_chunked_inference_in_memory(
+        mean_prob_chunk: np.ndarray,
+        label: np.ndarray,
+        thresholds: list[float] = (0.2,),
+        device: str = "cuda",
+) -> ChunkedMetrics:
+    copied_mean_prob_chunk = mean_prob_chunk.copy()
+    copied_label = label
+
+    surface_dices = []
+    f1_scores = []
+    precisions = []
+    recalls = []
+    for t in tqdm(thresholds, desc="dice"):
+        dice = compute_surface_dice_score_from_mmap(
+            mean_prob_chunks=[mean_prob_chunk],
+            label=label,
+            threshold=t,
+        )
+        surface_dices.append(dice)
+
+        fp = 0
+        fn = 0
+        tp = 0
+        for i in tqdm(range(mean_prob_chunk.data.shape[0])):
+            pred_tensor = torch.from_numpy(copied_mean_prob_chunk[i, :, :]).reshape(-1).to(device) > t
+            target_tensor = torch.from_numpy(copied_label[i, :, :]).reshape(-1).to(device)
+
+            tp += (pred_tensor & target_tensor).sum().item()
+            fp += (pred_tensor & ~target_tensor).sum().item()
+            fn += (~pred_tensor & target_tensor).sum().item()
+
+        precision = tp / (tp + fp + 1e-8)
+        recall = tp / (tp + fn + 1e-8)
+        f1_score = 2 * precision * recall / (precision + recall + 1e-8)
+        precisions.append(precision)
+        recalls.append(recall)
+        f1_scores.append(f1_score)
+    # au_roc_score = float(au_roc_metric.compute().cpu().item())
+    return ChunkedMetrics(
+        f1_scores=f1_scores,
+        precisions=precisions,
+        recalls=recalls,
+        surface_dices=surface_dices,
+    )
+
+
+# @torch.no_grad()
+# def evaluate_chunked_inference(
+#         root_dir: Union[str, Path],
+#         label_dir: Union[str, Path],
+#         thresholds: list[float] = (0.2,),
+#         device: str = "cuda",
+# ) -> ChunkedMetrics:
+#     root_dir = Path(root_dir)
+#     label_dir = Path(label_dir)
+#
+#     chunk_dirs = sorted(list(root_dir.glob("chunk*")))
+#     label = read_mmap_array(label_dir / "label", mode="r")
+#     mean_prob_chunks = [
+#         read_mmap_array(d / "mean_prob", mode="r").data
+#         for d in chunk_dirs
+#     ]
+#     assert len(mean_prob_chunks) == 1, f"{len(mean_prob_chunks)} != 1"
+#     mean_prob_chunk = mean_prob_chunks[0]
+#     copied_mean_prob_chunk = mean_prob_chunk.copy()
+#     copied_label = label.data.copy()
+#
+#     return evaluate_chunked_inference_in_memory(
+#         copied_mean_prob_chunk,
+#         copied_label,
+#         thresholds,
+#         device
+#     )
 
 
 @torch.no_grad()
@@ -184,7 +262,7 @@ def load_model_from_dir(model_dir: str | Path) -> Tuple[Dict, Optional[models.Ba
     return cfg, model
 
 
-def sanitise_val_dataset_kwargs(kwargs, load_ann: bool = False) -> dict[str, any]:
+def sanitise_val_dataset_kwargs(kwargs, load_ann: bool = False, fast_mode: bool = False) -> dict[str, any]:
     kwargs = deepcopy(kwargs)
     kwargs["crop_size_range"] = None
     kwargs["load_ann"] = load_ann
@@ -195,6 +273,10 @@ def sanitise_val_dataset_kwargs(kwargs, load_ann: bool = False) -> dict[str, any
     kwargs["augmenter_class"] = None
     kwargs["augmenter_kwargs"] = None
     kwargs["p_random_3d_rotation"] = 0.0
+    if fast_mode:
+        kwargs["add_depth_along_channel"] = True
+        kwargs["add_depth_along_width"] = False
+        kwargs["add_depth_along_height"] = False
     return kwargs
 
 
@@ -205,8 +287,9 @@ def build_data_loader(
         cropping_border: int | None = None,
         batch_size: int = 1,
         num_workers: int = 0,
+        fast_mode: bool = False,
 ):
-    kwargs = sanitise_val_dataset_kwargs(cfg["dataset"]["kwargs"], load_ann=False)
+    kwargs = sanitise_val_dataset_kwargs(cfg["dataset"]["kwargs"], load_ann=False, fast_mode=fast_mode)
     if cropping_border is not None:
         kwargs["cropping_border"] = cropping_border
     dataset = ThreeDSegmentationDataset(

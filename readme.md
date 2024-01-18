@@ -30,12 +30,43 @@ or wherever you want to store the data dumps.
 parallel --jobs 10 -k --lb --eta --bar --progress \
   python3 tools/generate_mmap_dataset.py \
   --path {} \
+  --label-as-mask \
   --output-dir "${PROCESSED_DATA_DIR}" \
   ::: $(ls -d "${DATASET_DIR}/${MODE}/"*)
 
 python3 tools/predict.py --out-dir "${DATA_DUMP_ROOT}/predicted" && \
 python3 tools/pred_to_ply.py --path "${DATA_DUMP_ROOT}/predicted/ensembled/kidney_3_dense" && \
 python3 tools/evaluate.py
+
+# --- watershed stuffs ---
+python3 tools/prepare_watershed_seed.py \
+  --path "${DATA_DUMP_ROOT}/predicted/ensembled" \
+  --skip-seed \
+  --out-dir-name out
+#python3 tools/prepare_watershed_seed.py \
+#  --path "${DATA_DUMP_ROOT}/predicted/ensembled" \
+#  --seed-threshold 0.9 \
+#  --seed-dir-name seed \
+#  --out-dir-name out
+
+export PRED_ROOT="${DATA_DUMP_ROOT}/predicted/ensembled"
+for i in $(ls "${PRED_ROOT}"); do
+  echo "${PRED_ROOT}/${i}";
+  /home/clay/research/kaggle/sennet/cpp/cmake-build-relwithdebinfo-clang/src/app/solveWatershed \
+    --image="${PROCESSED_DATA_DIR}/${i}/image" \
+    --pred="${PRED_ROOT}/${i}/chunk_00/mean_prob" \
+    --seed="${PRED_ROOT}/${i}/chunk_00/thresholded_prob" \
+    --out="${PRED_ROOT}/${i}/chunk_00/out" \
+    --image-diff-threshold=4 \
+    --label-upper-bound=0.2 \
+    --label-lower-bound=0.001
+  echo "---";
+done
+
+python3 tools/mmap_to_submission.py \
+  --path "${PRED_ROOT}" \
+  --folder-name "out" \
+  --out-dir $PWD
 ```
 
 
@@ -47,21 +78,24 @@ python tools/generate_rle_labels.py --path "${DATASET_DIR}/train_rles.csv"
 
 ---
 
-# Installing Pyinterp
-it's a bit of a headache because of this funny library called boost
-
-## Installing Boost
-1. download this and extract it https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.gz
-2. go inside the extracted dir, run the following:
 ```bash
-sudo apt update
-sudo apt install -y build-essential g++ cmake libeigen3-dev libboost-dev libgsl-dev python3-numpy 
-./bootstrap.sh --prefix=/usr/
-sudo ./b2 install
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled_0005/kidney_2 --stride 2 && \
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled_0005/kidney_3_sparse --stride 2 && \
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled/kidney_2 --stride 2 && \
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled/kidney_3_sparse --stride 2 && \
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled_0005/kidney_2 && \
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled_0005/kidney_3_sparse && \
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled/kidney_2 && \
+python3 tools/pred_to_ply_cc3d.py --path data_dumps/predicted/ensembled/kidney_3_sparse && \
+echo "done :D"
 ```
-this should be enough, if things go wrong refer to this guy: https://stackoverflow.com/questions/12578499/how-to-install-boost-on-ubuntu
 
-## Easy Part
 ```bash
-pip3 install pyinterp
+--image /home/clay/research/kaggle/sennet/data_dumps/processed/kidney_3_sparse/image
+--pred /home/clay/research/kaggle/sennet/data_dumps/predicted/for_rg/kidney_3_sparse/chunk_00/mean_prob
+--seed /home/clay/research/kaggle/sennet/data_dumps/predicted/for_rg/kidney_3_sparse/chunk_00/seed
+--out /home/clay/research/kaggle/sennet/data_dumps/predicted/for_rg/kidney_3_sparse/chunk_00/out
+--image-diff-threshold 5
+--label-upper-bound 0.2
+--label-lower-bound 0.0001
 ```

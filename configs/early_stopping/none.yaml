@@ -1,0 +1,6 @@
+# @package _global_
+
+early_stopping:
+  min_delta: 0.0
+  patience: 10000
+  verbose: true

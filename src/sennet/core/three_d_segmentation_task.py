@@ -259,7 +259,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 num_epochs = self.scheduler_spec["override_total_steps"]["num_epochs"]
                 train_loader = self.train_loader
                 scheduler_kwargs[key] = int(num_epochs * len(train_loader) / self.accumulate_grad_batches) + 1
-                print(f"scheduler override_total_steps given, now set to {scheduler_kwargs[key]}")
+                print(f"scheduler override_total_steps given as {num_epochs}, now set to {scheduler_kwargs[key]}")
             scheduler_class = getattr(torch.optim.lr_scheduler, self.scheduler_spec["type"])
             print(f"{scheduler_kwargs = }")
             scheduler = scheduler_class(

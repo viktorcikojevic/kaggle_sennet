@@ -10,11 +10,15 @@ import argparse
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", type=str, required=False)
+    parser.add_argument("--dir-name", type=str, required=False, default=None)
     args, _ = parser.parse_known_args()
     data_dir = Path(args.path)
+    dir_name = args.dir_name
+    if not dir_name:
+        dir_name = "thresholded_prob"
 
     stride = 1
-    chunk_dirs = sorted([d / "thresholded_prob" for d in data_dir.glob("chunk_*") if d.is_dir()])
+    chunk_dirs = sorted([d / dir_name for d in data_dir.glob("chunk_*") if d.is_dir()])
     pred_mmaps = [read_mmap_array(d).data[::stride, ::stride, ::stride] for d in chunk_dirs]
     total_points = 0
     for pm in pred_mmaps:

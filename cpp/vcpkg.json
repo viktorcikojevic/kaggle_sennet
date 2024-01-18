@@ -1,0 +1,11 @@
+{
+  "dependencies": [
+    "fmt",
+    "glog",
+    "nlohmann-json",
+    "mio",
+    "cli11"
+  ],
+  "name": "sennet-cpp",
+  "version": "0.1.0"
+}
