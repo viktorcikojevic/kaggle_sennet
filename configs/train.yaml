@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - model: smp_unet_r50_upsample_3d_decoder    
+  - model: unetr    
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
@@ -17,7 +17,7 @@ num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-group_name: "r50_with_decoder" # maybe this would be useful for grouping experiments when we do hyperparameter search
+group_name: "unetr_boi" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 100
 max_steps: -1
 early_stopping_metric: "surface_dice"
@@ -70,8 +70,8 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 16 # Number of channels to take from the dataset
-    n_appereant_channels: 16
+    n_take_channels: 32 # Number of channels to take from the dataset
+    n_appereant_channels: 32
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
