@@ -133,6 +133,10 @@ def main(cfg: DictConfig):
         accumulate_grad_batches=accumulate_grad_batches,
         **cfg_dict["task"]["kwargs"],
     )
+    callbacks = [
+        # pl.callbacks.RichProgressBar(),
+        pl.callbacks.RichModelSummary(max_depth=3),
+    ]
     if cfg.dry_logger:
         logger = None
     else:
@@ -141,11 +145,7 @@ def main(cfg: DictConfig):
         logger.experiment.config["experiment_name"] = experiment_name
         logger.experiment.config["aug"] = str(train_dataset.datasets[0].augmenter)
         logger.experiment.config["model_full"] = str(model)
-    callbacks = [
-        # pl.callbacks.LearningRateMonitor(),
-        # pl.callbacks.RichProgressBar(),
-        pl.callbacks.RichModelSummary(max_depth=3),
-    ]
+        callbacks.append(pl.callbacks.LearningRateMonitor())
     callbacks += [
         pl.callbacks.EarlyStopping(
             monitor=cfg.early_stopping_metric,
@@ -154,10 +154,22 @@ def main(cfg: DictConfig):
         ),
         pl.callbacks.ModelCheckpoint(
             dirpath=model_out_dir,
-            save_top_k=10,
+            save_top_k=-1,
+            filename=f"{cfg.model.type}" + "-{epoch:02d}",
+        ),
+        pl.callbacks.ModelCheckpoint(
+            dirpath=model_out_dir,
+            save_top_k=1,
+            monitor="f1_score",
+            mode="max",
+            filename=f"{cfg.model.type}" + "-{epoch:02d}-{f1_score:.2f}",
+        ),
+        pl.callbacks.ModelCheckpoint(
+            dirpath=model_out_dir,
+            save_top_k=1,
             monitor="surface_dice" if cfg.task.type == "ThreeDSegmentationTask" else "val_loss",
             mode="max",
-            filename=f"{cfg.model.type}" + "-{epoch:02d}-{step:06d}-{surface_dice:.2f}",
+            filename=f"{cfg.model.type}" + "-{epoch:02d}-{surface_dice:.2f}",
         ),
     ]
     # the weird adjustment is because the original val check interval was designed for apparent batch size of 2

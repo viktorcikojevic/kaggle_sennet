@@ -1,17 +1,3 @@
-#predictors:
-#  threshold: 0.00626
-#  percentile_threshold: null
-#  dust_threshold: null
-##  substride: 0.25
-#  substride: 1.0
-#  cropping_border: 0
-#  tta_kwargs:
-#    add_flips: true
-##    add_flips: false
-#  models:
-#    - SMP_Unet_resnet50_imagenet-c512x1-bs32-abs16-llr-4-t111-sm0-ema1-cb0-2024-01-08-04-29-07
-
-
 predictors:
   threshold: 0.108
   percentile_threshold: null
