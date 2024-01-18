@@ -1,24 +1,24 @@
 defaults:
   - _self_
-  - model: smp_unet_r101_upsample
+  - model: smp_unet_r50_upsample_3d_decoder    
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
-  - scheduler: one_cycle
+  - scheduler: none
   - optimiser: adamw
   - task: three_d_seg
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 20000
-batch_size: 8 # final batch size.
-apparent_batch_size: 8 # batch size during training
+val_check_interval: 10000
+batch_size: 32 # final batch size.
+apparent_batch_size: 1 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-group_name: "r101_upsample_on_labeled_data" # maybe this would be useful for grouping experiments when we do hyperparameter search
-max_epochs: 30
+group_name: "r50_with_decoder" # maybe this would be useful for grouping experiments when we do hyperparameter search
+max_epochs: 100
 max_steps: -1
 early_stopping_metric: "surface_dice"
 #early_stopping_metric: "f1_score"
@@ -30,7 +30,7 @@ loss:
   - type: MccLoss
     weight: 0.001
   - type: DiceLoss
-    weight: 0.4
+    weight: 0.0
     kwargs:
       smooth: 0.0001
   - type: FocalLoss
@@ -42,10 +42,10 @@ loss:
 
 train_folders:
   - kidney_1_dense
-  - kidney_1_dense_fold_0
+  # - kidney_1_dense_fold_0
   # - kidney_2
-  - kidney_2_ml_labeled
-  - kidney_3_sparse_ml_labeled
+  # - kidney_2_ml_labeled
+  # - kidney_3_sparse_ml_labeled
 #  - kidney_2
 
 val_folders:
@@ -61,6 +61,7 @@ batch_transform:
     alpha_mixup: 0.4
     cutmix_prob: 0.3
     mixup_prob: 0.0
+    channel_reverse_prob: 0.5
 
 dataset:
   train_substride: 1.0
@@ -69,8 +70,8 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 1 # Number of channels to take from the dataset
-    n_appereant_channels: 1
+    n_take_channels: 16 # Number of channels to take from the dataset
+    n_appereant_channels: 16
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0

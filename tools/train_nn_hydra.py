@@ -154,7 +154,7 @@ def main(cfg: DictConfig):
         ),
         pl.callbacks.ModelCheckpoint(
             dirpath=model_out_dir,
-            save_top_k=1,
+            save_top_k=10,
             monitor="surface_dice" if cfg.task.type == "ThreeDSegmentationTask" else "val_loss",
             mode="max",
             filename=f"{cfg.model.type}" + "-{epoch:02d}-{step:06d}-{surface_dice:.2f}",
