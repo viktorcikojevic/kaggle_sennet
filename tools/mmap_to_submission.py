@@ -13,7 +13,7 @@ def main():
     args, _ = parser.parse_known_args()
     path = Path(args.path)
     folder_name = args.folder_name
-    out_dir = None if args.out_path is None else Path(args.out_dir)
+    out_dir = None if args.out_dir is None else Path(args.out_dir)
 
     root_dirs = list(path.glob("*"))
     pred_paths = []

@@ -7,7 +7,7 @@ import argparse
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", type=str, required=True)
-    parser.add_argument("--seed-threshold", type=float, required=True, default=0.5)
+    parser.add_argument("--seed-threshold", type=float, required=False, default=0.5)
     parser.add_argument("--seed-dir-name", type=str, required=False, default="seed")
     parser.add_argument("--out-dir-name", type=str, required=False, default="out")
     parser.add_argument("--skip-seed", action="store_true", required=False,  default=False)
@@ -29,7 +29,7 @@ def main():
 
         if not skip_seed:
             seed_mmap = create_mmap_array(sub_dir / "chunk_00" / seed_dir_name, shape=list(mean_prob.shape), dtype=bool)
-            seed_mmap.data[:] = mean_prob.data[:] > seed_threshold
+            seed_mmap.data[:] = mean_prob > seed_threshold
             seed_mmap.data.flush()
     print("done")
 

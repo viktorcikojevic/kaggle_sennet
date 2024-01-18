@@ -106,7 +106,7 @@ private:
                         ++nFilledPoints;
 //                        LOG(INFO) << fmt::format("seed: {}, {}, {}", z, y, x);
                     } else {
-                        outputMask->set(z, y, x, false);
+//                        outputMask->set(z, y, x, false);
                     }
                 }
             }
