@@ -10,6 +10,9 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 from transformers import SegformerConfig, SegformerForSemanticSegmentation
+from collections import OrderedDict
+import torch.nn.functional as F
+from sennet.custom_modules.models.unetr import UNETR
 
 
 class WrappedUNet3D(Base3DSegmentor):
@@ -185,7 +188,7 @@ class SMPModelUpsampleBy2(Base3DSegmentor):
         Base3DSegmentor.__init__(self)
         self.version = version
         if 'freeze_bn_layers' in kw:
-            freeze_bn_layers = kw.pop('freeze_bn_layers')
+            freeze_bn_layers = kw.pop('freeze_bn_layers') if kw['freeze_bn_layers'] is not None else False
         else: 
             freeze_bn_layers = False
         self.freeze_bn_layers = freeze_bn_layers 
@@ -226,11 +229,23 @@ class SMPModelUpsampleBy4(Base3DSegmentor):
         self.version = version
         self.kw = kw
         self.upsampler = layers.PixelShuffleUpsample(in_channels=1, upscale_factor=4)
+        self.freeze_bn_layers = kw.pop('freeze_bn_layers') if 'freeze_bn_layers' in kw else False
         constructor = getattr(smp, self.version)
         self.model = constructor(**kw)
         self.downscale_layer_1 = nn.Conv2d(1, 1, kernel_size=3, stride=2, padding=1)
         self.downscale_layer_2 = nn.Conv2d(1, 1, kernel_size=3, stride=2, padding=1)
 
+        if self.freeze_bn_layers:
+            self.freezing_parameters = self.get_list_of_bn_parameters()
+        else:
+            self.freezing_parameters = []
+
+    def get_list_of_bn_parameters(self):
+        bn_params = []
+        for name, param in self.model.named_parameters():
+            if any(part.startswith('bn') for part in name.split('.')):
+                bn_params.append(name)
+        return bn_params
 
     def get_name(self) -> str:
         return f"SMP_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
@@ -247,6 +262,141 @@ class SMPModelUpsampleBy4(Base3DSegmentor):
             take_indices_end=img.shape[2],
         )
 
+class UNETRModel(Base3DSegmentor):
+    def __init__(self, **kw):
+        Base3DSegmentor.__init__(self)
+        self.in_channels = kw['in_channels']
+        self.img_size = kw['img_size']
+        self.unetr = UNETR(
+            in_channels=1,
+            out_channels=1,
+            img_size=(kw['in_channels'], kw['img_size'], kw['img_size']),
+            conv_block=True
+        )
+
+    def get_name(self) -> str:
+        return f"UNETRModel_{self.in_channels}x{self.img_size}x{self.img_size}"
+
+    def predict(self, img: torch.Tensor) -> SegmentorOutput:
+        assert img.shape[1] == 1, f"{self.__class__.__name__} works in 1 channel images only (for now), expected to have c=1, got {img.shape=}"
+        
+        model_out = self.unetr(img).squeeze(1)
+        
+        return SegmentorOutput(
+            pred=model_out,
+            take_indices_start=0,
+            take_indices_end=img.shape[2],
+        )
+
+
+
+
+class SMPModelUpsampleBy2With3DEncoding(Base3DSegmentor):
+    def __init__(self, version: str, **kw):
+        Base3DSegmentor.__init__(self)
+        self.version = version
+        self.kw = kw
+        self.freeze_2d_model = kw.pop('freeze_2d_model') if 'freeze_2d_model' in kw else False
+        pretrained = kw.pop('pretrained') if 'pretrained' in kw else None
+        kw['in_channels'] = 1 
+        kw['classes'] = 1 
+        num_3d_layers = kw.pop('num_3d_layers') if 'num_3d_layers' in kw else 1
+        self.model_2d = SMPModelUpsampleBy2(version, **kw)
+        
+        if pretrained: 
+            self.load_pretrained_2d_model(pretrained)
+        
+        # Define 3D convolutions and batch norm layers
+        self.conv3d_layers = nn.ModuleList()
+        for indx in range(num_3d_layers):
+            if indx == 0:
+                conv3d = nn.Conv3d(
+                    in_channels=1, 
+                    out_channels=1, 
+                    kernel_size=3, 
+                    padding=1,
+                    stride=1
+                )
+            elif indx != 0 and indx != num_3d_layers - 1:
+                conv3d = nn.Conv3d(
+                    in_channels=1, 
+                    out_channels=1, 
+                    kernel_size=3, 
+                    padding=1,
+                    stride=1
+                )
+            else:
+                conv3d = nn.Conv3d(
+                    in_channels=1, 
+                    out_channels=1, 
+                    kernel_size=3, 
+                    padding=1,
+                    stride=1
+                )
+            # initialize the weights to be small in the beginning
+            nn.init.normal_(conv3d.weight, mean=0.0, std=0.05)
+            nn.init.zeros_(conv3d.bias)
+            self.conv3d_layers.append(conv3d)
+
+
+    def get_name(self) -> str:
+        return f"SMPModelUpsampleBy2With3DEncoding_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
+
+    def load_pretrained_2d_model(self, pretrained) -> None:
+        
+        model_state_dict = torch.load(pretrained, map_location='cpu')['state_dict']
+        
+        if any(k.startswith("ema_") for k in model_state_dict.keys()):
+            model_state_dict = OrderedDict([
+                    (k, v)
+                    for k, v in model_state_dict.items()
+                    if k.startswith("ema_model.")
+                ])
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, prefix="ema_model.module.")
+        else:
+            model_state_dict = OrderedDict([
+                    (k, v)
+                    for k, v in model_state_dict.items()
+                    if k.startswith("model.")
+                ])
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, prefix="model.")
+        
+        load_status = self.model_2d.load_state_dict(model_state_dict)
+        print(load_status)
+        
+    def forward_3d(self, x):
+        for indx, layer in enumerate(self.conv3d_layers):
+            x = F.relu(layer(x)) + x
+            # if indx > 0 and indx < len(self.conv3d_layers) - 1:
+            #     x = F.relu(layer(x)) + x
+            # else:
+            #     x = layer(x)
+        return x
+
+    @profile
+    def predict(self, img: torch.Tensor) -> SegmentorOutput:
+        
+        B, _, C, H, W = img.shape
+        # reshape to B*C, 1, H, W
+        img = img.reshape(B*C, 1, 1, H, W)
+        if self.freeze_2d_model:
+            with torch.no_grad():
+                model_out = self.model_2d.predict(img).pred
+        else:
+            model_out = self.model_2d.predict(img).pred
+        
+        # reshape to B, C, H, W
+        model_out = model_out.reshape(B, C, H, W).unsqueeze(1)
+    
+        # apply 3d convolutions
+        model_out = self.forward_3d(model_out).squeeze(1)
+        
+        
+        return SegmentorOutput(
+            pred=model_out,
+            take_indices_start=0,
+            take_indices_end=C,
+        )
 
 
 class SMPModel3DDecoder(Base3DSegmentor):

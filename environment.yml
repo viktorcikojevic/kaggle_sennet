@@ -44,5 +44,7 @@ dependencies:
     - lightning-bolts
     - deepspeed
     - transformers
+    - monai
+    - einops
     - randomcolor
     - Cython

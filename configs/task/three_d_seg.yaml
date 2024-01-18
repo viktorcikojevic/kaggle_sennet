@@ -1,0 +1,8 @@
+type: "ThreeDSegmentationTask"
+kwargs:
+  eval_threshold: 0.2
+  compute_crude_metrics: false
+  ema_momentum: 0.00025
+#    ema_momentum: null
+#    ignore_border_loss: true
+  ignore_border_loss: false

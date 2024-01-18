@@ -1,0 +1,5 @@
+type: UNETRModel
+kwargs:
+    in_channels: ${dataset.kwargs.n_take_channels}
+    out_channels: ${dataset.kwargs.n_take_channels}
+    img_size: ${dataset.kwargs.crop_size}

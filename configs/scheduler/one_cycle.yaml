@@ -3,6 +3,6 @@ override_total_steps:
   key: total_steps
   num_epochs: ${max_epochs}
 kwargs:
-  max_lr: 1e-4
-  div_factor: 1000000
-  pct_start: 0.05
+  max_lr: 0.0006
+  pct_start: 0.01
+  total_steps: 50000

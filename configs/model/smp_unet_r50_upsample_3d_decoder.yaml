@@ -1,0 +1,10 @@
+type: SMPModelUpsampleBy2With3DEncoding
+kwargs:
+    version: "Unet"
+    encoder_name: "resnet50"
+    encoder_weights: "imagenet"
+    in_channels: ${dataset.kwargs.n_take_channels}
+    classes: ${dataset.kwargs.n_take_channels}
+    pretrained: "/opt/kaggle/sennet/data_dumps/models/SMP_Unet_resnet50_imagenet-c512x1-bs8-abs8-llr-4-t111-sm0-ema1-cb0-2024-01-11-01-05-51/SMPModelUpsampleBy2-epoch=07-step=040336-surface_dice=0.86.ckpt"
+    freeze_2d_model: true
+    num_3d_layers: 16
