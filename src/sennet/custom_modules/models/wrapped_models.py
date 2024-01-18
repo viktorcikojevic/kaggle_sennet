@@ -10,6 +10,9 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 from transformers import SegformerConfig, SegformerForSemanticSegmentation
+from collections import OrderedDict
+import torch.nn.functional as F
+from sennet.custom_modules.models.unetr import UNETR
 
 
 class WrappedUNet3D(Base3DSegmentor):
@@ -259,6 +262,33 @@ class SMPModelUpsampleBy4(Base3DSegmentor):
             take_indices_end=img.shape[2],
         )
 
+class UNETRModel(Base3DSegmentor):
+    def __init__(self, **kw):
+        Base3DSegmentor.__init__(self)
+        self.in_channels = kw['in_channels']
+        self.img_size = kw['img_size']
+        self.unetr = UNETR(
+            in_channels=1,
+            out_channels=1,
+            img_size=(kw['in_channels'], kw['img_size'], kw['img_size']),
+            conv_block=True
+        )
+
+    def get_name(self) -> str:
+        return f"UNETRModel_{self.in_channels}x{self.img_size}x{self.img_size}"
+
+    def predict(self, img: torch.Tensor) -> SegmentorOutput:
+        assert img.shape[1] == 1, f"{self.__class__.__name__} works in 1 channel images only (for now), expected to have c=1, got {img.shape=}"
+        
+        model_out = self.unetr(img).squeeze(1)
+        
+        return SegmentorOutput(
+            pred=model_out,
+            take_indices_start=0,
+            take_indices_end=img.shape[2],
+        )
+
+
 
 
 class SMPModelUpsampleBy2With3DEncoding(Base3DSegmentor):
@@ -278,16 +308,33 @@ class SMPModelUpsampleBy2With3DEncoding(Base3DSegmentor):
         
         # Define 3D convolutions and batch norm layers
         self.conv3d_layers = nn.ModuleList()
-        for _ in range(num_3d_layers):
-            conv3d = nn.Conv3d(
-                in_channels=1, 
-                out_channels=1, 
-                kernel_size=3, 
-                padding=1,
-                stride=1
-            )
+        for indx in range(num_3d_layers):
+            if indx == 0:
+                conv3d = nn.Conv3d(
+                    in_channels=1, 
+                    out_channels=1, 
+                    kernel_size=3, 
+                    padding=1,
+                    stride=1
+                )
+            elif indx != 0 and indx != num_3d_layers - 1:
+                conv3d = nn.Conv3d(
+                    in_channels=1, 
+                    out_channels=1, 
+                    kernel_size=3, 
+                    padding=1,
+                    stride=1
+                )
+            else:
+                conv3d = nn.Conv3d(
+                    in_channels=1, 
+                    out_channels=1, 
+                    kernel_size=3, 
+                    padding=1,
+                    stride=1
+                )
             # initialize the weights to be small in the beginning
-            nn.init.normal_(conv3d.weight, mean=0.0, std=0.0002)
+            nn.init.normal_(conv3d.weight, mean=0.0, std=0.05)
             nn.init.zeros_(conv3d.bias)
             self.conv3d_layers.append(conv3d)
 
@@ -318,8 +365,12 @@ class SMPModelUpsampleBy2With3DEncoding(Base3DSegmentor):
         print(load_status)
         
     def forward_3d(self, x):
-        for layer in self.conv3d_layers:
+        for indx, layer in enumerate(self.conv3d_layers):
             x = F.relu(layer(x)) + x
+            # if indx > 0 and indx < len(self.conv3d_layers) - 1:
+            #     x = F.relu(layer(x)) + x
+            # else:
+            #     x = layer(x)
         return x
 
     @profile
