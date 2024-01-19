@@ -10,7 +10,7 @@ defaults:
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 10000
+val_check_interval: 20000
 batch_size: 32 # final batch size.
 apparent_batch_size: 1 # batch size during training
 num_workers: 1
@@ -26,18 +26,21 @@ early_stopping_metric: "surface_dice"
 
 loss:
   - type: BCELoss
-    weight: 0.001
+    weight: 0.0
   - type: MccLoss
-    weight: 0.001
+    weight: 0.0
   - type: DiceLoss
     weight: 0.0
     kwargs:
       smooth: 0.0001
   - type: FocalLoss
-#    weight: 1.0
     weight: 0.6
     kwargs:
       gamma: 2.0
+  - type: TopKPercentBCELoss
+    weight: 0.0
+    kwargs:
+      k_percent: 0.1
 
 
 train_folders:
@@ -59,7 +62,7 @@ batch_transform:
   kwargs:
     alpha_cutmix: 0.4
     alpha_mixup: 0.4
-    cutmix_prob: 0.3
+    cutmix_prob: 0.2
     mixup_prob: 0.0
     channel_reverse_prob: 0.5
 
