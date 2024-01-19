@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - model: unetr    
+  - model: smp_unet_r50_upsample    
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
@@ -11,13 +11,13 @@ defaults:
   - override hydra/sweeper/sampler: tpe
 
 val_check_interval: 20000
-batch_size: 32 # final batch size.
-apparent_batch_size: 1 # batch size during training
+batch_size: 10 # final batch size.
+apparent_batch_size: 10 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-group_name: "unetr_boi" # maybe this would be useful for grouping experiments when we do hyperparameter search
+group_name: "smp_unet_r50_upsample_n_channels" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 100
 max_steps: -1
 early_stopping_metric: "surface_dice"
@@ -73,15 +73,15 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 32 # Number of channels to take from the dataset
-    n_appereant_channels: 32
+    n_take_channels: 1 # Number of channels to take from the dataset
+    n_appereant_channels: 1
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
     channel_end: null
     sample_with_mask: false
 
-    crop_size_range: [0.8, 1.2]
+    crop_size_range: [0.7, 1.4]
 #    crop_size_range: null
     p_crop_size_noise: 0.25
     p_crop_size_keep_ar: 0.8
