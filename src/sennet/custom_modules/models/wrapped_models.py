@@ -214,13 +214,18 @@ class SMPModelUpsampleBy2(Base3DSegmentor):
     @profile
     def predict(self, img: torch.Tensor) -> SegmentorOutput:
         assert img.shape[1] == 1, f"{self.__class__.__name__} works in 1 channel images only (for now), expected to have c=1, got {img.shape=}"
-        img_upsampled = self.upsampler(img[:, 0, :, :, :])
-        model_out = self.model(img_upsampled)
-        model_out = self.downscale_layer(model_out)
+        B, _, C, H, W = img.shape
+        img = img.reshape(B*C, 1, H, W)
+        img_upsampled = self.upsampler(img) # (b*c, 1, h, w) -> (b*c, 1, h*2, w*2)
+        img_upsampled = img_upsampled.reshape(B, C, H*2, W*2)
+        model_out = self.model(img_upsampled) # (b, c, h*2, w*2) -> (b, c, h*2, w*2)
+        model_out = model_out.reshape(B*C, 1, H*2, W*2)
+        model_out = self.downscale_layer(model_out) # (b*c, 1, h*2, w*2) -> (b*c, 1, h, w)
+        model_out = model_out.reshape(B, C, H, W)
         return SegmentorOutput(
             pred=model_out,
             take_indices_start=0,
-            take_indices_end=img.shape[2],
+            take_indices_end=C,
         )
 
 class SMPModelUpsampleBy4(Base3DSegmentor):
