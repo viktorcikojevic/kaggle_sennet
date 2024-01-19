@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import torch
 
 
-LOSSES_WITH_BCE_INPUT = (custom_losses.BCELoss, custom_losses.FocalLoss)
+LOSSES_WITH_BCE_INPUT = (custom_losses.BCELoss, custom_losses.FocalLoss, custom_losses.TopKPercentBCELoss)
 
 
 class CombinedLoss(torch.nn.Module):
