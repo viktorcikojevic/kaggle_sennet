@@ -73,8 +73,8 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 1 # Number of channels to take from the dataset
-    n_appereant_channels: 1
+    n_take_channels: 8 # Number of channels to take from the dataset
+    n_appereant_channels: 8
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
