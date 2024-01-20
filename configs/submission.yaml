@@ -1,5 +1,5 @@
 predictors:
-  threshold: 0.35
+  threshold: 0.34
   percentile_threshold: null
   dust_threshold: null
 #  substride: 0.25
@@ -10,3 +10,4 @@ predictors:
 #    add_flips: false
   models:
     - "SMP_Unet_resnet50_imagenet-c512x8-bs10-abs10-llr-3.5-t111-sm0-ema0-cb0-2024-01-20-01-27-20"
+    - "SMP_Unet_resnet50_imagenet-c512x1-bs10-abs10-llr-3.5-t111-sm0-ema0-cb0-2024-01-19-18-48-02"
