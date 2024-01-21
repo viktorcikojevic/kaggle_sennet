@@ -7,7 +7,7 @@ from sennet.core.submission_utils import (
 from sennet.core.submission_simple import generate_submission_df, ParallelizationSettings
 from sennet.core.mmap_arrays import read_mmap_array, create_mmap_array
 from sennet.core.tta_model import Tta3DSegmentor
-from sennet.core.post_processings import filter_out_small_blobs
+from sennet.core.post_processings import largest_k_closest_to_center
 from sennet.environments.constants import PROCESSED_DATA_DIR, CONFIG_DIR, MODEL_OUT_DIR
 from typing import List, Union
 from pathlib import Path
@@ -53,8 +53,7 @@ class EnsembledPredictions:
     def finalise(
             self,
             threshold: float,
-            dust_threshold: int = 1000,
-            filter_small_blobs: bool = True,
+            post_process_kwargs: None | dict[str, any] = None,
     ):
         self.mean_prob.data[:] /= self.num_model_count
         self.thresholded_prob.data[:] = self.mean_prob.data > threshold
@@ -62,15 +61,19 @@ class EnsembledPredictions:
         ensembled_df = generate_submission_df_from_one_chunked_inference(self.root_dir)
         ensembled_df.to_csv(self.root_dir / "submission.csv")
 
-        if filter_small_blobs:
+        if post_process_kwargs is not None:
             filtered_dir = self.root_dir.parent.parent / f"{self.root_dir.parent.name}_cc3d" / self.root_dir.name
             filtered_dir.mkdir(exist_ok=True, parents=True)
             (filtered_dir / "image_names").write_text((self.root_dir / "image_names").read_text())
-            filter_out_small_blobs(
+            out_mmap = create_mmap_array(
+                filtered_dir / "chunk_00" / "thresholded_prob",
+                list(self.thresholded_prob.shape),
+                bool,
+            )
+            largest_k_closest_to_center(
                 thresholded_pred=self.thresholded_prob.data,
-                out_path=filtered_dir / "chunk_00" / "thresholded_prob",
-                dust_threshold=dust_threshold,
-                connectivity=26,
+                out=out_mmap.data,
+                **post_process_kwargs,
             )
             ensembled_df = generate_submission_df_from_one_chunked_inference(filtered_dir)
             ensembled_df.to_csv(filtered_dir / "submission.csv")
@@ -130,9 +133,6 @@ def main():
     if fast_mode:
         print(f"WARNING: {fast_mode=}, this shouldn't be turned on in prod")
 
-    if submission_cfg["predictors"]["dust_threshold"] is None:
-        print(f"dust_threshold is None, turning off cc3d")
-        no_cc3d = True
     if run_as_single_process:
         print(f"{run_as_single_process=}: removing all multi processing")
     if run_all:
@@ -206,8 +206,7 @@ def main():
             ensembled_prediction.add_chunked_predictions(data_out_dir)
         ensembled_prediction.finalise(
             threshold=submission_cfg["predictors"]["threshold"],
-            dust_threshold=submission_cfg["predictors"]["dust_threshold"],
-            filter_small_blobs=not no_cc3d,
+            post_process_kwargs=None if no_cc3d else submission_cfg.get("post_processing", None),
         )
 
     print("aggregating preds into its final dir")
