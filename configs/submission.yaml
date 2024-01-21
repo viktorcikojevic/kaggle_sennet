@@ -1,6 +1,6 @@
 predictors:
-#  threshold: 0.003
-  threshold: 0.5
+  threshold: 0.003
+#  threshold: 0.5
   percentile_threshold: null
   dust_threshold: null
 #  substride: 0.25

@@ -31,7 +31,7 @@ def main():
         np.linspace(0.0001, 0.001, num=10).tolist()
         + np.linspace(0.001, 0.01, num=10).tolist()
         + np.linspace(0.01, 0.1, num=10).tolist()
-        + np.linspace(0.1, 0.3, num=10).tolist()
+        + np.linspace(0.1, 1.0, num=10).tolist()
     )
     chunk_dirs = [Path(d) for d in chunk_dirs]
 
