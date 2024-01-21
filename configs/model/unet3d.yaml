@@ -5,7 +5,7 @@ kwargs:
   out_channels: 1
 #  pretrained: "unet3d.pytorch"
   num_groups: 8
-  f_maps: 32
+  f_maps: 64
   final_sigmoid: false
   is_segmentation: false
   is3d: true

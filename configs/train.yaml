@@ -1,26 +1,28 @@
 defaults:
   - _self_
-  - model: smp_unet_r50_upsample
+  - model: unetr    
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
   - scheduler: none
   - optimiser: adamw
+  - task: three_d_seg
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 20000
-batch_size: 10 # final batch size.
-apparent_batch_size: 10 # batch size during training
+val_check_interval: 10000
+batch_size: 32 # final batch size.
+apparent_batch_size: 1 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-group_name: "r50_k12" # maybe this would be useful for grouping experiments when we do hyperparameter search
-max_epochs: 16
+group_name: "unetr_boi" # maybe this would be useful for grouping experiments when we do hyperparameter search
+max_epochs: 100
 max_steps: -1
 early_stopping_metric: "surface_dice"
 #early_stopping_metric: "f1_score"
+
 
 loss:
   - type: BCELoss
@@ -28,7 +30,7 @@ loss:
   - type: MccLoss
     weight: 0.001
   - type: DiceLoss
-    weight: 0.4
+    weight: 0.0
     kwargs:
       smooth: 0.0001
   - type: FocalLoss
@@ -37,19 +39,14 @@ loss:
     kwargs:
       gamma: 2.0
 
-task:
-  kwargs:
-    eval_threshold: 0.2
-    compute_crude_metrics: false
-    ema_momentum: 0.00025
-#    ema_momentum: null
-#    ignore_border_loss: true
-    ignore_border_loss: false
 
 train_folders:
   - kidney_1_dense
-  - kidney_3_dense
-  - kidney_2
+  # - kidney_1_dense_fold_0
+  # - kidney_2
+  # - kidney_2_ml_labeled
+  # - kidney_3_sparse_ml_labeled
+#  - kidney_2
 
 val_folders:
 #  - kidney_1_dense
@@ -64,6 +61,7 @@ batch_transform:
     alpha_mixup: 0.4
     cutmix_prob: 0.3
     mixup_prob: 0.0
+    channel_reverse_prob: 0.5
 
 dataset:
   train_substride: 1.0
@@ -72,8 +70,8 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 1 # Number of channels to take from the dataset
-    n_appereant_channels: 1
+    n_take_channels: 32 # Number of channels to take from the dataset
+    n_appereant_channels: 32
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0

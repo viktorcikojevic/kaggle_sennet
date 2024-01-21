@@ -284,6 +284,7 @@ def build_data_loader(
         folder: str,
         substride: float,
         cfg: Dict,
+        cache_mmaps: bool = True,
         cropping_border: int | None = None,
         batch_size: int = 1,
         num_workers: int = 0,
@@ -295,6 +296,7 @@ def build_data_loader(
     dataset = ThreeDSegmentationDataset(
         folder,
         substride=substride,
+        cache_mmaps=cache_mmaps,
         **kwargs,
     )
     data_loader = DataLoader(

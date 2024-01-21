@@ -116,6 +116,7 @@ def main():
     parser.add_argument("--run-as-single-process", required=False, action="store_true", default=False)
     parser.add_argument("--no-cc3d", required=False, action="store_true", default=False)
     parser.add_argument("--batch-size", required=False, type=int, default=1)
+    parser.add_argument("--cache-mmaps", required=False, action="store_true", default=False)
     parser.add_argument("--fast-mode", required=False, action="store_true", default=False)
 
     submission_cfg_path = CONFIG_DIR / "submission.yaml"
@@ -129,6 +130,7 @@ def main():
     keep_model_chunks = args.keep_model_chunks
     no_cc3d = args.no_cc3d
     batch_size = args.batch_size
+    cache_mmaps = args.cache_mmaps
     fast_mode = args.fast_mode
     if fast_mode:
         print(f"WARNING: {fast_mode=}, this shouldn't be turned on in prod")
@@ -185,6 +187,7 @@ def main():
                 folder,
                 substride=submission_cfg["predictors"]["substride"],
                 cfg=cfg,
+                cache_mmaps=cache_mmaps,
                 cropping_border=submission_cfg["predictors"]["cropping_border"],
                 batch_size=batch_size,
                 num_workers=0,

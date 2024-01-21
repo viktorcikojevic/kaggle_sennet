@@ -85,6 +85,7 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
             p_random_3d_rotation: float = 0.0,
             rot_magnitude_normal_deg: float = 0.0,
             rot_magnitude_plane_deg: float = 0.0,
+            cache_mmaps: bool = True,
     ):
         if crop_size_range is not None:
             assert crop_size_range[0] <= crop_size_range[1], f"{crop_size_range=}"
@@ -102,7 +103,8 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         self.rot_magnitude_plane_rad = rot_magnitude_plane_deg / 180.0 * np.pi
         self.loaded_image_mmaps: dict[str, MmapArray] = {}
         self.loaded_seg_mmaps: dict[str, MmapArray] = {}
-
+        self.cache_mmaps = cache_mmaps
+        
     # @profile
     @profile
     def _get_pixel_bbox(self, results: dict) -> BboxInfo:
@@ -237,11 +239,11 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
     def _load_image_and_seg(self, results: dict) -> tuple[MmapArray, MmapArray | None]:
         img_path = results["image_dir"]
         if img_path not in self.loaded_image_mmaps:
-            self.loaded_image_mmaps[img_path] = read_mmap_array(Path(img_path), mode="r")
+            self.loaded_image_mmaps[img_path] = read_mmap_array(Path(img_path), mode="r", load_numpy_array=self.cache_mmaps)
         if self.load_ann:
             seg_path = results["seg_dir"]
             if seg_path not in self.loaded_seg_mmaps:
-                self.loaded_seg_mmaps[seg_path] = read_mmap_array(Path(seg_path), mode="r")
+                self.loaded_seg_mmaps[seg_path] = read_mmap_array(Path(seg_path), mode="r", load_numpy_array=self.cache_mmaps)
             seg_mmap = self.loaded_seg_mmaps[seg_path]
         else:
             seg_mmap = None

@@ -9,11 +9,13 @@ class BatchTransform:
         alpha_mixup: float,
         cutmix_prob: float,
         mixup_prob: float,
+        channel_reverse_prob: float,
     ):
         self.alpha_cutmix = alpha_cutmix
         self.alpha_mixup = alpha_mixup
         self.cutmix_prob = cutmix_prob
         self.mixup_prob = mixup_prob
+        self.channel_reverse_prob = channel_reverse_prob
         
     def __call__(self, batch):
         img = batch["img"]
@@ -21,6 +23,7 @@ class BatchTransform:
         
         if mask is not None:
             img, mask = self.apply_cutmix_and_mixup(img, mask)
+            img, mask = self.apply_channel_reverse(img, mask)
             batch["img"] = img
             batch["gt_seg_map"] = mask
             return batch
@@ -28,6 +31,15 @@ class BatchTransform:
             batch["img"] = img
             return batch
         
+    def apply_channel_reverse(self, img, mask):
+        # Apply Channel Reverse
+        if np.random.rand() < self.channel_reverse_prob:
+            # Channel Reverse
+            img = img.flip(2)
+            mask = mask.flip(2)
+            
+        return img, mask
+    
     def apply_cutmix_and_mixup(self, img, mask):
         # Apply Cutmix and Mixup
         if np.random.rand() < self.cutmix_prob:

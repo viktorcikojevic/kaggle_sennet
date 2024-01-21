@@ -12,6 +12,7 @@ import torch.nn as nn
 import torch.optim
 import json
 import numpy as np
+from tqdm import tqdm
 
 
 class EMA(nn.Module):
@@ -58,6 +59,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
         pl.LightningModule.__init__(self)
         print(f"unused kwargs: {kwargs}")
         self.model = model
+        self.freezing_parameters = self.get_freezing_parameters()
         self.ema_momentum = ema_momentum
         if self.ema_momentum is not None:
             print(f"{ema_momentum=} is given, evaluations will be done using ema")
@@ -90,10 +92,21 @@ class ThreeDSegmentationTask(pl.LightningModule):
         self.total_val_loss = 0.0
         self.val_count = 0
 
+    def get_freezing_parameters(self):
+        return self.model.freezing_parameters if hasattr(self.model, "freezing_parameters") else []
+
+
     def training_step(self, batch: Dict, batch_idx: int):
         if self.batch_transform is not None:
             batch = self.batch_transform(batch)
-        self.model = self.model.train()
+        # self.model = self.model.train()
+        # freeze layers
+        for name, param in self.model.named_parameters():
+            if name in self.freezing_parameters:
+                param.requires_grad = False
+            else:
+                param.requires_grad = True
+        
         seg_pred = self.model.predict(batch["img"])
         preds = seg_pred.pred
         gt_seg_map = batch["gt_seg_map"].float()
@@ -204,26 +217,76 @@ class ThreeDSegmentationTask(pl.LightningModule):
             #     connectivity=26,
             # )
 
-            thresholds = [0.001, 0.002, 0.005, 0.01, 0.02, 0.03, 0.04, 0.08, 0.1]
-            metrics: ChunkedMetrics = evaluate_chunked_inference(
-                root_dir=out_dir,
-                # root_dir=cc3d_out_dir,
-                label_dir=PROCESSED_DATA_DIR / self.val_folders[0],  # TODO(Sumo): adjust this so we can eval more folders
-                thresholds=thresholds,
-            )
-            surface_dice_scores = metrics.surface_dices
-            best_dice_current = np.max(surface_dice_scores)
-            best_threshold_current = thresholds[np.argmax(surface_dice_scores)]
-            best_f1_score = np.max(metrics.f1_scores)
+            # thresholds = [0.001, 0.002, 0.005, 0.01, 0.02, 0.03, 0.04, 0.08, 0.1]
+            thresholds = np.linspace(0.001, 0.95, 5).tolist()
+            thresholds_all= []
+            precisions_all = []
+            recalls_all = []
+            f1_scores_all = []
+            dices_all = []
+            for level in range(3):
+                metrics: ChunkedMetrics = evaluate_chunked_inference(
+                    root_dir=out_dir,
+                    # root_dir=cc3d_out_dir,
+                    label_dir=PROCESSED_DATA_DIR / self.val_folders[0],  # TODO(Sumo): adjust this so we can eval more folders
+                    thresholds=thresholds,
+                )
+                thresholds_all.append(thresholds)
+                precisions_all.append(metrics.precisions)
+                recalls_all.append(metrics.recalls)
+                f1_scores_all.append(metrics.f1_scores)
+                dices_all.append(metrics.surface_dices)
+                
+                best_dice_current = np.max(metrics.surface_dices)
+                best_threshold_current = thresholds[np.argmax(metrics.surface_dices)]
+                
+                indx_best = np.argmax(metrics.surface_dices)
+                # create a new thresholds, between indx_best-1 and indx_best+1
+                if indx_best == 0:
+                    thresholds = np.linspace(
+                        0.05 * thresholds[0],
+                        0.95 * thresholds[0],
+                        5,
+                    ).tolist()
+                elif indx_best == len(thresholds) - 1:
+                    thresholds = np.linspace(
+                        (0.95 * thresholds[-2] + 0.05 * thresholds[-1]),
+                        1.05 * thresholds[-1],
+                        5,
+                    ).tolist()
+                else:
+                    thresholds = np.linspace(
+                        (0.75 * thresholds[indx_best - 1] + 0.25 * thresholds[indx_best]),
+                        (0.25 * thresholds[indx_best - 1] + 0.75 * thresholds[indx_best]),
+                        5,
+                    ).tolist()
+            
+            # turn all into concatenated lists
+            thresholds_all = np.ascontiguousarray(thresholds_all).flatten()
+            precisions_all = np.ascontiguousarray(precisions_all).flatten()
+            recalls_all = np.ascontiguousarray(recalls_all).flatten()
+            f1_scores_all = np.ascontiguousarray(f1_scores_all).flatten()
+            dices_all = np.ascontiguousarray(dices_all).flatten()
+            
+            # sort all by thresholds
+            indx_sort = np.argsort(thresholds_all)
+            thresholds_all = thresholds_all[indx_sort]
+            precisions_all = precisions_all[indx_sort]
+            recalls_all = recalls_all[indx_sort]
+            f1_scores_all = f1_scores_all[indx_sort]
+            dices_all = dices_all[indx_sort]
+            
+                
+            best_f1_score = np.max(f1_scores_all)
             print("--------------------------------")
             print("precisions:")
-            print(json.dumps({t: d for t, d in zip(thresholds, metrics.precisions)}, indent=4))
+            print(json.dumps({t: d for t, d in zip(thresholds_all, precisions_all)}, indent=4))
             print("recalls:")
-            print(json.dumps({t: d for t, d in zip(thresholds, metrics.recalls)}, indent=4))
+            print(json.dumps({t: d for t, d in zip(thresholds_all, recalls_all)}, indent=4))
             print(f"f1_scores:")
-            print(f"{json.dumps({t: d for t, d in zip(thresholds, metrics.f1_scores)}, indent=4)}")
+            print(f"{json.dumps({t: d for t, d in zip(thresholds_all, f1_scores_all)}, indent=4)}")
             print("dice_scores:")
-            print(json.dumps({t: d for t, d in zip(thresholds, surface_dice_scores)}, indent=4))
+            print(json.dumps({t: d for t, d in zip(thresholds_all, dices_all)}, indent=4))
             print(f"best_threshold_current = {best_threshold_current}")
             print(f"best_dice_current = {best_dice_current}")
             print(f"{crude_f1 = }")
@@ -235,8 +298,8 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 self.best_f1_score = best_f1_score
             self.log_dict({
                 "f1_score": best_f1_score,
-                "precision": np.max(metrics.precisions),
-                "recall": np.max(metrics.recalls),
+                "precision": np.max(precisions_all),
+                "recall": np.max(recalls_all),
                 "threshold": best_threshold_current,
                 "surface_dice": best_dice_current,
                 "crude_f1": crude_f1,
@@ -275,3 +338,57 @@ class ThreeDSegmentationTask(pl.LightningModule):
         else:
             print("no scheduler")
         return ret_val
+
+
+class DenoiseTask(ThreeDSegmentationTask):
+    def __init__(
+            self,
+            *args,
+            **kwargs
+    ):
+        ThreeDSegmentationTask.__init__(self, *args, **kwargs)
+        self.std_noise = kwargs["std_noise"]
+
+    def training_step(self, batch: Dict, batch_idx: int):
+        self.model = self.model.train()
+        
+        img = batch["img"]
+        
+        noise = torch.randn_like(img) * self.std_noise
+        img = img + noise
+        
+        img_pred = self.model.predict(img).pred.squeeze()
+        
+        # L1 loss between img_true and img_pred
+        loss = nn.L1Loss()(img_pred, noise.squeeze())
+
+        self.log_dict({
+            "train_loss": loss,
+        }, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch: Dict, batch_idx: int):
+        return
+
+    def on_validation_epoch_end(self) -> None:
+        with torch.no_grad():
+            # loop over self.val_loader
+            val_loss = 0
+            for batch in tqdm(self.val_loader, total=len(self.val_loader)):
+                self.model = self.model.eval()
+
+                img = batch["img"].to(self.device)
+                noise = torch.randn_like(img) * self.std_noise
+                noise = noise.to(self.device)
+                img = img + noise
+                img_pred = self.model.predict(img).pred
+
+                # loss is mse between img_true and img_pred
+                loss = nn.L1Loss()(img_pred.squeeze(), noise.squeeze())
+                val_loss += loss
+            
+            val_loss = val_loss / len(self.val_loader)
+            self.log_dict({
+                "val_loss": val_loss,
+            })
+
