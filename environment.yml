@@ -48,3 +48,4 @@ dependencies:
     - einops
     - randomcolor
     - Cython
+    - cvxpy
