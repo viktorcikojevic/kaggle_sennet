@@ -18,7 +18,7 @@ dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
 group_name: "smp_unet_r50_upsample_n_channels" # maybe this would be useful for grouping experiments when we do hyperparameter search
-max_epochs: 100
+max_epochs: 200
 max_steps: -1
 early_stopping_metric: "surface_dice"
 #early_stopping_metric: "f1_score"
@@ -73,8 +73,8 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 8 # Number of channels to take from the dataset
-    n_appereant_channels: 8
+    n_take_channels: 16 # Number of channels to take from the dataset
+    n_appereant_channels: 16
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
