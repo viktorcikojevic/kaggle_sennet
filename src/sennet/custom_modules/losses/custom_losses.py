@@ -1,5 +1,7 @@
+from sennet.custom_modules.metrics.surface_dice_metric_fast import create_table_neighbour_code_to_surface_area
 import segmentation_models_pytorch.losses as smp_loss
 import pytorch_toolbelt.losses as ptb_loss
+from line_profiler_pycharm import profile
 import torch
 import torch.nn as nn
 
@@ -86,3 +88,118 @@ class PtbLoss(nn.Module):
 
     def forward(self, logits, target):
         return self.loss(logits, target)
+
+
+class SurfaceDiceLoss(nn.Module):
+    def __init__(self, smooth=1e-3, device="cuda"):
+        nn.Module.__init__(self)
+        self.smooth = smooth
+        self.area = create_table_neighbour_code_to_surface_area((1, 1, 1))
+        self.area = torch.from_numpy(self.area).to(device)  # torch.float32
+        self.unfold = torch.nn.Unfold(kernel_size=(2, 2), padding=1)
+        self.device = device
+        self.bases = torch.tensor([
+            [c == "1" for c in f"{i:08b}"[::-1]]
+            for i in range(256)
+        ]).float().to(device)
+        self.n_bases = self.bases.shape[0]
+
+    @profile
+    def _forward_z_pair(self, pred, labels):
+        # pred = (batch, z, y, x): logits
+        # labels = (batch, z, y, x): labels (0 or 1 only)
+
+        # unfold: group 8 corners together
+        unfolded_pred = self.unfold(pred)
+        unfolded_labels = self.unfold(labels.float())
+
+        batch_size, n_corners, n_points = unfolded_pred.shape
+        assert n_corners == 8, f"{n_corners=} == 8, are you working on 2 slices?"
+        weights = torch.zeros((batch_size, self.n_bases, n_points), device=self.device)
+
+        # greedy solve weights
+        done = False
+        copied_unfolded_pred = unfolded_pred.clone()
+        for i in range(self.n_bases):
+            done = (copied_unfolded_pred.abs() < 1e-5).all()
+            if done:
+                break
+
+            nonzero_masks = copied_unfolded_pred > 0
+
+            pred_cube_bytes = sum(nonzero_masks[:, k, :] << k for k in range(8))
+            pred_cube_bases = self.bases[pred_cube_bytes, :].permute((0, 2, 1))
+            subtraction_weights = torch.where(copied_unfolded_pred > 0, copied_unfolded_pred, torch.inf).min(1).values  # (batch, n_points)
+            inf_mask = subtraction_weights.isinf()
+            subtraction_weights[inf_mask] = 0
+
+            for b in range(batch_size):
+                w = subtraction_weights[b]
+                weights[b][pred_cube_bytes[b], torch.arange(weights.shape[2], device=self.device)] += w
+                copied_unfolded_pred[b] -= w[None, :] * pred_cube_bases[b]
+        assert done, f"solver failed"
+
+        # computing label areas
+        label_cubes_byte = sum(unfolded_labels[:, k, :].to(torch.int32) << k for k in range(8))
+
+        label_areas = torch.zeros((label_cubes_byte.shape[0], label_cubes_byte.shape[1]), dtype=torch.float32, device=self.device)
+        for b in range(label_cubes_byte.shape[0]):
+            label_areas[b, :] = self.area[label_cubes_byte[b, :]]
+
+        # computing pred areas
+        pred_areas = (weights.permute((0, 2, 1)) @ self.area.tile((batch_size, 1)).unsqueeze(-1)).squeeze(-1)
+
+        intersection = pred_areas * label_areas
+        numerator = 2 * intersection.sum(1)
+        denominator = label_areas.sum(1) + pred_areas.sum(1)
+
+        # aaa_pred_areas_np = pred_areas.numpy().reshape((-1, 1))
+        # aaa_label_areas_np = label_areas.numpy().reshape((-1, 1))
+        # aaa_label_cubes_byte = label_cubes_byte.numpy().reshape((-1, 1))
+        # aaa_max_weights_values = weights[0].max(0).values.numpy().reshape((-1, 1))
+        # aaa_pred_cubes_byte_w = weights[0].max(0).indices.numpy().reshape((-1, 1))
+        # aaa_pred_label_diff = (unfolded_pred - unfolded_labels).abs().sum()
+        # residual = (self.bases.permute((1, 0)).tile((batch_size, 1, 1)) @ weights) - unfolded_pred
+        # aaa_residual = residual.abs().sum()
+        # aaa_area_diff = aaa_pred_areas_np - aaa_label_areas_np
+        # aaa_bytes_diff = aaa_pred_cubes_byte_w - aaa_label_cubes_byte
+        # aaa_area_diff_sum = (pred_areas - label_areas).abs().sum()
+        return numerator, denominator
+
+    @profile
+    def forward(self, pred, labels):
+        batch_size, zs, ys, xs = pred.shape
+        assert pred.shape == labels.shape
+        assert zs >= 2, f"zs not >= 2, {pred.shape=}"
+        pred_sigmoid = torch.sigmoid(pred)
+        num = 0
+        denom = 0
+        for z_start in range(zs-1):
+            z_end = z_start + 2
+            pair_num, pair_denom = self._forward_z_pair(pred_sigmoid[:, z_start: z_end, ...], labels[:, z_start: z_end, ...])
+            num += pair_num
+            denom += pair_denom
+        dice = 1 - ((num + self.smooth) / (denom + self.smooth))
+        return dice.mean()
+
+
+if __name__ == "__main__":
+    import time
+    import os
+
+    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+    _device = "cpu"
+    _batch_size = 1
+    _zs = 2
+    _ys = 3
+    _xs = 3
+    _pred = torch.rand((_batch_size, _zs, _ys, _xs)).to(_device)
+    _pred = torch.log(_pred / (1 - _pred + 1e-6))  # inverse sigmoid cuz loss does sigmoid
+    _labels = (torch.rand((_batch_size, _zs, _ys, _xs)) > 0.5).to(_device)
+    # _pred = torch.log((_labels.float() / (1 - _labels.float() + 1e-6)))  # NOTE: sets pred to labels
+    _criterion = SurfaceDiceLoss(device=_device)
+    _t0 = time.time()
+    _loss = _criterion(_pred, _labels)
+    _loss.cpu()
+    _t1 = time.time()
+    print(_loss, _t1 - _t0)
