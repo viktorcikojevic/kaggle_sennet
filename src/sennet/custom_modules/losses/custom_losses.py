@@ -167,11 +167,10 @@ class SurfaceDiceLoss(nn.Module):
         return numerator, denominator
 
     @profile
-    def forward(self, pred, labels):
-        batch_size, zs, ys, xs = pred.shape
-        assert pred.shape == labels.shape
-        assert zs >= 2, f"zs not >= 2, {pred.shape=}"
-        pred_sigmoid = torch.sigmoid(pred)
+    def forward_sigmoid(self, pred_sigmoid, labels):
+        batch_size, zs, ys, xs = pred_sigmoid.shape
+        assert pred_sigmoid.shape == labels.shape
+        assert zs >= 2, f"zs not >= 2, {pred_sigmoid.shape=}"
         num = 0
         denom = 0
         for z_start in range(zs-1):
@@ -182,24 +181,41 @@ class SurfaceDiceLoss(nn.Module):
         dice = 1 - ((num + self.smooth) / (denom + self.smooth))
         return dice.mean()
 
+    @profile
+    def forward(self, pred, labels):
+        pred_sigmoid = torch.sigmoid(pred)
+        return self.forward_sigmoid(pred_sigmoid, labels)
+
 
 if __name__ == "__main__":
     import time
     import os
 
-    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
-    _device = "cpu"
+    # os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+    _device = "cuda"
     _batch_size = 1
     _zs = 2
     _ys = 3
     _xs = 3
     _pred = torch.rand((_batch_size, _zs, _ys, _xs)).to(_device)
-    _pred = torch.log(_pred / (1 - _pred + 1e-6))  # inverse sigmoid cuz loss does sigmoid
-    _labels = (torch.rand((_batch_size, _zs, _ys, _xs)) > 0.5).to(_device)
-    # _pred = torch.log((_labels.float() / (1 - _labels.float() + 1e-6)))  # NOTE: sets pred to labels
+    _labels = (torch.rand((_batch_size, _zs, _ys, _xs)) > 0.5).to(_device).float()
     _criterion = SurfaceDiceLoss(device=_device)
+
     _t0 = time.time()
-    _loss = _criterion(_pred, _labels)
-    _loss.cpu()
+    _loss = _criterion.forward_sigmoid(_pred, _labels)
+    _loss = _loss.cpu()
+    _loss_label = _criterion.forward_sigmoid(_labels, _labels)
+    _loss_label = _loss_label.cpu()
     _t1 = time.time()
-    print(_loss, _t1 - _t0)
+    print(f"loss={_loss}, loss_label={_loss_label}, t={_t1 - _t0}")
+
+    _raw_pred = torch.log(_pred / (1 - _pred + 1e-6))
+    _var = _raw_pred.clone().detach().requires_grad_(True)
+    _optim = torch.optim.SGD([_var], lr=1.0)
+    for i in range(10000):
+        _optim.zero_grad()
+        _loss = _criterion(_var, _labels)
+        _loss.backward()
+        _optim.step()
+        if i % 100 == 0:
+            print(f"[{i=}]: {_loss=}")

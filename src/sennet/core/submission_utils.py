@@ -59,6 +59,7 @@ def evaluate_chunked_inference_in_memory(
         label: np.ndarray,
         thresholds: list[float] = (0.2,),
         device: str = "cuda",
+        disable_tqdm: bool = False,
 ) -> ChunkedMetrics:
     copied_mean_prob_chunk = mean_prob_chunk.copy()
     copied_label = label
@@ -67,7 +68,7 @@ def evaluate_chunked_inference_in_memory(
     f1_scores = []
     precisions = []
     recalls = []
-    for t in tqdm(thresholds, desc="dice"):
+    for t in tqdm(thresholds, desc="dice", disable=disable_tqdm):
         dice = compute_surface_dice_score_from_mmap(
             mean_prob_chunks=[mean_prob_chunk],
             label=label,
@@ -78,7 +79,7 @@ def evaluate_chunked_inference_in_memory(
         fp = 0
         fn = 0
         tp = 0
-        for i in tqdm(range(mean_prob_chunk.data.shape[0])):
+        for i in tqdm(range(mean_prob_chunk.data.shape[0]), disable=disable_tqdm):
             pred_tensor = torch.from_numpy(copied_mean_prob_chunk[i, :, :]).reshape(-1).to(device) > t
             target_tensor = torch.from_numpy(copied_label[i, :, :]).reshape(-1).to(device)
 
