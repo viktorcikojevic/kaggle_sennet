@@ -132,6 +132,7 @@ class SurfaceDiceLoss(nn.Module):
             subtraction_weights = torch.where(copied_unfolded_pred > 0, copied_unfolded_pred, torch.inf).min(1).values  # (batch, n_points)
             inf_mask = subtraction_weights.isinf()
             subtraction_weights[inf_mask] = 0
+            # subtraction_weights = torch.where(subtraction_weights.isinf(), 0, subtraction_weights)
 
             for b in range(batch_size):
                 w = subtraction_weights[b]
@@ -149,9 +150,18 @@ class SurfaceDiceLoss(nn.Module):
         # computing pred areas
         pred_areas = (weights.permute((0, 2, 1)) @ self.area.tile((batch_size, 1)).unsqueeze(-1)).squeeze(-1)
 
-        intersection = pred_areas * label_areas
-        numerator = 2 * intersection.sum(1)
+        numerator = torch.zeros(label_cubes_byte.shape[0], dtype=torch.float32, device=self.device)
+        for b in range(label_cubes_byte.shape[0]):
+            idx = torch.logical_and(pred_areas[b] > 0, label_areas[b] > 0)
+            numerator[b] = label_areas[b][idx].sum() + pred_areas[b][idx].sum()
         denominator = label_areas.sum(1) + pred_areas.sum(1)
+
+        # idx = (pred_areas > 0) & (label_areas > 0)
+        # area_sum = label_areas + pred_areas
+        # numerator2 = (area_sum * idx).sum(1)
+        # denominator2 = area_sum.sum(1)
+        # assert (numerator2 - numerator).abs().sum() < 1e-3
+        # assert (denominator2 - denominator).abs().sum() < 1e-3
 
         # aaa_pred_areas_np = pred_areas.numpy().reshape((-1, 1))
         # aaa_label_areas_np = label_areas.numpy().reshape((-1, 1))
@@ -165,6 +175,7 @@ class SurfaceDiceLoss(nn.Module):
         # aaa_bytes_diff = aaa_pred_cubes_byte_w - aaa_label_cubes_byte
         # aaa_area_diff_sum = (pred_areas - label_areas).abs().sum()
         return numerator, denominator
+        # return numerator2, denominator2
 
     @profile
     def forward_sigmoid(self, pred_sigmoid, labels):
@@ -191,8 +202,9 @@ if __name__ == "__main__":
     import time
     import os
 
-    # os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
     _device = "cuda"
+    # _device = "cpu"
     _batch_size = 1
     _zs = 2
     _ys = 3
@@ -209,13 +221,13 @@ if __name__ == "__main__":
     _t1 = time.time()
     print(f"loss={_loss}, loss_label={_loss_label}, t={_t1 - _t0}")
 
-    _raw_pred = torch.log(_pred / (1 - _pred + 1e-6))
-    _var = _raw_pred.clone().detach().requires_grad_(True)
-    _optim = torch.optim.SGD([_var], lr=1.0)
-    for i in range(10000):
-        _optim.zero_grad()
-        _loss = _criterion(_var, _labels)
-        _loss.backward()
-        _optim.step()
-        if i % 100 == 0:
-            print(f"[{i=}]: {_loss=}")
+    # _raw_pred = torch.log(_pred / (1 - _pred + 1e-6))
+    # _var = _raw_pred.clone().detach().requires_grad_(True)
+    # _optim = torch.optim.SGD([_var], lr=1.0)
+    # for _i in range(10000):
+    #     _optim.zero_grad()
+    #     _loss = _criterion(_var, _labels)
+    #     _loss.backward()
+    #     _optim.step()
+    #     if _i % 100 == 0:
+    #         print(f"[{_i=}]: {_loss=}")
