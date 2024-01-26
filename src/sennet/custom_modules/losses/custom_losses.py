@@ -111,7 +111,7 @@ class SurfaceDiceLoss(nn.Module):
 
         # unfold: group 8 corners together
         unfolded_pred = self.unfold(pred)
-        unfolded_labels = self.unfold(labels.float())
+        unfolded_labels = self.unfold(labels.float()).to(torch.int32)
 
         batch_size, n_corners, n_points = unfolded_pred.shape
         assert n_corners == 8, f"{n_corners=} == 8, are you working on 2 slices?"
@@ -119,7 +119,7 @@ class SurfaceDiceLoss(nn.Module):
         pred_areas = torch.zeros((batch_size, n_points), device=self.device)
         pred_weights_in_label_cubes = torch.zeros((batch_size, n_points), device=self.device)
 
-        label_cubes_byte = sum(unfolded_labels[:, k, :].to(torch.int32) << k for k in range(8))
+        label_cubes_byte = sum(unfolded_labels[:, k, :] << k for k in range(8))
         # greedy solve weights
         done = False
         copied_unfolded_pred = unfolded_pred.clone()
@@ -128,11 +128,15 @@ class SurfaceDiceLoss(nn.Module):
             if done:
                 break
 
-            nonzero_masks = (copied_unfolded_pred > 0).to(torch.int32)
+            if i == 0:
+                nonzero_masks = unfolded_labels
+            else:
+                nonzero_masks = (copied_unfolded_pred > 0).to(torch.int32)
 
             pred_cube_bytes = sum(nonzero_masks[:, k, :] << k for k in range(8))
             pred_cube_bases = self.bases[pred_cube_bytes, :].permute((0, 2, 1))
-            subtraction_weights = torch.where(copied_unfolded_pred > 0, copied_unfolded_pred, torch.inf).min(1).values  # (batch, n_points)
+            # subtraction_weights = torch.where(copied_unfolded_pred > 0, copied_unfolded_pred, torch.inf).min(1).values  # (batch, n_points)
+            subtraction_weights = torch.where(nonzero_masks > 0, copied_unfolded_pred, torch.inf).min(1).values  # (batch, n_points)
             subtraction_weights = torch.where(subtraction_weights.isinf(), 0, subtraction_weights)
 
             pred_areas += self.area[pred_cube_bytes] * subtraction_weights
@@ -200,14 +204,16 @@ if __name__ == "__main__":
     _labels = (torch.rand((_batch_size, _zs, _ys, _xs)) > 0.5).to(_device).float()
     _criterion = SurfaceDiceLoss(device=_device)
 
+    # _loss = 0
+    _loss_label = 0
+
     _t0 = time.time()
     _loss = _criterion.forward_sigmoid(_pred, _labels)
     _loss = _loss.cpu()
-    _loss_label = _criterion.forward_sigmoid(_labels, _labels)
-    _loss_label = _loss_label.cpu()
+    # _loss_label = _criterion.forward_sigmoid(_labels, _labels)
+    # _loss_label = _loss_label.cpu()
     _t1 = time.time()
     print(f"loss={_loss}, loss_label={_loss_label}, t={_t1 - _t0}")
-    # print(f"loss_label={_loss_label}, t={_t1 - _t0}")
 
     # _raw_pred = torch.log(_pred / (1 - _pred + 1e-6))
     # _var = _raw_pred.clone().detach().requires_grad_(True)
