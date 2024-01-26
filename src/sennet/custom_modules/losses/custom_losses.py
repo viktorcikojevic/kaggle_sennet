@@ -117,7 +117,9 @@ class SurfaceDiceLoss(nn.Module):
         assert n_corners == 8, f"{n_corners=} == 8, are you working on 2 slices?"
         # weights = torch.zeros((batch_size, self.n_bases, n_points), device=self.device)
         pred_areas = torch.zeros((batch_size, n_points), device=self.device)
+        pred_weights_in_label_cubes = torch.zeros((batch_size, n_points), device=self.device)
 
+        label_cubes_byte = sum(unfolded_labels[:, k, :].to(torch.int32) << k for k in range(8))
         # greedy solve weights
         done = False
         copied_unfolded_pred = unfolded_pred.clone()
@@ -134,6 +136,7 @@ class SurfaceDiceLoss(nn.Module):
             subtraction_weights = torch.where(subtraction_weights.isinf(), 0, subtraction_weights)
 
             pred_areas += self.area[pred_cube_bytes] * subtraction_weights
+            pred_weights_in_label_cubes += (pred_cube_bytes == label_cubes_byte) * subtraction_weights  # if cube bytes match, add the weights
             copied_unfolded_pred -= subtraction_weights[:, None, :] * pred_cube_bases
             # for b in range(batch_size):
             #     w = subtraction_weights[b]
@@ -143,8 +146,6 @@ class SurfaceDiceLoss(nn.Module):
         assert done, f"solver failed"
 
         # computing label areas
-        label_cubes_byte = sum(unfolded_labels[:, k, :].to(torch.int32) << k for k in range(8))
-
         label_areas = torch.zeros((label_cubes_byte.shape[0], label_cubes_byte.shape[1]), dtype=torch.float32, device=self.device)
         for b in range(label_cubes_byte.shape[0]):
             label_areas[b, :] = self.area[label_cubes_byte[b, :]]
@@ -152,10 +153,15 @@ class SurfaceDiceLoss(nn.Module):
         # computing pred areas
         # pred_areas2 = (weights.permute((0, 2, 1)) @ self.area.tile((batch_size, 1)).unsqueeze(-1)).squeeze(-1)
 
-        idx = (pred_areas > 0) & (label_areas > 0)
-        area_sum = label_areas + pred_areas
-        numerator = (area_sum * idx).sum(1)
-        denominator = area_sum.sum(1)
+        # idx = (pred_areas > 0) & (label_areas > 0)
+        # area_sum = label_areas + pred_areas
+        # numerator = (area_sum * idx).sum(1)
+        # denominator = area_sum.sum(1)
+
+        intersection = (pred_weights_in_label_cubes * label_areas).sum(1)
+        numerator = 2*intersection
+        denominator = label_areas.sum(1) + pred_areas.sum(1)
+
         return numerator, denominator
 
     @profile
@@ -184,8 +190,8 @@ if __name__ == "__main__":
     import os
 
     os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
-    _device = "cuda"
-    # _device = "cpu"
+    # _device = "cuda"
+    _device = "cpu"
     _batch_size = 1
     _zs = 2
     _ys = 3
