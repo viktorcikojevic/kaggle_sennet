@@ -115,27 +115,31 @@ class SurfaceDiceLoss(nn.Module):
 
         batch_size, n_corners, n_points = unfolded_pred.shape
         assert n_corners == 8, f"{n_corners=} == 8, are you working on 2 slices?"
-        weights = torch.zeros((batch_size, self.n_bases, n_points), device=self.device)
+        # weights = torch.zeros((batch_size, self.n_bases, n_points), device=self.device)
+        pred_areas = torch.zeros((batch_size, n_points), device=self.device)
 
         # greedy solve weights
         done = False
         copied_unfolded_pred = unfolded_pred.clone()
         for i in range(self.n_bases):
-            done = (copied_unfolded_pred.abs() < 1e-5).all()
+            done = (copied_unfolded_pred < 1e-5).all()
             if done:
                 break
 
-            nonzero_masks = copied_unfolded_pred > 0
+            nonzero_masks = (copied_unfolded_pred > 0).to(torch.int32)
 
             pred_cube_bytes = sum(nonzero_masks[:, k, :] << k for k in range(8))
             pred_cube_bases = self.bases[pred_cube_bytes, :].permute((0, 2, 1))
             subtraction_weights = torch.where(copied_unfolded_pred > 0, copied_unfolded_pred, torch.inf).min(1).values  # (batch, n_points)
             subtraction_weights = torch.where(subtraction_weights.isinf(), 0, subtraction_weights)
 
-            for b in range(batch_size):
-                w = subtraction_weights[b]
-                weights[b][pred_cube_bytes[b], torch.arange(weights.shape[2], device=self.device)] += w
-                copied_unfolded_pred[b] -= w[None, :] * pred_cube_bases[b]
+            pred_areas += self.area[pred_cube_bytes] * subtraction_weights
+            copied_unfolded_pred -= subtraction_weights[:, None, :] * pred_cube_bases
+            # for b in range(batch_size):
+            #     w = subtraction_weights[b]
+            #     # weights[b][pred_cube_bytes[b], torch.arange(weights.shape[2], device=self.device)] += w
+            #     pred_areas[b] += self.area[pred_cube_bytes[b]] * w
+            #     copied_unfolded_pred[b] -= w[None, :] * pred_cube_bases[b]
         assert done, f"solver failed"
 
         # computing label areas
@@ -146,30 +150,12 @@ class SurfaceDiceLoss(nn.Module):
             label_areas[b, :] = self.area[label_cubes_byte[b, :]]
 
         # computing pred areas
-        pred_areas = (weights.permute((0, 2, 1)) @ self.area.tile((batch_size, 1)).unsqueeze(-1)).squeeze(-1)
-
-        # idx = (pred_areas > 0) & (label_areas > 0)
-        # numerator = torch.zeros(label_cubes_byte.shape[0], dtype=torch.float32, device=self.device)
-        # for b in range(label_cubes_byte.shape[0]):
-        #     numerator[b] = label_areas[b][idx[b]].sum() + pred_areas[b][idx[b]].sum()
-        # denominator = label_areas.sum(1) + pred_areas.sum(1)
+        # pred_areas2 = (weights.permute((0, 2, 1)) @ self.area.tile((batch_size, 1)).unsqueeze(-1)).squeeze(-1)
 
         idx = (pred_areas > 0) & (label_areas > 0)
         area_sum = label_areas + pred_areas
         numerator = (area_sum * idx).sum(1)
         denominator = area_sum.sum(1)
-
-        # aaa_pred_areas_np = pred_areas.numpy().reshape((-1, 1))
-        # aaa_label_areas_np = label_areas.numpy().reshape((-1, 1))
-        # aaa_label_cubes_byte = label_cubes_byte.numpy().reshape((-1, 1))
-        # aaa_max_weights_values = weights[0].max(0).values.numpy().reshape((-1, 1))
-        # aaa_pred_cubes_byte_w = weights[0].max(0).indices.numpy().reshape((-1, 1))
-        # aaa_pred_label_diff = (unfolded_pred - unfolded_labels).abs().sum()
-        # residual = (self.bases.permute((1, 0)).tile((batch_size, 1, 1)) @ weights) - unfolded_pred
-        # aaa_residual = residual.abs().sum()
-        # aaa_area_diff = aaa_pred_areas_np - aaa_label_areas_np
-        # aaa_bytes_diff = aaa_pred_cubes_byte_w - aaa_label_cubes_byte
-        # aaa_area_diff_sum = (pred_areas - label_areas).abs().sum()
         return numerator, denominator
 
     @profile
@@ -209,13 +195,13 @@ if __name__ == "__main__":
     _criterion = SurfaceDiceLoss(device=_device)
 
     _t0 = time.time()
-    # _loss = _criterion.forward_sigmoid(_pred, _labels)
-    # _loss = _loss.cpu()
+    _loss = _criterion.forward_sigmoid(_pred, _labels)
+    _loss = _loss.cpu()
     _loss_label = _criterion.forward_sigmoid(_labels, _labels)
     _loss_label = _loss_label.cpu()
     _t1 = time.time()
-    # print(f"loss={_loss}, loss_label={_loss_label}, t={_t1 - _t0}")
-    print(f"loss_label={_loss_label}, t={_t1 - _t0}")
+    print(f"loss={_loss}, loss_label={_loss_label}, t={_t1 - _t0}")
+    # print(f"loss_label={_loss_label}, t={_t1 - _t0}")
 
     # _raw_pred = torch.log(_pred / (1 - _pred + 1e-6))
     # _var = _raw_pred.clone().detach().requires_grad_(True)
