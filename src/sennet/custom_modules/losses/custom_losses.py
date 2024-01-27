@@ -114,7 +114,8 @@ class SurfaceDiceLoss(nn.Module):
         unfolded_labels = self.unfold(labels.float()).to(torch.int32)
 
         batch_size, n_corners, n_points = unfolded_pred.shape
-        assert n_corners == 8, f"{n_corners=} == 8, are you working on 2 slices?"
+        if n_corners != 8:
+            raise RuntimeError(f"{n_corners=} == 8, are you working on 2 slices?")
         # weights = torch.zeros((batch_size, self.n_bases, n_points), device=self.device)
         pred_areas = torch.zeros((batch_size, n_points), device=self.device)
         pred_weights_in_label_cubes = torch.zeros((batch_size, n_points), device=self.device)
@@ -175,9 +176,24 @@ class SurfaceDiceLoss(nn.Module):
         assert zs >= 2, f"zs not >= 2, {pred_sigmoid.shape=}"
         num = 0
         denom = 0
-        for z_start in range(zs-1):
+        blank_slice = torch.zeros((batch_size, 1, ys, xs), dtype=pred_sigmoid.dtype, device=self.device)
+        for z_start in range(-1, zs, 1):
             z_end = z_start + 2
-            pair_num, pair_denom = self._forward_z_pair(pred_sigmoid[:, z_start: z_end, ...], labels[:, z_start: z_end, ...])
+            if z_start < 0:
+                pair_num, pair_denom = self._forward_z_pair(
+                    torch.cat([blank_slice, pred_sigmoid[:, 0: z_end, ...]], dim=1),
+                    torch.cat([blank_slice, labels[:, 0: z_end, ...]], dim=1),
+                )
+            elif z_start == zs-1:
+                pair_num, pair_denom = self._forward_z_pair(
+                    torch.cat([pred_sigmoid[:, z_start: z_start+1, ...], blank_slice], dim=1),
+                    torch.cat([labels[:, z_start: z_start+1, ...], blank_slice], dim=1),
+                )
+            else:
+                pair_num, pair_denom = self._forward_z_pair(
+                    pred_sigmoid[:, z_start: z_end, ...],
+                    labels[:, z_start: z_end, ...]
+                )
             num += pair_num
             denom += pair_denom
         dice = 1 - ((num + self.smooth) / (denom + self.smooth))
