@@ -146,9 +146,9 @@ class SurfaceDiceLoss(nn.Module):
         # noinspection PyTypeChecker
         volumetric_loss = torch.where(
             (label_cubes_byte == 0) | (label_cubes_byte == 255),
-            torch.nn.functional.binary_cross_entropy(unfolded_pred, unfolded_labels.float(), reduction="none"),
+            torch.nn.functional.binary_cross_entropy(unfolded_pred, unfolded_labels.float(), reduction="none").mean(1),
             0.0,
-        ).mean([1, 2])
+        ).mean(1)
 
         intersection = (pred_weights_in_label_cubes * label_areas).sum(1)
         numerator = 2*intersection
@@ -214,9 +214,9 @@ if __name__ == "__main__":
     # _zs = 3
     # _ys = 3
     # _xs = 3
-    _zs = 128
-    _ys = 128
-    _xs = 128
+    _zs = 2
+    _ys = 512
+    _xs = 512
     _pred = torch.rand((_batch_size, _zs, _ys, _xs)).to(_device).float()
     # _pred = torch.ones((_batch_size, _zs, _ys, _xs)).to(_device).float()
     # _pred = torch.full((_batch_size, _zs, _ys, _xs), 0.00001).to(_device).float()
