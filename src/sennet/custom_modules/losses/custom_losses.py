@@ -90,6 +90,15 @@ class PtbLoss(nn.Module):
         return self.loss(logits, target)
 
 
+def _2x2x2_unfold(tensor: torch.Tensor) -> torch.Tensor:
+    # tensor: (b, z, h, w)
+    # returns: (b, 8, num_points), unfolded tensor for marching cube
+    batch_size = tensor.shape[0]
+    tall_unfolded = torch.nn.functional.unfold(tensor, kernel_size=(2, 2), padding=1)
+    unfolded = tall_unfolded.unfold(dimension=1, size=8, step=4).permute((0, 3, 1, 2)).reshape((batch_size, 8, -1))
+    return unfolded
+
+
 class SurfaceDiceLoss(nn.Module):
     def __init__(self, smooth=1e-3, device="cuda", verbose: bool = False):
         nn.Module.__init__(self)
@@ -97,7 +106,6 @@ class SurfaceDiceLoss(nn.Module):
         self.smooth = smooth
         self.area = create_table_neighbour_code_to_surface_area((1, 1, 1))
         self.area = torch.from_numpy(self.area).to(device)  # torch.float32
-        self.unfold = torch.nn.Unfold(kernel_size=(2, 2), padding=1)
         self.device = device
         self.bases = torch.tensor([
             [c == "1" for c in f"{i:08b}"[::-1]]
@@ -111,8 +119,8 @@ class SurfaceDiceLoss(nn.Module):
         # labels = (batch, z, y, x): labels (0 or 1 only)
 
         # unfold: group 8 corners together
-        unfolded_pred = self.unfold(pred)
-        unfolded_labels = self.unfold(labels.float()).to(torch.int32)
+        unfolded_pred = torch.nn.functional.unfold(pred, kernel_size=(2, 2), padding=1)  # self.unfold(pred)
+        unfolded_labels = torch.nn.functional.unfold(labels.float(), kernel_size=(2, 2), padding=1).to(torch.int32)  # self.unfold(labels.float()).to(torch.int32)
 
         batch_size, n_corners, n_points = unfolded_pred.shape
         if n_corners != 8:
@@ -122,9 +130,9 @@ class SurfaceDiceLoss(nn.Module):
 
         label_cubes_byte = sum(unfolded_labels[:, k, :] << k for k in range(8))
 
+        # TODO(Sumo): optimize mem usage
         basis_weights = 1 - ((unfolded_pred[:, None, :, :] - self.bases[None, :, :, None]) ** 2).mean(2)  # (b, 256, n_points)
-        weights_max = basis_weights.max(1)
-        pred_cube_bytes = weights_max.indices
+        pred_cube_bytes = torch.argmax(basis_weights, dim=1)
 
         for b in range(batch_size):
             pred_areas[b] += self.area[pred_cube_bytes[b]]
@@ -135,6 +143,7 @@ class SurfaceDiceLoss(nn.Module):
         for b in range(label_cubes_byte.shape[0]):
             label_areas[b, :] = self.area[label_cubes_byte[b, :]]
 
+        # noinspection PyTypeChecker
         volumetric_loss = torch.where(
             (label_cubes_byte == 0) | (label_cubes_byte == 255),
             torch.nn.functional.binary_cross_entropy(unfolded_pred, unfolded_labels.float(), reduction="none"),
@@ -156,6 +165,8 @@ class SurfaceDiceLoss(nn.Module):
         denom = 0
         vol = 0
         blank_slice = torch.zeros((batch_size, 1, ys, xs), dtype=pred_sigmoid.dtype, device=self.device)
+        # padded_pred = torch.cat([blank_slice, pred_sigmoid, blank_slice], dim=1)
+        # padded_label = torch.cat([blank_slice, labels, blank_slice], dim=1)
         for z_start in range(-1, zs, 1):
             z_end = z_start + 2
             if z_start < 0:
@@ -197,18 +208,21 @@ if __name__ == "__main__":
     import os
 
     os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
-    # _device = "cuda"
-    _device = "cpu"
+    _device = "cuda"
+    # _device = "cpu"
     _batch_size = 1
-    _zs = 3
-    _ys = 3
-    _xs = 3
+    # _zs = 3
+    # _ys = 3
+    # _xs = 3
+    _zs = 128
+    _ys = 128
+    _xs = 128
     _pred = torch.rand((_batch_size, _zs, _ys, _xs)).to(_device).float()
     # _pred = torch.ones((_batch_size, _zs, _ys, _xs)).to(_device).float()
     # _pred = torch.full((_batch_size, _zs, _ys, _xs), 0.00001).to(_device).float()
     # _labels = (torch.rand((_batch_size, _zs, _ys, _xs)) > 0.5).to(_device).float()
     _labels = torch.zeros((_batch_size, _zs, _ys, _xs)).to(_device).float()
-    _labels[0, 1, 1, 1] = True
+    # _labels[0, 1, 1, 1] = True
     # _labels[:] = False
     _criterion = SurfaceDiceLoss(verbose=True, device=_device)
 
