@@ -131,7 +131,7 @@ class SurfaceDiceLoss(nn.Module):
         label_cubes_byte = sum(unfolded_labels[:, k, :] << k for k in range(8))
 
         # TODO(Sumo): optimize mem usage
-        basis_weights = 1 - ((unfolded_pred[:, None, :, :] - self.bases[None, :, :, None]) ** 2).mean(2)  # (b, 256, n_points)
+        basis_weights = 1 - torch.norm(unfolded_pred[:, None, :, :] - self.bases[None, :, :, None], dim=2) / 16.0  # np.linalg.norm(np.ones(256) - np.zeros(256)) == 16
         pred_cube_bytes = torch.argmax(basis_weights, dim=1)
 
         for b in range(batch_size):
@@ -224,20 +224,20 @@ if __name__ == "__main__":
     _labels = torch.zeros((_batch_size, _zs, _ys, _xs)).to(_device).float()
     # _labels[0, 1, 1, 1] = True
     # _labels[:] = False
-    _criterion = SurfaceDiceLoss(verbose=True, device=_device)
+    _criterion = SurfaceDiceLoss(verbose=False, device=_device)
 
     _t0 = time.time()
     _pred = _pred.requires_grad_(True)
     _loss = _criterion.forward_sigmoid(_pred, _labels)
+    _t1 = time.time()
     _loss.backward()
     _loss = _loss.cpu()
-    _t1 = time.time()
-    print(f"loss={_loss}, t={_t1 - _t0}")
     print((_pred.grad * 1e6).int())
+    print(f"loss={_loss}, t={_t1 - _t0}")
 
-    _loss_label = _criterion.forward_sigmoid(_labels, _labels)
-    _loss_label = _loss_label.cpu()
-    print(f"loss={_loss_label}")
+    # _loss_label = _criterion.forward_sigmoid(_labels, _labels)
+    # _loss_label = _loss_label.cpu()
+    # print(f"loss={_loss_label}")
 
     # _raw_pred = torch.log(_pred / (1 - _pred + 1e-6))
     # _var = _raw_pred.clone().detach().requires_grad_(True)
