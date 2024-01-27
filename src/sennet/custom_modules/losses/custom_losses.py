@@ -133,16 +133,19 @@ class SurfaceDiceLoss(nn.Module):
                 nonzero_masks = unfolded_labels
             else:
                 nonzero_masks = (copied_unfolded_pred > 0).to(torch.int32)
+            # nonzero_masks = (copied_unfolded_pred > 0).to(torch.int32)
 
             pred_cube_bytes = sum(nonzero_masks[:, k, :] << k for k in range(8))
             pred_cube_bases = self.bases[pred_cube_bytes, :].permute((0, 2, 1))
             # subtraction_weights = torch.where(copied_unfolded_pred > 0, copied_unfolded_pred, torch.inf).min(1).values  # (batch, n_points)
             subtraction_weights = torch.where(nonzero_masks > 0, copied_unfolded_pred, torch.inf).min(1).values  # (batch, n_points)
             subtraction_weights = torch.where(subtraction_weights.isinf(), 0, subtraction_weights)
-
-            pred_areas += self.area[pred_cube_bytes] * subtraction_weights
             pred_weights_in_label_cubes += (pred_cube_bytes == label_cubes_byte) * subtraction_weights  # if cube bytes match, add the weights
-            copied_unfolded_pred -= subtraction_weights[:, None, :] * pred_cube_bases
+
+            # first iter is a free pass to get the intersection with the mesh
+            if i != 0:
+                pred_areas += self.area[pred_cube_bytes] * subtraction_weights
+                copied_unfolded_pred -= subtraction_weights[:, None, :] * pred_cube_bases
             # for b in range(batch_size):
             #     w = subtraction_weights[b]
             #     # weights[b][pred_cube_bytes[b], torch.arange(weights.shape[2], device=self.device)] += w
@@ -194,6 +197,7 @@ class SurfaceDiceLoss(nn.Module):
                     pred_sigmoid[:, z_start: z_end, ...],
                     labels[:, z_start: z_end, ...]
                 )
+            # print(f"[{z_start}]: {pair_num=}, {pair_denom=}")
             num += pair_num
             denom += pair_denom
         dice = 1 - ((num + self.smooth) / (denom + self.smooth))
@@ -213,23 +217,29 @@ if __name__ == "__main__":
     # _device = "cuda"
     _device = "cpu"
     _batch_size = 1
-    _zs = 2
+    _zs = 3
     _ys = 3
     _xs = 3
-    _pred = torch.rand((_batch_size, _zs, _ys, _xs)).to(_device)
-    _labels = (torch.rand((_batch_size, _zs, _ys, _xs)) > 0.5).to(_device).float()
+    # _pred = torch.rand((_batch_size, _zs, _ys, _xs)).to(_device).float()
+    _pred = torch.ones((_batch_size, _zs, _ys, _xs)).to(_device).float()
+    # _pred = torch.full((_batch_size, _zs, _ys, _xs), 0.00001).to(_device).float()
+    # _labels = (torch.rand((_batch_size, _zs, _ys, _xs)) > 0.5).to(_device).float()
+    _labels = torch.zeros((_batch_size, _zs, _ys, _xs)).to(_device).float()
+    _labels[0, 1, 1, 1] = True
     _criterion = SurfaceDiceLoss(device=_device)
 
-    # _loss = 0
-    _loss_label = 0
-
     _t0 = time.time()
+    _pred = _pred.requires_grad_(True)
     _loss = _criterion.forward_sigmoid(_pred, _labels)
+    _loss.backward()
     _loss = _loss.cpu()
-    # _loss_label = _criterion.forward_sigmoid(_labels, _labels)
-    # _loss_label = _loss_label.cpu()
     _t1 = time.time()
-    print(f"loss={_loss}, loss_label={_loss_label}, t={_t1 - _t0}")
+    print(f"loss={_loss}, t={_t1 - _t0}")
+    print((_pred.grad * 1e6).int())
+
+    _loss_label = _criterion.forward_sigmoid(_labels, _labels)
+    _loss_label = _loss_label.cpu()
+    print(f"loss={_loss_label}, t={_t1 - _t0}")
 
     # _raw_pred = torch.log(_pred / (1 - _pred + 1e-6))
     # _var = _raw_pred.clone().detach().requires_grad_(True)
