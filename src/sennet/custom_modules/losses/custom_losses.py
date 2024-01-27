@@ -135,11 +135,17 @@ class SurfaceDiceLoss(nn.Module):
         for b in range(label_cubes_byte.shape[0]):
             label_areas[b, :] = self.area[label_cubes_byte[b, :]]
 
+        volumetric_loss = torch.where(
+            (label_cubes_byte == 0) | (label_cubes_byte == 255),
+            torch.nn.functional.binary_cross_entropy(unfolded_pred, unfolded_labels.float(), reduction="none"),
+            0.0,
+        ).mean([1, 2])
+
         intersection = (pred_weights_in_label_cubes * label_areas).sum(1)
         numerator = 2*intersection
         denominator = label_areas.sum(1) + pred_areas.sum(1)
 
-        return numerator, denominator
+        return numerator, denominator, volumetric_loss
 
     @profile
     def forward_sigmoid(self, pred_sigmoid, labels):
@@ -148,24 +154,25 @@ class SurfaceDiceLoss(nn.Module):
         assert zs >= 2, f"zs not >= 2, {pred_sigmoid.shape=}"
         num = 0
         denom = 0
+        vol = 0
         blank_slice = torch.zeros((batch_size, 1, ys, xs), dtype=pred_sigmoid.dtype, device=self.device)
         for z_start in range(-1, zs, 1):
             z_end = z_start + 2
             if z_start < 0:
                 # continue
-                pair_num, pair_denom = self._forward_z_pair(
+                pair_num, pair_denom, pair_vol = self._forward_z_pair(
                     torch.cat([blank_slice, pred_sigmoid[:, 0: z_end, ...]], dim=1),
                     torch.cat([blank_slice, labels[:, 0: z_end, ...]], dim=1),
                 )
             elif z_end <= zs:
-                pair_num, pair_denom = self._forward_z_pair(
+                pair_num, pair_denom, pair_vol = self._forward_z_pair(
                     pred_sigmoid[:, z_start: z_end, ...],
                     labels[:, z_start: z_end, ...]
                 )
             else:
                 # continue
                 assert z_start == zs-1, f"too high {z_start=}, expected {zs-1}"
-                pair_num, pair_denom = self._forward_z_pair(
+                pair_num, pair_denom, pair_vol = self._forward_z_pair(
                     torch.cat([pred_sigmoid[:, z_start: z_start + 1, ...], blank_slice], dim=1),
                     torch.cat([labels[:, z_start: z_start + 1, ...], blank_slice], dim=1),
                 )
@@ -175,8 +182,9 @@ class SurfaceDiceLoss(nn.Module):
                 print(f"[{z_start}:{z_end}]: {pair_num=}, {pair_denom=}")
             num += pair_num
             denom += pair_denom
+            vol += pair_vol
         dice = 1 - ((num + self.smooth) / (denom + self.smooth))
-        return dice.mean()
+        return dice.mean() + vol.mean()
 
     @profile
     def forward(self, pred, labels):
