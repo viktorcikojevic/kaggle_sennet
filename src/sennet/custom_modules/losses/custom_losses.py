@@ -114,13 +114,23 @@ class SurfaceDiceLoss(nn.Module):
         self.n_bases = self.bases.shape[0]
 
     @profile
-    def _forward_z_pair(self, pred, labels):
-        # pred = (batch, z, y, x): logits
+    def _forward_z_pair(
+            self,
+            pred: torch.Tensor,
+            labels: torch.Tensor,
+            raw_pred: torch.Tensor | None = None,
+    ):
+        # pred = (batch, z, y, x): sigmoids
         # labels = (batch, z, y, x): labels (0 or 1 only)
+        # raw_pred = (batch, z, y, x): logits: advantageous when doing 16-bit precisions
 
         # unfold: group 8 corners together
-        unfolded_pred = torch.nn.functional.unfold(pred, kernel_size=(2, 2), padding=1)  # self.unfold(pred)
-        unfolded_labels = torch.nn.functional.unfold(labels.float(), kernel_size=(2, 2), padding=1).to(torch.int32)  # self.unfold(labels.float()).to(torch.int32)
+        if raw_pred is not None:
+            unfolded_raw_pred = torch.nn.functional.unfold(raw_pred, kernel_size=(2, 2), padding=1)
+        else:
+            unfolded_raw_pred = None
+        unfolded_pred = torch.nn.functional.unfold(pred, kernel_size=(2, 2), padding=1)
+        unfolded_labels = torch.nn.functional.unfold(labels.float(), kernel_size=(2, 2), padding=1).to(torch.int32)
 
         batch_size, n_corners, n_points = unfolded_pred.shape
         if n_corners != 8:
@@ -130,8 +140,8 @@ class SurfaceDiceLoss(nn.Module):
 
         label_cubes_byte = sum(unfolded_labels[:, k, :] << k for k in range(8))
 
-        # TODO(Sumo): optimize mem usage
-        basis_weights = 1 - torch.norm(unfolded_pred[:, None, :, :] - self.bases[None, :, :, None], dim=2) / 16.0  # np.linalg.norm(np.ones(256) - np.zeros(256)) == 16
+        # np.linalg.norm(np.ones(256) - np.zeros(256)) == 16
+        basis_weights = 1 - torch.norm(unfolded_pred[:, None, :, :] - self.bases[None, :, :, None], dim=2) / 16.0
         pred_cube_bytes = torch.argmax(basis_weights, dim=1)
 
         for b in range(batch_size):
@@ -143,50 +153,70 @@ class SurfaceDiceLoss(nn.Module):
         for b in range(label_cubes_byte.shape[0]):
             label_areas[b, :] = self.area[label_cubes_byte[b, :]]
 
-        # noinspection PyTypeChecker
-        volumetric_loss = torch.where(
-            (label_cubes_byte == 0) | (label_cubes_byte == 255),
-            torch.nn.functional.binary_cross_entropy(unfolded_pred, unfolded_labels.float(), reduction="none").mean(1),
-            0.0,
-        ).mean(1)
-
         intersection = (pred_weights_in_label_cubes * label_areas).sum(1)
         numerator = 2*intersection
         denominator = label_areas.sum(1) + pred_areas.sum(1)
 
-        return numerator, denominator, volumetric_loss
+        if raw_pred is not None:
+            volumetric_loss = torch.nn.functional.binary_cross_entropy_with_logits(
+                unfolded_raw_pred,
+                unfolded_labels.float(),
+                reduction="none"
+            ).mean(1)
+        else:
+            volumetric_loss = torch.nn.functional.binary_cross_entropy(
+                unfolded_pred,
+                unfolded_labels.float(),
+                reduction="none"
+            ).mean(1)
+
+        # noinspection PyTypeChecker
+        selected_volumetric_loss = torch.where(
+            (label_cubes_byte == 0) | (label_cubes_byte == 255),
+            volumetric_loss,
+            0.0,
+        ).mean(1)
+        return numerator, denominator, selected_volumetric_loss
 
     @profile
-    def forward_sigmoid(self, pred_sigmoid, labels):
+    def forward_sigmoid(
+            self,
+            pred_sigmoid: torch.Tensor,
+            labels: torch.Tensor,
+            pred: torch.Tensor | None
+    ):
         batch_size, zs, ys, xs = pred_sigmoid.shape
         assert pred_sigmoid.shape == labels.shape
         assert zs >= 2, f"zs not >= 2, {pred_sigmoid.shape=}"
         num = 0
         denom = 0
         vol = 0
-        blank_slice = torch.zeros((batch_size, 1, ys, xs), dtype=pred_sigmoid.dtype, device=self.device)
-        # padded_pred = torch.cat([blank_slice, pred_sigmoid, blank_slice], dim=1)
-        # padded_label = torch.cat([blank_slice, labels, blank_slice], dim=1)
+        # blank_slice = torch.zeros((batch_size, 1, ys, xs), dtype=pred_sigmoid.dtype, device=self.device)
         for z_start in range(-1, zs, 1):
             z_end = z_start + 2
             if z_start < 0:
-                # continue
-                pair_num, pair_denom, pair_vol = self._forward_z_pair(
-                    torch.cat([blank_slice, pred_sigmoid[:, 0: z_end, ...]], dim=1),
-                    torch.cat([blank_slice, labels[:, 0: z_end, ...]], dim=1),
-                )
+                continue
+                # pair_num, pair_denom, pair_vol = self._forward_z_pair(
+                #     torch.cat([blank_slice, pred_sigmoid[:, 0: z_end, ...]], dim=1),
+                #     torch.cat([blank_slice, labels[:, 0: z_end, ...]], dim=1),
+                # )
             elif z_end <= zs:
+                if pred is None:
+                    pred_slice = None
+                else:
+                    pred_slice = pred[:, z_start: z_end, ...]
                 pair_num, pair_denom, pair_vol = self._forward_z_pair(
                     pred_sigmoid[:, z_start: z_end, ...],
-                    labels[:, z_start: z_end, ...]
+                    labels[:, z_start: z_end, ...],
+                    raw_pred=pred_slice
                 )
             else:
-                # continue
-                assert z_start == zs-1, f"too high {z_start=}, expected {zs-1}"
-                pair_num, pair_denom, pair_vol = self._forward_z_pair(
-                    torch.cat([pred_sigmoid[:, z_start: z_start + 1, ...], blank_slice], dim=1),
-                    torch.cat([labels[:, z_start: z_start + 1, ...], blank_slice], dim=1),
-                )
+                continue
+                # assert z_start == zs-1, f"too high {z_start=}, expected {zs-1}"
+                # pair_num, pair_denom, pair_vol = self._forward_z_pair(
+                #     torch.cat([pred_sigmoid[:, z_start: z_start + 1, ...], blank_slice], dim=1),
+                #     torch.cat([labels[:, z_start: z_start + 1, ...], blank_slice], dim=1),
+                # )
             # print("pred_sigmoid")
             # print(pred_sigmoid)
             if self.verbose:
@@ -200,7 +230,7 @@ class SurfaceDiceLoss(nn.Module):
     @profile
     def forward(self, pred, labels):
         pred_sigmoid = torch.sigmoid(pred)
-        return self.forward_sigmoid(pred_sigmoid, labels)
+        return self.forward_sigmoid(pred_sigmoid, labels, pred)
 
 
 if __name__ == "__main__":
@@ -210,7 +240,7 @@ if __name__ == "__main__":
     os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
     _device = "cuda"
     # _device = "cpu"
-    _batch_size = 1
+    _batch_size = 2
     # _zs = 3
     # _ys = 3
     # _xs = 3
@@ -228,7 +258,8 @@ if __name__ == "__main__":
 
     _t0 = time.time()
     _pred = _pred.requires_grad_(True)
-    _loss = _criterion.forward_sigmoid(_pred, _labels)
+    # _loss = _criterion.forward_sigmoid(_pred, _labels)
+    _loss = _criterion(torch.log(_pred / (1 - _pred + 1e-8)), _labels)
     _t1 = time.time()
     _loss.backward()
     _loss = _loss.cpu()
