@@ -137,22 +137,25 @@ class SurfaceDiceLoss(nn.Module):
         if n_corners != 8:
             raise RuntimeError(f"{n_corners=} == 8, are you working on 2 slices?")
         pred_weights_in_label_cubes = torch.zeros((batch_size, n_points), device=self.device)
-        pred_areas = torch.zeros((batch_size, n_points), device=self.device)
 
         label_cubes_byte = sum(unfolded_labels_int[:, k, :] << k for k in range(8))
 
-        # np.linalg.norm(np.ones(256) - np.zeros(256)) == 16
-        basis_weights = 1 - torch.norm(unfolded_pred[:, None, :, :] - self.bases[None, :, :, None], dim=2) / 16.0
-        pred_cube_bytes = torch.argmax(basis_weights, dim=1)
+        # these blocks below are the same, just trading increased time for less space requirement
+        # 16 comes from: np.linalg.norm(np.ones(256) - np.zeros(256)) == 16
+        # basis_weights = 1 - torch.norm(unfolded_pred[:, None, :, :] - self.bases[None, :, :, None], dim=2) / 16.0
+        # pred_cube_bytes = torch.argmax(basis_weights, dim=1)
+        pred_cube_bytes = torch.zeros((batch_size, n_points), device=self.device, dtype=torch.int32)
+        for i in range(self.n_bases):
+            this_basis_weight = 1 - torch.norm(unfolded_pred - self.bases[None, i, :, None], dim=1) / 16.0
+            larger_mask = this_basis_weight > pred_cube_bytes
+            pred_cube_bytes = torch.where(larger_mask, i, pred_cube_bytes)
 
-        for b in range(batch_size):
-            pred_areas[b] += self.area[pred_cube_bytes[b]]
-            pred_weights_in_label_cubes[b] = basis_weights[b][label_cubes_byte[b], torch.arange(n_points, device=self.device)]
+            is_label_cube_mask = i == label_cubes_byte
+            pred_weights_in_label_cubes[is_label_cube_mask] = this_basis_weight[is_label_cube_mask]
 
-        # computing label areas
-        label_areas = torch.zeros((label_cubes_byte.shape[0], label_cubes_byte.shape[1]), dtype=torch.float32, device=self.device)
-        for b in range(label_cubes_byte.shape[0]):
-            label_areas[b, :] = self.area[label_cubes_byte[b, :]]
+        # computing areas
+        pred_areas = self.area[pred_cube_bytes]
+        label_areas = self.area[label_cubes_byte]
 
         intersection = (pred_weights_in_label_cubes * label_areas).sum(1)
         numerator = 2*intersection
