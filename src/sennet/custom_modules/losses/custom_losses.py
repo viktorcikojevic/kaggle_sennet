@@ -130,7 +130,8 @@ class SurfaceDiceLoss(nn.Module):
         else:
             unfolded_raw_pred = None
         unfolded_pred = torch.nn.functional.unfold(pred, kernel_size=(2, 2), padding=1)
-        unfolded_labels = torch.nn.functional.unfold(labels.float(), kernel_size=(2, 2), padding=1).to(torch.int32)
+        unfolded_labels = torch.nn.functional.unfold(labels.float(), kernel_size=(2, 2), padding=1)
+        unfolded_labels_int = unfolded_labels.to(torch.int32)
 
         batch_size, n_corners, n_points = unfolded_pred.shape
         if n_corners != 8:
@@ -138,7 +139,7 @@ class SurfaceDiceLoss(nn.Module):
         pred_weights_in_label_cubes = torch.zeros((batch_size, n_points), device=self.device)
         pred_areas = torch.zeros((batch_size, n_points), device=self.device)
 
-        label_cubes_byte = sum(unfolded_labels[:, k, :] << k for k in range(8))
+        label_cubes_byte = sum(unfolded_labels_int[:, k, :] << k for k in range(8))
 
         # np.linalg.norm(np.ones(256) - np.zeros(256)) == 16
         basis_weights = 1 - torch.norm(unfolded_pred[:, None, :, :] - self.bases[None, :, :, None], dim=2) / 16.0
@@ -157,25 +158,23 @@ class SurfaceDiceLoss(nn.Module):
         numerator = 2*intersection
         denominator = label_areas.sum(1) + pred_areas.sum(1)
 
-        if raw_pred is not None:
-            volumetric_loss = torch.nn.functional.binary_cross_entropy_with_logits(
-                unfolded_raw_pred,
-                unfolded_labels.float(),
-                reduction="none"
-            ).mean(1)
-        else:
-            volumetric_loss = torch.nn.functional.binary_cross_entropy(
-                unfolded_pred,
-                unfolded_labels.float(),
-                reduction="none"
-            ).mean(1)
-
-        # noinspection PyTypeChecker
-        selected_volumetric_loss = torch.where(
-            (label_cubes_byte == 0) | (label_cubes_byte == 255),
-            volumetric_loss,
-            0.0,
-        ).mean(1)
+        selected_volumetric_loss = torch.zeros((batch_size, ), device=self.device)
+        volumetric_loss_mask = (label_cubes_byte == 0) | (label_cubes_byte == 255)
+        for b in range(batch_size):
+            if raw_pred is not None:
+                # it's taking the mean over the 8 corner points
+                selected_volumetric_loss[b] = torch.nn.functional.binary_cross_entropy_with_logits(
+                    unfolded_raw_pred[b, :, volumetric_loss_mask[b]],
+                    unfolded_labels[b, :, volumetric_loss_mask[b]],
+                    reduction="mean",
+                )
+            else:
+                # it's taking the mean over the 8 corner points
+                selected_volumetric_loss[b] = torch.nn.functional.binary_cross_entropy(
+                    unfolded_pred[b, :, volumetric_loss_mask[b]],
+                    unfolded_labels[b, :, volumetric_loss_mask[b]],
+                    reduction="mean",
+                )
         return numerator, denominator, selected_volumetric_loss
 
     @profile
@@ -250,8 +249,8 @@ if __name__ == "__main__":
     _pred = torch.rand((_batch_size, _zs, _ys, _xs)).to(_device).float()
     # _pred = torch.ones((_batch_size, _zs, _ys, _xs)).to(_device).float()
     # _pred = torch.full((_batch_size, _zs, _ys, _xs), 0.00001).to(_device).float()
-    # _labels = (torch.rand((_batch_size, _zs, _ys, _xs)) > 0.5).to(_device).float()
-    _labels = torch.zeros((_batch_size, _zs, _ys, _xs)).to(_device).float()
+    _labels = (torch.rand((_batch_size, _zs, _ys, _xs)) > 0.5).to(_device).float()
+    # _labels = torch.zeros((_batch_size, _zs, _ys, _xs)).to(_device).float()
     # _labels[0, 1, 1, 1] = True
     # _labels[:] = False
     _criterion = SurfaceDiceLoss(verbose=False, device=_device)
