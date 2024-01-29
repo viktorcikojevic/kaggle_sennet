@@ -50,7 +50,8 @@ class TensorReceivingProcess:
             out_dir: str | Path | None = None,
             cropping_border: int = 0,
             percentile_threshold: float | None = None,
-            keep_in_memory: bool = False
+            keep_in_memory: bool = False,
+            num_models: int = 1,
     ):
         self.data_queue = data_queue
         self.threshold = threshold
@@ -58,7 +59,9 @@ class TensorReceivingProcess:
         self.out_dir = out_dir
 
         self.current_total_count = None
+        self.current_total_prob = None
         self.current_mean_prob = None
+        self.num_models = num_models
 
         self.current_folder = None
         self.cropping_border = cropping_border
@@ -68,10 +71,11 @@ class TensorReceivingProcess:
     def _finalise_image_if_holding_any(self):
         print(f"computing mean")
         for c in tqdm(range(self.current_mean_prob.shape[0])):
-            self.current_mean_prob[c, ...] /= (self.current_total_count[c, ...] + 1e-8)
+            self.current_mean_prob[c, ...] = self.current_total_prob[c, ...] / (self.current_total_count[c, ...] + 1e-8) / self.num_models
 
         if self.keep_in_memory:
-            print(f"skipping all flushing as {self.keep_in_memory=}")
+            self.current_total_prob[:] = 0.0
+            self.current_total_count[:] = 0
             return
 
         if self.current_folder is not None and self.current_mean_prob is not None and self.current_total_count is not None:
@@ -96,6 +100,8 @@ class TensorReceivingProcess:
             print(f"flushing thresholded prob")
             thresholded_prob.flush()
 
+            self.current_total_prob[:] = 0.0
+            self.current_total_count[:] = 0
             print(f"done")
 
     def start(self):
@@ -182,11 +188,12 @@ class TensorReceivingProcess:
 
             self.current_folder = folder
             self.current_total_count = torch.zeros((img_c, img_h, img_w), dtype=torch.uint8, device=pred.device)
+            self.current_total_prob = torch.zeros((img_c, img_h, img_w), dtype=torch.float16, device=pred.device)
             self.current_mean_prob = torch.zeros((img_c, img_h, img_w), dtype=torch.float16, device=pred.device)
         else:
             assert self.current_folder == folder, f"can't handle more than one folder: {self.current_folder=}, {folder=}"
 
-        self.current_mean_prob[lc: uc, ly: uy, lx: ux] += cropped_pred
+        self.current_total_prob[lc: uc, ly: uy, lx: ux] += cropped_pred
         self.current_total_count[lc: uc, ly: uy, lx: ux] += 1
 
         # print(f"{self.chunk_boundary} wrote")
@@ -249,6 +256,7 @@ def generate_submission_df(
         out_dir=out_dir / f"chunk_00",
         cropping_border=0,
         keep_in_memory=keep_in_memory,
+        num_models=len(model_and_data_loader_factory)
     )
     if ps.run_as_single_process:
         saver_process = tensor_receiving_process
