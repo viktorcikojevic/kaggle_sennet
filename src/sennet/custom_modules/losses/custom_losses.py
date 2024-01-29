@@ -144,6 +144,7 @@ class SurfaceDiceLoss(nn.Module):
         # 16 comes from: np.linalg.norm(np.ones(256) - np.zeros(256)) == 16
         # basis_weights = 1 - torch.norm(unfolded_pred[:, None, :, :] - self.bases[None, :, :, None], dim=2) / 16.0
         # pred_cube_bytes = torch.argmax(basis_weights, dim=1)
+        # NOTE: if we wanna go more efficient we can start chunking the points with torch.chunk
         pred_cube_bytes = torch.zeros((batch_size, n_points), device=self.device, dtype=torch.int32)
         for i in range(self.n_bases):
             this_basis_weight = 1 - torch.norm(unfolded_pred - self.bases[None, i, :, None], dim=1) / 16.0

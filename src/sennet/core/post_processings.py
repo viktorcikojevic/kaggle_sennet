@@ -68,7 +68,7 @@ def largest_k_closest_to_center(
         largest_k: int = 100,
         disable_tqdm: bool = False,
         out: np.ndarray | None = None,
-):
+) -> np.ndarray:
     if out is None:
         out = np.zeros_like(thresholded_pred, dtype=bool)
     else:
@@ -88,6 +88,9 @@ def largest_k_closest_to_center(
     bboxes = stats["bounding_boxes"][1:]
     # voxel_counts = stats["voxel_counts"][1:]  # it's there, though we don't need it yet
     # centroids = stats["centroids"][1:]  # it's there, though we don't need it yet
+
+    if len(bboxes) == 0:
+        return out
 
     largest_bbox = cc3d_bbox_to_bbox(bboxes[-1])
     keeps = []
