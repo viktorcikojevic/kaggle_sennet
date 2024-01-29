@@ -2,8 +2,8 @@
 
 ## Setup Envs
 ```bash
-export DATASET_DIR="/opt/kaggle/sennet/data/blood-vessel-segmentation"
-export DATA_DUMP_ROOT="/opt/kaggle/sennet/data_dumps"
+export DATASET_DIR="/home/sennet"
+export DATA_DUMP_ROOT="/home/data_dumps"
 export PROCESSED_DATA_DIR="$DATA_DUMP_ROOT/processed"
 export MODEL_DIR="$DATA_DUMP_ROOT/models"
 export NN_MODEL_OUT_DIR="$DATA_DUMP_ROOT/nn_predicted"
