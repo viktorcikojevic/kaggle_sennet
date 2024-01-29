@@ -14,6 +14,7 @@ from datetime import datetime
 import pandas as pd
 import multiprocessing as mp
 from dataclasses import dataclass
+from typing import Callable
 
 
 @dataclass
@@ -49,6 +50,7 @@ class TensorReceivingProcess:
             out_dir: str | Path | None = None,
             cropping_border: int = 0,
             percentile_threshold: float | None = None,
+            keep_in_memory: bool = False
     ):
         self.data_queue = data_queue
         self.threshold = threshold
@@ -60,9 +62,18 @@ class TensorReceivingProcess:
 
         self.current_folder = None
         self.cropping_border = cropping_border
+        self.keep_in_memory = keep_in_memory
 
     @profile
     def _finalise_image_if_holding_any(self):
+        print(f"computing mean")
+        for c in tqdm(range(self.current_mean_prob.shape[0])):
+            self.current_mean_prob[c, ...] /= (self.current_total_count[c, ...] + 1e-8)
+
+        if self.keep_in_memory:
+            print(f"skipping all flushing as {self.keep_in_memory=}")
+            return
+
         if self.current_folder is not None and self.current_mean_prob is not None and self.current_total_count is not None:
             current_total_count = create_mmap_array(self.out_dir / "total_count", self.current_total_count.shape, np.uint8).data
             current_mean_prob = create_mmap_array(self.out_dir / "mean_prob", self.current_mean_prob.shape, float).data
@@ -70,9 +81,9 @@ class TensorReceivingProcess:
 
             print(f"computing mean")
             for c in tqdm(range(self.current_mean_prob.shape[0])):
-                _total_prob_slice = self.current_mean_prob[c, ...].cpu().numpy()
+                _mean_prob_slice = self.current_mean_prob[c, ...].cpu().numpy()
                 _total_count_slice = self.current_total_count[c, ...].cpu().numpy()
-                current_mean_prob[c, ...] = _total_prob_slice / (_total_count_slice + 1e-8)
+                current_mean_prob[c, ...] = _mean_prob_slice
                 current_total_count[c, ...] = _total_count_slice
                 thresholded_prob[c, ...] = current_mean_prob[c, ...] > self.threshold  # revive percentile threshold?
 
@@ -193,47 +204,51 @@ class ParallelizationSettings:
 @dataclass
 class SubmissionOutput:
     submission_df: pd.DataFrame
+    mean_pred: np.ndarray | None = None
+    thresholded_pred: np.ndarray | None = None
 
 
+# very sorry for the god so many types this function takes
 @torch.autocast(device_type="cuda")
 @torch.no_grad()
 @profile
 def generate_submission_df(
-        model: Base3DSegmentor,
-        data_loader: DataLoader,
+        model: Base3DSegmentor | None,
+        data_loader: DataLoader | None,
         threshold: float,
         parallelization_settings: ParallelizationSettings,
         out_dir: str | Path | None = None,
         device: str = "cuda",
         save_sub: bool = True,
         percentile_threshold: float | None = None,
+        keep_in_memory: bool = True,
+        model_and_data_loader_factory: None | list[Callable[[], tuple[Base3DSegmentor, DataLoader]]] = None,  # function to generate model and dataloader
 ) -> SubmissionOutput:
     ps = parallelization_settings
+    if keep_in_memory:
+        assert ps.run_as_single_process, f"keep in memory needs to be run as a single process"
     if ps.run_as_single_process:
         q = MockQueue()
     else:
         mp.set_start_method("spawn", force=True)
         q = mp.Queue(maxsize=10)
 
-    assert isinstance(data_loader.dataset, ThreeDSegmentationDataset), \
-        f"to generate submission, dataset must be ThreeDSegmentationDataset"
-    dataset: ThreeDSegmentationDataset = data_loader.dataset
-    cropping_border = dataset.dataset.cropping_border
 
-    model = model.eval().to(device)
+    if model_and_data_loader_factory is None:
+        model_and_data_loader_factory = [lambda: (model, data_loader)]
 
     if out_dir is None:
         out_dir = TMP_SUB_MMAP_DIR / f"sennet_tmp_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
 
     out_dir.mkdir(exist_ok=True, parents=True)
-    (out_dir / "image_names").write_text("\n".join(dataset.dataset.image_paths))
     tensor_receiving_process = TensorReceivingProcess(
         data_queue=q,
         threshold=threshold,
         percentile_threshold=percentile_threshold,
         # all_image_paths=dataset.dataset.image_paths,
         out_dir=out_dir / f"chunk_00",
-        cropping_border=cropping_border,
+        cropping_border=0,
+        keep_in_memory=keep_in_memory,
     )
     if ps.run_as_single_process:
         saver_process = tensor_receiving_process
@@ -242,61 +257,78 @@ def generate_submission_df(
             target=tensor_receiving_process.spin,
         )
     saver_process.start()
-    for batch in tqdm(data_loader, total=len(data_loader)):
-        batch_img = batch["img"].to(device)
-        seg_pred: SegmentorOutput = model.predict(batch_img)
-        raw_pred_batch = seg_pred.pred
-        un_reshaped_pred_batch = torch.nn.functional.sigmoid(raw_pred_batch)
 
-        # reshape pred to original image size for submission
-        _, _, img_d, img_h, img_w = batch["img"].shape
-        pred_batch = resize_3d_image(un_reshaped_pred_batch.unsqueeze(1), (img_w, img_h, img_d))[:, 0, :, :, :]
-        if "gt_seg_map" in batch:
-            batch.pop("gt_seg_map")
+    for i_model, factory in enumerate(model_and_data_loader_factory):
+        print(f"running model [{i_model+1}/{len(model_and_data_loader_factory)}]")
+        model, data_loader = factory()
+        model = model.eval().to(device)
 
-        batch.pop("img")  # no need to ship image across process
-        for i, pred in enumerate(pred_batch):
-            # pred = (c, h, w)
-            bbox_type = batch["bbox_type"][i].cpu().item()
+        assert isinstance(data_loader.dataset, ThreeDSegmentationDataset), \
+            f"to generate submission, dataset[{i_model}] must be ThreeDSegmentationDataset"
+        dataset: ThreeDSegmentationDataset = data_loader.dataset
+        cropping_border = dataset.dataset.cropping_border
+        (out_dir / "image_names").write_text("\n".join(dataset.dataset.image_paths))
+        tensor_receiving_process.cropping_border = cropping_border
 
-            if bbox_type == DEPTH_ALONG_CHANNEL:
-                permuted_pred = pred
-            elif bbox_type == DEPTH_ALONG_HEIGHT:
-                # permuted_pred = torch.concat([
-                #     pred[c, :, :].unsqueeze(1)
-                #     for c in range(pred.shape[0])
-                # ], dim=1)
-                # equivalent, checked
-                permuted_pred = pred.permute((1, 0, 2))
-            elif bbox_type == DEPTH_ALONG_WIDTH:
-                # permuted_pred = torch.concat([
-                #     pred[c, :, :].unsqueeze(2)
-                #     for c in range(pred.shape[0])
-                # ], dim=2)
-                # equivalent, checked
-                permuted_pred = pred.permute((1, 2, 0))
-            else:
-                raise RuntimeError(f"unknown {bbox_type=}")
-            q.put(Data(
-                idx=i,
-                pred=permuted_pred,
-                batch=batch,
-                bbox_type=bbox_type,
-                model_start_idx=seg_pred.take_indices_start,
-                model_end_idx=seg_pred.take_indices_end,
-            ))
-            if ps.run_as_single_process:
-                if q.has_val:
-                    saver_process.spin_once()
+        for batch in tqdm(data_loader, total=len(data_loader)):
+            batch_img = batch["img"].to(device)
+            seg_pred: SegmentorOutput = model.predict(batch_img)
+            raw_pred_batch = seg_pred.pred
+            un_reshaped_pred_batch = torch.nn.functional.sigmoid(raw_pred_batch)
+
+            # reshape pred to original image size for submission
+            _, _, img_d, img_h, img_w = batch["img"].shape
+            pred_batch = resize_3d_image(un_reshaped_pred_batch.unsqueeze(1), (img_w, img_h, img_d))[:, 0, :, :, :]
+            if "gt_seg_map" in batch:
+                batch.pop("gt_seg_map")
+
+            batch.pop("img")  # no need to ship image across process
+            for i, pred in enumerate(pred_batch):
+                # pred = (c, h, w)
+                bbox_type = batch["bbox_type"][i].cpu().item()
+
+                if bbox_type == DEPTH_ALONG_CHANNEL:
+                    permuted_pred = pred
+                elif bbox_type == DEPTH_ALONG_HEIGHT:
+                    # permuted_pred = torch.concat([
+                    #     pred[c, :, :].unsqueeze(1)
+                    #     for c in range(pred.shape[0])
+                    # ], dim=1)
+                    # equivalent, checked
+                    permuted_pred = pred.permute((1, 0, 2))
+                elif bbox_type == DEPTH_ALONG_WIDTH:
+                    # permuted_pred = torch.concat([
+                    #     pred[c, :, :].unsqueeze(2)
+                    #     for c in range(pred.shape[0])
+                    # ], dim=2)
+                    # equivalent, checked
+                    permuted_pred = pred.permute((1, 2, 0))
+                else:
+                    raise RuntimeError(f"unknown {bbox_type=}")
+                q.put(Data(
+                    idx=i,
+                    pred=permuted_pred,
+                    batch=batch,
+                    bbox_type=bbox_type,
+                    model_start_idx=seg_pred.take_indices_start,
+                    model_end_idx=seg_pred.take_indices_end,
+                ))
+                if ps.run_as_single_process:
+                    if q.has_val:
+                        saver_process.spin_once()
 
     q.put(Data(terminate=True))
     saver_process.join()
     df_out = generate_submission_df_from_one_chunked_inference(out_dir)
     if save_sub:
         df_out.to_csv(out_dir / "submission.csv")
-    return SubmissionOutput(
-        submission_df=df_out,
-    )
+    res = SubmissionOutput(submission_df=df_out)
+    if keep_in_memory:
+        res.mean_pred = tensor_receiving_process.current_mean_prob.cpu().numpy()
+        res.thresholded_pred = np.zeros_like(res.mean_pred, dtype=bool)
+        for c in tqdm(range(res.mean_pred.shape[0]), desc="keep_in_memory ret"):
+            res.thresholded_pred[c, ...] = res.mean_pred[c, ...] > threshold
+    return res
 
 
 if __name__ == "__main__":

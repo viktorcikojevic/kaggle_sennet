@@ -44,6 +44,25 @@ def generate_submission_df_from_one_chunked_inference(
     return df
 
 
+def generate_submission_df_from_memory(
+        thresholded_pred: np.ndarray,
+        image_names: list[str],
+) -> pd.DataFrame:
+    data = {"id": [], "rle": [], "height": [], "width": []}
+    for c in tqdm(range(thresholded_pred.shape[0])):
+        rle = rle_encode(thresholded_pred[c, :, :])
+        if rle == "":
+            rle = "1 0"
+        image_name = image_names[c]
+        data["id"].append(image_name)
+        data["rle"].append(rle)
+        data["height"].append(int(thresholded_pred.shape[1]))
+        data["width"].append(int(thresholded_pred.shape[2]))
+    df = pd.DataFrame(data).sort_values("id")
+    # df = df.set_index("id").sort_index()
+    return df
+
+
 @dataclasses.dataclass
 class ChunkedMetrics:
     f1_scores: list[float]
