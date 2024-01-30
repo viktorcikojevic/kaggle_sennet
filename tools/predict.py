@@ -4,6 +4,7 @@ from sennet.core.submission_utils import (
     build_data_loader,
     generate_submission_df_from_memory,
 )
+from sennet.core.mmap_arrays import read_mmap_array
 from sennet.core.submission_simple import generate_submission_df, ParallelizationSettings
 from sennet.core.tta_model import Tta3DSegmentor
 from sennet.core.post_processings import largest_k_closest_to_center
@@ -125,14 +126,24 @@ def main():
         )
         post_process_kwargs = submission_cfg.get("post_processing", None)
         image_names = (data_out_dir / "image_names").read_text().split("\n")
+
+        if cache_mmaps:
+            thresholded_pred = res.thresholded_pred
+        else:
+            thresholded_pred = read_mmap_array(data_out_dir / "chunk_00" / "thresholded_prob", mode="readwrite").data
+
         if not no_cc3d and post_process_kwargs is not None:
             largest_k_closest_to_center(
-                thresholded_pred=res.thresholded_pred,
-                out=res.thresholded_pred,
+                thresholded_pred=thresholded_pred,
+                out=thresholded_pred,
                 **post_process_kwargs,
             )
+
+        if not cache_mmaps:
+            thresholded_pred.flush()
+
         ensembled_df = generate_submission_df_from_memory(
-            res.thresholded_pred,
+            thresholded_pred,
             image_names=image_names,
         )
         ensembled_df.to_csv(data_out_dir / "submission.csv")

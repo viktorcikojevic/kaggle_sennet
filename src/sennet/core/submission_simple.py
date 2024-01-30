@@ -69,8 +69,7 @@ class TensorReceivingProcess:
 
     @profile
     def _finalise_image_if_holding_any(self):
-        print(f"computing mean")
-        for c in tqdm(range(self.current_mean_prob.shape[0])):
+        for c in tqdm(range(self.current_mean_prob.shape[0]), desc="computing mean"):
             self.current_mean_prob[c, ...] = self.current_total_prob[c, ...] / (self.current_total_count[c, ...] + 1e-8) / self.num_models
 
         if self.keep_in_memory:
@@ -83,8 +82,7 @@ class TensorReceivingProcess:
             current_mean_prob = create_mmap_array(self.out_dir / "mean_prob", self.current_mean_prob.shape, float).data
             thresholded_prob = create_mmap_array(self.out_dir / "thresholded_prob", self.current_mean_prob.shape, bool).data
 
-            print(f"computing mean")
-            for c in tqdm(range(self.current_mean_prob.shape[0])):
+            for c in tqdm(range(self.current_mean_prob.shape[0]), desc="moving to np"):
                 _mean_prob_slice = self.current_mean_prob[c, ...].cpu().numpy()
                 _total_count_slice = self.current_total_count[c, ...].cpu().numpy()
                 current_mean_prob[c, ...] = _mean_prob_slice
@@ -228,7 +226,7 @@ def generate_submission_df(
         device: str = "cuda",
         save_sub: bool = True,
         percentile_threshold: float | None = None,
-        keep_in_memory: bool = True,
+        keep_in_memory: bool = False,
         model_and_data_loader_factory: None | list[Callable[[], tuple[Base3DSegmentor, DataLoader]]] = None,  # function to generate model and dataloader
 ) -> SubmissionOutput:
     ps = parallelization_settings
@@ -239,7 +237,6 @@ def generate_submission_df(
     else:
         mp.set_start_method("spawn", force=True)
         q = mp.Queue(maxsize=10)
-
 
     if model_and_data_loader_factory is None:
         model_and_data_loader_factory = [lambda: (model, data_loader)]
