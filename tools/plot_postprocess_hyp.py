@@ -27,12 +27,13 @@ def main():
     print("found labels:")
     print(json.dumps({k: v.shape for k, v in labels.items()}))
 
-    thresholds = (
-        np.linspace(0.0001, 0.001, num=10).tolist()
-        + np.linspace(0.001, 0.01, num=10).tolist()
-        + np.linspace(0.01, 0.1, num=10).tolist()
-        + np.linspace(0.1, 0.3, num=10).tolist()
-    )
+    # thresholds = (
+    #     np.linspace(0.0001, 0.001, num=10).tolist()
+    #     + np.linspace(0.001, 0.01, num=10).tolist()
+    #     + np.linspace(0.01, 0.1, num=10).tolist()
+    #     + np.linspace(0.1, 0.3, num=10).tolist()
+    # )
+    thresholds = np.linspace(0.0001, 0.5, num=15).tolist()
     chunk_dirs = [Path(d) for d in chunk_dirs]
 
     for folder in tqdm(chunk_dirs):
@@ -67,8 +68,9 @@ def main():
             out_path = DATA_DUMPS_DIR / "plots" / f"{folder.name}_{name}.png"
             out_path.parent.mkdir(parents=True, exist_ok=True)
             plt.figure(figsize=(20, 10))
-            plt.title(f"{folder.name}_{thresholds[np.argmax(item)]}")
+            plt.title(f"{folder.name}_{thresholds[np.argmax(item)]}. Best y: {np.max(item):.5f}")
             plt.plot(thresholds, item, label=name)
+            plt.ylim([0.6, 1])
             plt.scatter(thresholds, item)
             for t, i in zip(thresholds, item):
                 plt.annotate(f"{t:.5f}", (t, i))

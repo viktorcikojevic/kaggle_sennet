@@ -29,7 +29,7 @@ def main():
         "/opt/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_dense/submission.csv",
         # "/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled_cc3d/kidney_2/submission.csv",
     ]
-    vis = False
+    vis = True
     # vis = True
     return_colored_cloud = True
 
