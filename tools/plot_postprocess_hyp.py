@@ -33,8 +33,9 @@ def main():
     #     + np.linspace(0.01, 0.1, num=10).tolist()
     #     + np.linspace(0.1, 0.3, num=10).tolist()
     # )
-    thresholds = np.linspace(0.0001, 0.5, num=15).tolist()
+    thresholds = np.linspace(0.001, 0.1, num=10).tolist()
     chunk_dirs = [Path(d) for d in chunk_dirs]
+    chunk_dirs = [chunk_dirs[2]]
 
     for folder in tqdm(chunk_dirs):
         surface_dices = []
@@ -70,7 +71,7 @@ def main():
             plt.figure(figsize=(20, 10))
             plt.title(f"{folder.name}_{thresholds[np.argmax(item)]}. Best y: {np.max(item):.5f}")
             plt.plot(thresholds, item, label=name)
-            plt.ylim([0.6, 1])
+            plt.ylim([0.9 * np.max(item), 1])
             plt.scatter(thresholds, item)
             for t, i in zip(thresholds, item):
                 plt.annotate(f"{t:.5f}", (t, i))
