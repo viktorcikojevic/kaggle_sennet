@@ -45,6 +45,7 @@ loss:
 
 train_folders:
   - kidney_1_dense
+  - kidney_2_ml_labeled_ensemble
   # - kidney_1_dense_fold_0
   # - kidney_2
   # - kidney_2_ml_labeled
