@@ -2,105 +2,45 @@ from sennet.core.submission_utils import (
     load_config_from_dir,
     load_model_from_dir,
     build_data_loader,
-    generate_submission_df_from_one_chunked_inference,
+    generate_submission_df_from_memory,
 )
+from sennet.core.mmap_arrays import read_mmap_array
 from sennet.core.submission_simple import generate_submission_df, ParallelizationSettings
-from sennet.core.mmap_arrays import read_mmap_array, create_mmap_array
 from sennet.core.tta_model import Tta3DSegmentor
-from sennet.core.post_processings import filter_out_small_blobs
+from sennet.core.post_processings import largest_k_closest_to_center
 from sennet.environments.constants import PROCESSED_DATA_DIR, CONFIG_DIR, MODEL_OUT_DIR
-from typing import List, Union
 from pathlib import Path
 import pandas as pd
-from tqdm import tqdm
 import argparse
-from line_profiler_pycharm import profile
-import torch
 import yaml
 import json
 
 
-class EnsembledPredictions:
-    def __init__(self, root_dir: str | Path):
-        self.root_dir = root_dir
-        self.root_dir.mkdir(exist_ok=True, parents=True)
-        self.mean_prob = None
-        self.thresholded_prob = None
-        self.num_model_count = 0
-
-    def add_chunked_predictions(self, pred_root_path: str | Path):
-        pred_root_path = Path(pred_root_path)
-        chunk_dirs = sorted([c for c in pred_root_path.glob("chunk*") if c.is_dir()])
-        if self.mean_prob is None:
-            shape = [0, 0, 0]
-            for cd in tqdm(chunk_dirs, desc="init ens mmap"):
-                chunk_pred = read_mmap_array(cd / "mean_prob", mode="r").data
-                shape[0] += chunk_pred.shape[0]
-                shape[1] = chunk_pred.shape[1]
-                shape[2] = chunk_pred.shape[2]
-            self.mean_prob = create_mmap_array(self.root_dir / "chunk_00" / "mean_prob", shape, float)
-            self.thresholded_prob = create_mmap_array(self.root_dir / "chunk_00" / "thresholded_prob", shape, bool)
-        if not (self.root_dir / "image_names").is_file():
-            (self.root_dir / "image_names").write_text((pred_root_path / "image_names").read_text())
-        i = 0
-        for cd in tqdm(chunk_dirs, desc="add pred to ens", position=0):
-            chunk_pred = read_mmap_array(cd / "mean_prob", mode="r").data
-            i_end = i + chunk_pred.shape[0]
-            self.mean_prob.data[i: i_end, ...] += chunk_pred
-            i = i_end
-        self.num_model_count += 1
-
-    def finalise(
-            self,
-            threshold: float,
-            dust_threshold: int = 1000,
-            filter_small_blobs: bool = True,
-    ):
-        self.mean_prob.data[:] /= self.num_model_count
-        self.thresholded_prob.data[:] = self.mean_prob.data > threshold
-        self.mean_prob.data.flush()
-        ensembled_df = generate_submission_df_from_one_chunked_inference(self.root_dir)
-        ensembled_df.to_csv(self.root_dir / "submission.csv")
-
-        if filter_small_blobs:
-            filtered_dir = self.root_dir.parent.parent / f"{self.root_dir.parent.name}_cc3d" / self.root_dir.name
-            filtered_dir.mkdir(exist_ok=True, parents=True)
-            (filtered_dir / "image_names").write_text((self.root_dir / "image_names").read_text())
-            filter_out_small_blobs(
-                thresholded_pred=self.thresholded_prob.data,
-                out_path=filtered_dir / "chunk_00" / "thresholded_prob",
-                dust_threshold=dust_threshold,
-                connectivity=26,
-            )
-            ensembled_df = generate_submission_df_from_one_chunked_inference(filtered_dir)
-            ensembled_df.to_csv(filtered_dir / "submission.csv")
-
-
-def ensemble_predictions(
-        pred_paths: List[Union[str, Path]],
-        out_dir: Union[str, Path],
-        threshold: float,
+def create_model_and_data_factory(
+        model_name: str,
+        submission_cfg: dict,
+        folder: str,
+        cache_mmaps: bool = False,
+        batch_size: int = 1,
+        fast_mode: bool = False
 ):
-    out_dir.mkdir(exist_ok=True, parents=True)
-    pred_paths = [Path(p) for p in pred_paths]
-    if len(pred_paths) == 0:
-        return
-    (out_dir / "image_names").write_text((pred_paths[0] / "image_names").read_text())
-    chunk_dir_names = sorted([c.name for c in pred_paths[0].glob("chunk*") if c.is_dir()])
-    for cd in tqdm(chunk_dir_names, position=0):
-        chunk_out_dir = out_dir / cd
-        chunk_out_dir.mkdir(exist_ok=True, parents=True)
+    def factory():
+        model_dir = MODEL_OUT_DIR / model_name
+        cfg, base_model = load_model_from_dir(model_dir)
+        model = Tta3DSegmentor(base_model, **submission_cfg["predictors"]["tta_kwargs"])
 
-        chunk_preds = [read_mmap_array(p / cd / "mean_prob", mode="r") for p in pred_paths]
-        chunk_mean_prob = create_mmap_array(chunk_out_dir / "mean_prob", chunk_preds[0].shape, chunk_preds[0].dtype)
-        chunk_thresholded_prob = create_mmap_array(chunk_out_dir / "thresholded_prob", chunk_preds[0].shape, bool)
-
-        for cp in chunk_preds:
-            chunk_mean_prob.data += (cp.data / len(chunk_preds))
-
-        chunk_thresholded_prob.data[:] = chunk_mean_prob.data > threshold
-        chunk_mean_prob.data.flush()
-        chunk_thresholded_prob.data.flush()
+        data_loader = build_data_loader(
+            folder,
+            substride=submission_cfg["predictors"]["substride"],
+            cfg=cfg,
+            cache_mmaps=cache_mmaps,
+            cropping_border=submission_cfg["predictors"]["cropping_border"],
+            batch_size=batch_size,
+            num_workers=0,
+            fast_mode=fast_mode,
+        )
+        return model, data_loader
+    return factory
 
 
 def main():
@@ -124,7 +64,7 @@ def main():
     out_dir = Path(args.out_dir)
     run_all = args.run_all
     run_as_single_process = args.run_as_single_process
-    keep_model_chunks = args.keep_model_chunks
+    assert not args.keep_model_chunks, f"deprecated"
     no_cc3d = args.no_cc3d
     batch_size = args.batch_size
     cache_mmaps = args.cache_mmaps
@@ -132,9 +72,6 @@ def main():
     if fast_mode:
         print(f"WARNING: {fast_mode=}, this shouldn't be turned on in prod")
 
-    if submission_cfg["predictors"]["dust_threshold"] is None:
-        print(f"dust_threshold is None, turning off cc3d")
-        no_cc3d = True
     if run_as_single_process:
         print(f"{run_as_single_process=}: removing all multi processing")
     if run_all:
@@ -162,61 +99,58 @@ def main():
             folders_to_models[folder].append(model_name)
     print(json.dumps(folders_to_models, indent=4))
 
-    out_dir.mkdir(exist_ok=True, parents=True)
-    ensembled_dir = out_dir / "ensembled"
-    ensembled_dir.mkdir(exist_ok=True, parents=True)
     for i, (folder, model_names) in enumerate(folders_to_models.items()):
-        ensembled_prediction = EnsembledPredictions(
-            root_dir=ensembled_dir / folder,
-        )
+        factories = [create_model_and_data_factory(
+            model_name=model_name,
+            submission_cfg=submission_cfg,
+            folder=folder,
+            cache_mmaps=cache_mmaps,
+            batch_size=batch_size,
+            fast_mode=fast_mode,
+        ) for model_name in model_names]
 
-        print(f"[{i}/{len(folders_to_models)}]: {folder} with {len(model_names)} models")
-        for model_name in model_names:
-            model_dir = MODEL_OUT_DIR / model_name
-            cfg, base_model = load_model_from_dir(model_dir)
-            model = Tta3DSegmentor(base_model, **submission_cfg["predictors"]["tta_kwargs"])
-
-            if keep_model_chunks:
-                data_out_dir = out_dir / model_name / folder
-            else:
-                data_out_dir = out_dir / "tmp_model_outs" / folder
-            data_out_dir.mkdir(exist_ok=True, parents=True)
-            print(f"> {model_name}: {folder} -> {data_out_dir}")
-
-            data_loader = build_data_loader(
-                folder,
-                substride=submission_cfg["predictors"]["substride"],
-                cfg=cfg,
-                cache_mmaps=cache_mmaps,
-                cropping_border=submission_cfg["predictors"]["cropping_border"],
-                batch_size=batch_size,
-                num_workers=0,
-                fast_mode=fast_mode,
-            )
-            generate_submission_df(
-                model=model,
-                data_loader=data_loader,
-                threshold=submission_cfg["predictors"]["threshold"],
-                percentile_threshold=submission_cfg["predictors"].get("percentile_threshold", None),
-                parallelization_settings=ParallelizationSettings(
-                    run_as_single_process=run_as_single_process,
-                ),
-                out_dir=data_out_dir,
-                device="cuda",
-                save_sub=True,
-            )
-
-            ensembled_prediction.add_chunked_predictions(data_out_dir)
-        ensembled_prediction.finalise(
+        data_out_dir = out_dir / "ensembled" / folder
+        res = generate_submission_df(
+            model=None,
+            data_loader=None,
             threshold=submission_cfg["predictors"]["threshold"],
-            dust_threshold=submission_cfg["predictors"]["dust_threshold"],
-            filter_small_blobs=not no_cc3d,
+            percentile_threshold=submission_cfg["predictors"].get("percentile_threshold", None),
+            parallelization_settings=ParallelizationSettings(
+                run_as_single_process=run_as_single_process,
+            ),
+            out_dir=data_out_dir,
+            device="cuda",
+            save_sub=False,
+            keep_in_memory=cache_mmaps,
+            model_and_data_loader_factory=factories,
         )
+        post_process_kwargs = submission_cfg.get("post_processing", None)
+        image_names = (data_out_dir / "image_names").read_text().split("\n")
 
-    print("aggregating preds into its final dir")
+        if cache_mmaps:
+            thresholded_pred = res.thresholded_pred
+        else:
+            thresholded_pred = read_mmap_array(data_out_dir / "chunk_00" / "thresholded_prob", mode="readwrite").data
+
+        if not no_cc3d and post_process_kwargs is not None:
+            largest_k_closest_to_center(
+                thresholded_pred=thresholded_pred,
+                out=thresholded_pred,
+                **post_process_kwargs,
+            )
+
+        if not cache_mmaps:
+            thresholded_pred.flush()
+
+        ensembled_df = generate_submission_df_from_memory(
+            thresholded_pred,
+            image_names=image_names,
+        )
+        ensembled_df.to_csv(data_out_dir / "submission.csv")
+
     final_sub_path = out_dir / "submission.csv"
-    out_dir_name = "ensembled" if no_cc3d else "ensembled_cc3d"
-    pred_files = list((Path(out_dir) / out_dir_name).rglob("submission.csv"))
+    print(f"aggregating preds into its final dir: {final_sub_path}")
+    pred_files = list((Path(out_dir) / "ensembled").rglob("submission.csv"))
     dfs = []
     for p in pred_files:
         print(p)

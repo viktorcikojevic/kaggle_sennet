@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - model: unetr    
+  - model: smp_unet_r50
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
@@ -12,7 +12,7 @@ defaults:
 
 val_check_interval: 10000
 batch_size: 32 # final batch size.
-apparent_batch_size: 1 # batch size during training
+apparent_batch_size: 16 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
@@ -25,16 +25,20 @@ early_stopping_metric: "surface_dice"
 
 
 loss:
+#  - type: SurfaceDiceLoss
+#    weight: 1.0
+#    kwargs:
+#      device: "cuda"
+#      verbose: false
   - type: BCELoss
     weight: 0.001
   - type: MccLoss
     weight: 0.001
   - type: DiceLoss
-    weight: 0.0
+    weight: 1.0
     kwargs:
       smooth: 0.0001
   - type: FocalLoss
-#    weight: 1.0
     weight: 0.6
     kwargs:
       gamma: 2.0
@@ -70,8 +74,8 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 32 # Number of channels to take from the dataset
-    n_appereant_channels: 32
+    n_take_channels: 2 # Number of channels to take from the dataset
+    n_appereant_channels: 2
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0

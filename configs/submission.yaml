@@ -1,12 +1,20 @@
+#post_processing: null
+post_processing:
+  largest_k: 100
+  connectivity: 26
+
 predictors:
-  threshold: 0.108
+  threshold: 0.003
+#  threshold: 0.5
   percentile_threshold: null
-  dust_threshold: null
 #  substride: 0.25
   substride: 1.0
   cropping_border: 0
   tta_kwargs:
-    add_flips: false
+    add_flips: true
 #    add_flips: false
   models:
-    - "SMPModelUpsampleBy2With3DEncoding_Unet_resnet50_imagenet-c512x16-bs32-abs1-llr-3-t111-sm0-ema0-cb0-2024-01-18-15-15-20"
+#    - "SMP_Unet_resnet50_imagenet-c512x1-bs8-abs8-llr-4-t111-sm0-ema1-cb0-2024-01-11-01-05-51"
+    - "SMP_Unet_resnet50_imagenet-c512x2-bs32-abs4-llr-3.5-t111-sm0-ema0-cb0-2024-01-28-00-54-07"
+#    - "SMP_Unet_resnet50_imagenet-c512x1-bs32-abs16-llr-4-t111-sm0-ema1-cb0-2024-01-11-10-44-56"
+#    - "SMP_Unet_tu-maxvit_small_tf_512_imagenet-c512x1-bs32-llr-4.3-t111-sm0-2023-12-28-20-07-29"
