@@ -110,6 +110,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
         seg_pred = self.model.predict(batch["img"])
         preds = seg_pred.pred
         gt_seg_map = batch["gt_seg_map"].float()
+        weights = batch["weights"].float() if batch["weights"] is not None else None
 
         _, pred_d, pred_h, pred_w = preds.shape
         _, _, gt_d, gt_h, gt_w = gt_seg_map.shape
@@ -137,9 +138,10 @@ class ThreeDSegmentationTask(pl.LightningModule):
                     self.cropping_border: gt_seg_map.shape[3]-self.cropping_border,
                     self.cropping_border: gt_seg_map.shape[4]-self.cropping_border,
                 ],
+                weights
             )
         else:
-            loss = self.criterion(resized_pred, gt_seg_map[:, 0, :, :, :])
+            loss = self.criterion(resized_pred, gt_seg_map[:, 0, :, :, :], weights)
         current_lr = self.optimizers().optimizer.param_groups[0]['lr']
         self.log_dict({
             "train_loss": loss,

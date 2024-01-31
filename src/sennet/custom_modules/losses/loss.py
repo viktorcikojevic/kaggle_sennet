@@ -17,7 +17,7 @@ class CombinedLoss(torch.nn.Module):
             loss_instance = getattr(custom_losses, loss_type)(**kwargs)
             self.loss_functions.append((loss_instance, weight))
 
-    def __call__(self, input, target):
+    def __call__(self, input, target, weights):
         total_loss = 0.0
         sum_weights = 0.0
 
@@ -25,6 +25,9 @@ class CombinedLoss(torch.nn.Module):
         bce_loss = None
         if any(isinstance(loss_fn, LOSSES_WITH_BCE_INPUT) for loss_fn, _ in self.loss_functions):
             bce_loss = F.binary_cross_entropy_with_logits(input, target, reduction="none")
+
+        if weights is not None:
+            bce_loss = bce_loss * weights
 
         for loss_fn, weight in self.loss_functions:
             if weight < 1e-3:
@@ -37,4 +40,6 @@ class CombinedLoss(torch.nn.Module):
             total_loss += weight * loss_value
             sum_weights += weight
 
-        return total_loss / sum_weights
+        total_loss = total_loss / sum_weights
+        
+        return total_loss
