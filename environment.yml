@@ -49,3 +49,4 @@ dependencies:
     - randomcolor
     - Cython
     - cvxpy
+    - plyfile
