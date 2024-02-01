@@ -227,10 +227,16 @@ def compute_surface_dice_score_from_thresholded_mmap(
     # y1_pred = torch.zeros((h, w), dtype=torch.uint8, device=device)
     for chunk in thresholded_chunks:
         for c in range(chunk.shape[0]):
+            if i == 0:
+                y0 = torch.from_numpy(label[i, :, :].copy()).to(device)
+                y0_pred = torch.from_numpy(chunk[c, :, :]).to(device)
+                i += 1
+                continue
             if i < n_slices:
                 y1 = torch.from_numpy(label[i, :, :].copy()).to(device)
                 y1_pred = torch.from_numpy(chunk[c, :, :]).to(device)
             else:
+                continue
                 y1 = y1_pred = torch.zeros((h, w), dtype=torch.uint8, device=device)
 
             # Compute the surface area between two slices (n_cubes,)
@@ -314,30 +320,35 @@ def compute_surface_dice_score_from_mmap(
 
 
 if __name__ == "__main__":
-    from pathlib import Path
-    from sennet.core.mmap_arrays import read_mmap_array
-    import time
-
-    _root_path = Path("/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_dense/")
-    _mmap_paths = sorted([p for p in _root_path.glob("chunk_*")])
-    _mmaps = [read_mmap_array(p / "mean_prob") for p in _mmap_paths]
-    _label = read_mmap_array("/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_3_dense/label", mode="r")
-    print([m.shape for m in _mmaps])
-
-    _t0 = time.time()
-    _dice = compute_surface_dice_score_from_mmap(
-        [m.data for m in _mmaps],
-        _label.data,
-        0.2,
+    _score = compute_surface_dice_score_from_thresholded_mmap(
+        [np.array([1, 0, 0, 0, 0, 0, 0, 0]).reshape((2, 2, 2)).astype(bool)],
+        np.array([0, 0, 0, 0, 1, 0, 0, 0]).reshape((2, 2, 2)).astype(bool),
     )
-    _t1 = time.time()
-    print(f"{_t1 - _t0}, {_dice}")
-
-    _t0 = time.time()
-    _dice = compute_surface_dice_score_from_mmap(
-        [m.data for m in _mmaps],
-        _label.data,
-        0.8,
-    )
-    _t1 = time.time()
-    print(f"{_t1 - _t0}, {_dice}")
+    print(_score)
+    # from pathlib import Path
+    # from sennet.core.mmap_arrays import read_mmap_array
+    # import time
+    #
+    # _root_path = Path("/home/clay/research/kaggle/sennet/data_dumps/predicted/ensembled/kidney_3_dense/")
+    # _mmap_paths = sorted([p for p in _root_path.glob("chunk_*")])
+    # _mmaps = [read_mmap_array(p / "mean_prob") for p in _mmap_paths]
+    # _label = read_mmap_array("/home/clay/research/kaggle/sennet/data_dumps/processed/kidney_3_dense/label", mode="r")
+    # print([m.shape for m in _mmaps])
+    #
+    # _t0 = time.time()
+    # _dice = compute_surface_dice_score_from_mmap(
+    #     [m.data for m in _mmaps],
+    #     _label.data,
+    #     0.2,
+    # )
+    # _t1 = time.time()
+    # print(f"{_t1 - _t0}, {_dice}")
+    #
+    # _t0 = time.time()
+    # _dice = compute_surface_dice_score_from_mmap(
+    #     [m.data for m in _mmaps],
+    #     _label.data,
+    #     0.8,
+    # )
+    # _t1 = time.time()
+    # print(f"{_t1 - _t0}, {_dice}")

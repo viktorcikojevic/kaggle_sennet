@@ -121,6 +121,7 @@ class SMPModel(Base3DSegmentor):
         self.kw = kw
         constructor = getattr(smp, self.version)
         self.model = constructor(**kw)
+        self.model.initialize()
         if replace_batch_norm_with_layer_norm:
             self.replace_bn_with_ln(self.model)
 
@@ -192,10 +193,10 @@ class SMPModelUpsampleBy2(Base3DSegmentor):
             freeze_bn_layers = False
         self.freeze_bn_layers = freeze_bn_layers 
         self.kw = kw
-        self.upsampler = layers.PixelShuffleUpsample(in_channels=1, upscale_factor=2)
+        self.upsampler = layers.PixelShuffleUpsample(in_channels=self.kw["in_channels"], upscale_factor=2)
         constructor = getattr(smp, self.version)
         self.model = constructor(**kw)
-        self.downscale_layer = nn.Conv2d(1, 1, kernel_size=3, stride=2, padding=1)
+        self.downscale_layer = nn.Conv2d(self.kw["classes"], self.kw["classes"], kernel_size=3, stride=2, padding=1)
         
         if self.freeze_bn_layers:
             self.freeze_bn(self.model)
