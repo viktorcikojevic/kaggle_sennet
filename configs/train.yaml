@@ -1,10 +1,12 @@
 defaults:
   - _self_
-  - model: smp_unet_r50
+#  - model: smp_unet_resnext50_32x4d_upsample
+  - model: smp_manet_r50
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
   - scheduler: none
+#  - scheduler: one_cycle
   - optimiser: adamw
   - task: three_d_seg
   - override hydra/sweeper: optuna
@@ -12,7 +14,7 @@ defaults:
 
 val_check_interval: 10000
 batch_size: 32 # final batch size.
-apparent_batch_size: 16 # batch size during training
+apparent_batch_size: 8 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
@@ -31,24 +33,24 @@ loss:
 #      device: "cuda"
 #      verbose: false
   - type: BCELoss
-    weight: 0.001
-  - type: MccLoss
-    weight: 0.001
-  - type: DiceLoss
     weight: 1.0
+  - type: MccLoss
+    weight: 0.0
+  - type: DiceLoss
+    weight: 0.5
     kwargs:
       smooth: 0.0001
   - type: FocalLoss
-    weight: 0.6
+    weight: 0.0
     kwargs:
       gamma: 2.0
 
 
 train_folders:
   - kidney_1_dense
+  - kidney_2_pl
   # - kidney_1_dense_fold_0
   # - kidney_2
-  # - kidney_2_ml_labeled
   # - kidney_3_sparse_ml_labeled
 #  - kidney_2
 
@@ -74,8 +76,8 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 2 # Number of channels to take from the dataset
-    n_appereant_channels: 2
+    n_take_channels: 8 # Number of channels to take from the dataset
+    n_appereant_channels: 8
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0

@@ -69,6 +69,17 @@ class TensorReceivingProcess:
 
     @profile
     def _finalise_image_if_holding_any(self):
+        current_mean_prob_is_none = self.current_mean_prob is None
+        current_total_prob_is_none = self.current_total_prob is None
+        current_total_count_is_none = self.current_total_count is None
+        if (
+                current_mean_prob_is_none
+                or current_total_prob_is_none
+                or current_total_count_is_none
+        ):
+            print(f"WARNING: {current_mean_prob_is_none=}, {current_total_prob_is_none=}, {current_total_count_is_none=}, returning early")
+            return
+
         for c in tqdm(range(self.current_mean_prob.shape[0]), desc="computing mean"):
             self.current_mean_prob[c, ...] = self.current_total_prob[c, ...] / (self.current_total_count[c, ...] + 1e-8) / self.num_models
 
@@ -328,7 +339,7 @@ def generate_submission_df(
     if save_sub:
         df_out.to_csv(out_dir / "submission.csv")
     res = SubmissionOutput(submission_df=df_out)
-    if keep_in_memory:
+    if keep_in_memory and tensor_receiving_process.current_mean_prob is not None:
         res.mean_pred = tensor_receiving_process.current_mean_prob.cpu().numpy()
         res.thresholded_pred = np.zeros_like(res.mean_pred, dtype=bool)
         for c in tqdm(range(res.mean_pred.shape[0]), desc="keep_in_memory ret"):

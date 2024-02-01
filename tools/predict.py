@@ -129,6 +129,11 @@ def main():
 
         if cache_mmaps:
             thresholded_pred = res.thresholded_pred
+            if thresholded_pred is None:
+                print("WARNING: thresholded_pred is None, writing dummy data and skipping")
+                data = {"id": [], "rle": [], "height": [], "width": []}
+                pd.DataFrame(data).to_csv(data_out_dir / "submission.csv")
+                continue
         else:
             thresholded_pred = read_mmap_array(data_out_dir / "chunk_00" / "thresholded_prob", mode="readwrite").data
 
