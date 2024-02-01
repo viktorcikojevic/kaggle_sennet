@@ -1,12 +1,12 @@
 predictors:
-  threshold: 0.1
+  threshold: 0.003
   percentile_threshold: null
   dust_threshold: null
 #  substride: 0.25
-  substride: 1.0
+  substride: 0.5
   cropping_border: 0
   tta_kwargs:
     add_flips: true
 #    add_flips: false
   models:
-    - "SMP_Unet_resnet50_imagenet-c512x8-bs8-abs8-llr-3.5-t111-sm0-ema0-cb0-2024-01-31-16-11-47-best-model"
+    - "SMP3DModelUpsampleBy2_Unet_resnet50_imagenet-c512x8-bs4-abs4-llr-3.5-t111-sm0-ema0-cb0-2024-02-01-02-25-43-best-model"

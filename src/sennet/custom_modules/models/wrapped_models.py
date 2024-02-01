@@ -461,6 +461,36 @@ class SMPModel3DDecoder(Base3DSegmentor):
         )
 
 
+
+
+class SMP3DModelUpsampleBy2(Base3DSegmentor):
+    def __init__(self, version: str, **kw):
+        Base3DSegmentor.__init__(self)
+        self.version = version
+        self.kw = kw
+        self.upsampler = layers.ConvTranspose3DUpsample(in_channels=1, out_channels=1, upscale_factor=2)
+        constructor = getattr(smp, self.version)
+        kw['in_channels'] = 2 * kw['in_channels']
+        kw['classes'] = kw['in_channels']
+        self.model = constructor(**kw)
+        self.downscale_layer = nn.Conv3d(1, 1, kernel_size=3, stride=2, padding=1)
+    
+
+    def get_name(self) -> str:
+        return f"SMP3DModelUpsampleBy2_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
+
+    @profile
+    def predict(self, img: torch.Tensor) -> SegmentorOutput:
+        B, _, C, H, W = img.shape
+        img = self.upsampler(img)
+        img = self.model(img.squeeze(1))
+        img = self.downscale_layer(img.unsqueeze(1)).squeeze(1)
+        return SegmentorOutput(
+            pred=img,
+            take_indices_start=0,
+            take_indices_end=C,
+        )
+
 if __name__ == "__main__":
     _device = "cuda"
     # _model = WrappedUNet3D(

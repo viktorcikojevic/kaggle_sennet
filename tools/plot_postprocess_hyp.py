@@ -33,7 +33,7 @@ def main():
     #     + np.linspace(0.01, 0.1, num=10).tolist()
     #     + np.linspace(0.1, 0.3, num=10).tolist()
     # )
-    thresholds = np.linspace(0.001, 0.1, num=10).tolist()
+    thresholds = np.linspace(0.001, 0.2, num=10).tolist()
     chunk_dirs = [Path(d) for d in chunk_dirs]
     chunk_dirs = [chunk_dirs[2]]
 
