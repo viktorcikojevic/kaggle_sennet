@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - model: smp_unet_r50_upsample_3d    
+  - model: smp_unet_resnext50_32x4d_upsample_3d    
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
@@ -11,8 +11,8 @@ defaults:
   - override hydra/sweeper/sampler: tpe
 
 val_check_interval: 20000
-batch_size: 4 # final batch size.
-apparent_batch_size: 4 # batch size during training
+batch_size: 6 # final batch size.
+apparent_batch_size: 6 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
@@ -75,8 +75,8 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 8 # Number of channels to take from the dataset
-    n_appereant_channels: 8
+    n_take_channels: 4 # Number of channels to take from the dataset
+    n_appereant_channels: 4
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
