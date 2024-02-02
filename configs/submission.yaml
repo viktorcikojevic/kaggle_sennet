@@ -1,22 +1,15 @@
-#post_processing: null
-post_processing:
-  largest_k: 100
-  connectivity: 26
-
 predictors:
-  threshold: 0.02
-#  threshold: 0.5
+  threshold: 0.18
   percentile_threshold: null
-  substride: 0.25
-#  substride: 1.0
+  dust_threshold: null
+#  substride: 0.25
+  substride: 1.0
   cropping_border: 0
   tta_kwargs:
     add_flips: true
 #    add_flips: false
   models:
-#    - "SMP_Unet_resnet50_imagenet-c512x1-bs8-abs8-llr-4-t111-sm0-ema1-cb0-2024-01-11-01-05-51"  # Viktor's best
-#    - "SMP_Unet_resnet50_imagenet-c512x2-bs32-abs4-llr-3.5-t111-sm0-ema0-cb0-2024-01-28-00-54-07"  # surface dice
-#    - "SMP_Unet_resnet50_imagenet-c512x1-bs32-abs16-llr-4-t111-sm0-ema1-cb0-2024-01-11-10-44-56"
-#    - "SMP_Unet_resnext50_32x4d_imagenet-c512x8-bs32-abs16-llr-3.5-t111-sm0-ema0-cb0-2024-01-30-23-06-38"  # rx50
-    - "SMP_Unet_resnext50_32x4d_imagenet-c512x8-bs32-abs8-llr-3.5-t111-sm0-ema0-cb0-2024-02-01-12-40-45"  # rx50up
-#    - "SMP_Unet_tu-maxvit_small_tf_512_imagenet-c512x1-bs32-llr-4.3-t111-sm0-2023-12-28-20-07-29"
+    - "SMP_Unet_resnet50_imagenet-c512x1-bs8-abs8-llr-4-t111-sm0-ema1-cb0-2024-01-11-01-05-51"
+    - "SMP_Unet_resnet50_imagenet-c512x8-bs10-abs10-llr-3-t111-sm0-ema0-cb0-2024-01-24-23-41-08"
+    - "SMP_Unet_resnet50_imagenet-c512x8-bs10-abs10-llr-3.5-t111-sm0-ema0-cb0-2024-01-30-00-36-55-single-model"
+    - "SMP3DModelUpsampleBy2_Unet_resnet50_imagenet-c512x8-bs4-abs4-llr-3.5-t111-sm0-ema0-cb0-2024-02-01-02-25-43-best-model"
