@@ -54,6 +54,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             scheduler_spec: dict[str, Any] = None,
             ignore_border_loss: bool = False,
             accumulate_grad_batches: int = 1,
+            data_device: str = "cuda",
             **kwargs
     ):
         pl.LightningModule.__init__(self)
@@ -85,6 +86,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
         assert isinstance(self.val_loader.dataset, ThreeDSegmentationDataset), \
             f"to generate submission, dataset must be ThreeDSegmentationDataset"
         self.cropping_border = self.val_loader.dataset.dataset.cropping_border
+        self.data_device = data_device
 
         self.total_tp = 0
         self.total_fp = 0
@@ -202,6 +204,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 out_dir=out_dir,
                 device="cuda",
                 save_sub=True,
+                data_device=self.data_device,
             )
 
             # mmap_paths = sorted([p for p in out_dir.glob("chunk_*")])
@@ -217,14 +220,15 @@ class ThreeDSegmentationTask(pl.LightningModule):
             #     connectivity=26,
             # )
 
-            # thresholds = [0.001, 0.002, 0.005, 0.01, 0.02, 0.03, 0.04, 0.08, 0.1]
-            thresholds = np.linspace(0.001, 0.95, 5).tolist()
-            thresholds_all= []
+            thresholds = [0.001, 0.002, 0.005, 0.01, 0.02, 0.03, 0.04, 0.08, 0.1]
+            # thresholds = np.linspace(0.001, 0.95, 5).tolist()
+            thresholds_all = []
             precisions_all = []
             recalls_all = []
             f1_scores_all = []
             dices_all = []
-            for level in range(3):
+            # for level in range(3):
+            for level in range(1):
                 metrics: ChunkedMetrics = evaluate_chunked_inference(
                     root_dir=out_dir,
                     # root_dir=cc3d_out_dir,
@@ -275,8 +279,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             recalls_all = recalls_all[indx_sort]
             f1_scores_all = f1_scores_all[indx_sort]
             dices_all = dices_all[indx_sort]
-            
-                
+
             best_f1_score = np.max(f1_scores_all)
             print("--------------------------------")
             print("precisions:")
