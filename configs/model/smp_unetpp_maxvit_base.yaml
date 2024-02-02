@@ -1,0 +1,8 @@
+type: SMPModel
+kwargs:
+    version: "UnetPlusPlus"
+    encoder_name: "tu-maxvit_base_tf_512"
+    encoder_weights: "imagenet"
+    in_channels: ${dataset.kwargs.n_take_channels}
+    classes: ${dataset.kwargs.n_take_channels}
+    decoder_use_batchnorm: "inplace"

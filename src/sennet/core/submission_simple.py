@@ -52,6 +52,7 @@ class TensorReceivingProcess:
             percentile_threshold: float | None = None,
             keep_in_memory: bool = False,
             num_models: int = 1,
+            device: str = "cuda",
     ):
         self.data_queue = data_queue
         self.threshold = threshold
@@ -66,6 +67,7 @@ class TensorReceivingProcess:
         self.current_folder = None
         self.cropping_border = cropping_border
         self.keep_in_memory = keep_in_memory
+        self.device = device
 
     @profile
     def _finalise_image_if_holding_any(self):
@@ -196,13 +198,13 @@ class TensorReceivingProcess:
             img_c = int(batch["img_c"][i])
 
             self.current_folder = folder
-            self.current_total_count = torch.zeros((img_c, img_h, img_w), dtype=torch.uint8, device=pred.device)
-            self.current_total_prob = torch.zeros((img_c, img_h, img_w), dtype=torch.float16, device=pred.device)
-            self.current_mean_prob = torch.zeros((img_c, img_h, img_w), dtype=torch.float16, device=pred.device)
+            self.current_total_count = torch.zeros((img_c, img_h, img_w), dtype=torch.uint8, device=self.device)
+            self.current_total_prob = torch.zeros((img_c, img_h, img_w), dtype=torch.float16, device=self.device)
+            self.current_mean_prob = torch.zeros((img_c, img_h, img_w), dtype=torch.float16, device=self.device)
         else:
             assert self.current_folder == folder, f"can't handle more than one folder: {self.current_folder=}, {folder=}"
 
-        self.current_total_prob[lc: uc, ly: uy, lx: ux] += cropped_pred
+        self.current_total_prob[lc: uc, ly: uy, lx: ux] += cropped_pred.to(self.device)
         self.current_total_count[lc: uc, ly: uy, lx: ux] += 1
 
         # print(f"{self.chunk_boundary} wrote")
@@ -239,8 +241,11 @@ def generate_submission_df(
         percentile_threshold: float | None = None,
         keep_in_memory: bool = False,
         model_and_data_loader_factory: None | list[Callable[[], tuple[Base3DSegmentor, DataLoader]]] = None,  # function to generate model and dataloader
+        data_device: str | None = None,
 ) -> SubmissionOutput:
     ps = parallelization_settings
+    if data_device is None:
+        data_device = device
     if keep_in_memory:
         assert ps.run_as_single_process, f"keep in memory needs to be run as a single process"
     if ps.run_as_single_process:
@@ -264,7 +269,8 @@ def generate_submission_df(
         out_dir=out_dir / f"chunk_00",
         cropping_border=0,
         keep_in_memory=keep_in_memory,
-        num_models=len(model_and_data_loader_factory)
+        num_models=len(model_and_data_loader_factory),
+        device=data_device,
     )
     if ps.run_as_single_process:
         saver_process = tensor_receiving_process
