@@ -1,3 +1,8 @@
+#post_processing: null
+post_processing:
+  largest_k: 100
+  connectivity: 26
+
 predictors:
   threshold: 0.18
   percentile_threshold: null
