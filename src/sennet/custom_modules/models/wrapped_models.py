@@ -119,12 +119,9 @@ class SMPModel(Base3DSegmentor):
         Base3DSegmentor.__init__(self)
         self.version = version
         self.kw = kw
-        if 'replace_batch_norm_with_layer_norm' in kw:
-            replace_batch_norm_with_layer_norm = kw.pop('replace_batch_norm_with_layer_norm')
-        else:
-            replace_batch_norm_with_layer_norm = False
         constructor = getattr(smp, self.version)
         self.model = constructor(**kw)
+        self.model.initialize()
         if replace_batch_norm_with_layer_norm:
             self.replace_bn_with_ln(self.model)
 
@@ -133,13 +130,16 @@ class SMPModel(Base3DSegmentor):
 
     @profile
     def predict(self, img: torch.Tensor) -> SegmentorOutput:
+        n_batch, n_c, n_z, n_y, n_x = img.shape
         assert img.shape[1] == 1, f"{self.__class__.__name__} works in 1 channel images only (for now), expected to have c=1, got {img.shape=}"
         # model_out = self.model(img[:, 0, :, :, :])
-        model_out = self.model(img.squeeze(1))
+        reshaped_batch_in = img.reshape(n_batch, -1, n_y, n_x)
+        raw_out = self.model(reshaped_batch_in)
+        model_out = raw_out.reshape(n_batch, n_z, n_y, n_x)
         return SegmentorOutput(
             pred=model_out,
             take_indices_start=0,
-            take_indices_end=img.shape[2],
+            take_indices_end=n_z,
         )
         
     def replace_bn_with_ln(self, module):
@@ -193,10 +193,10 @@ class SMPModelUpsampleBy2(Base3DSegmentor):
             freeze_bn_layers = False
         self.freeze_bn_layers = freeze_bn_layers 
         self.kw = kw
-        self.upsampler = layers.PixelShuffleUpsample(in_channels=1, upscale_factor=2)
+        self.upsampler = layers.PixelShuffleUpsample(in_channels=self.kw["in_channels"], upscale_factor=2)
         constructor = getattr(smp, self.version)
         self.model = constructor(**kw)
-        self.downscale_layer = nn.Conv2d(1, 1, kernel_size=3, stride=2, padding=1)
+        self.downscale_layer = nn.Conv2d(self.kw["classes"], self.kw["classes"], kernel_size=3, stride=2, padding=1)
         
         if self.freeze_bn_layers:
             self.freeze_bn(self.model)
@@ -506,35 +506,35 @@ if __name__ == "__main__":
     #     num_levels=6,
     # ).to(_device)
     # smp.UnetPlusPlus
-    _c = 32
-    # _model = SMPModel(
-    #     "Unet",
-    #     encoder_name="resnet34",
-    #     encoder_weights="imagenet",
-    #     replace_batch_norm_with_layer_norm=True,
-    #     in_channels=_c,
-    #     classes=_c,
-    # ).to(_device).train()
-    _model = SMPModel3DDecoder(
-        encoder_version="Unet",
-        encoder_kwargs=dict(
-            encoder_name="resnet34",
-            encoder_weights="imagenet",
-            in_channels=1,
-            classes=1,
-        ),
-        decoder_version="UNet3D",
-        decoder_kwargs=dict(
-            in_channels=1,
-            out_channels=1,
-            num_levels=6,
-            num_groups=8,
-            f_maps=32,
-            final_sigmoid=False,
-            is_segmentation=False,
-            is3d=True,
-        ),
+    _c = 3
+    _model = SMPModel(
+        "Unet",
+        encoder_name="resnet34",
+        encoder_weights="imagenet",
+        replace_batch_norm_with_layer_norm=True,
+        in_channels=_c,
+        classes=_c,
     ).to(_device).train()
+    # _model = SMPModel3DDecoder(
+    #     encoder_version="Unet",
+    #     encoder_kwargs=dict(
+    #         encoder_name="resnet34",
+    #         encoder_weights="imagenet",
+    #         in_channels=1,
+    #         classes=1,
+    #     ),
+    #     decoder_version="UNet3D",
+    #     decoder_kwargs=dict(
+    #         in_channels=1,
+    #         out_channels=1,
+    #         num_levels=6,
+    #         num_groups=8,
+    #         f_maps=32,
+    #         final_sigmoid=False,
+    #         is_segmentation=False,
+    #         is3d=True,
+    #     ),
+    # ).to(_device).train()
     _data = torch.randn((2, 1, _c, 512, 512)).to(_device)
     _out = _model.predict(_data)
     print(_model)

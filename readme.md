@@ -43,11 +43,11 @@ python3 tools/prepare_watershed_seed.py \
   --path "${DATA_DUMP_ROOT}/predicted/ensembled" \
   --skip-seed \
   --out-dir-name out
-#python3 tools/prepare_watershed_seed.py \
-#  --path "${DATA_DUMP_ROOT}/predicted/ensembled" \
-#  --seed-threshold 0.9 \
-#  --seed-dir-name seed \
-#  --out-dir-name out
+python3 tools/prepare_watershed_seed.py \
+  --path "${DATA_DUMP_ROOT}/predicted/ensembled" \
+  --seed-threshold 0.9 \
+  --seed-dir-name seed \
+  --out-dir-name out
 
 export PRED_ROOT="${DATA_DUMP_ROOT}/predicted/ensembled"
 for i in $(ls "${PRED_ROOT}"); do

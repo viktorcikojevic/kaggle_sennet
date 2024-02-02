@@ -48,3 +48,6 @@ dependencies:
     - einops
     - randomcolor
     - Cython
+    - cvxpy
+    - plyfile
+    - inplace-abn

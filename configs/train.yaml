@@ -5,6 +5,7 @@ defaults:
   - early_stopping: normal
 #  - augmentation: noop
   - scheduler: none
+#  - scheduler: one_cycle
   - optimiser: adamw
   - task: three_d_seg
   - override hydra/sweeper: optuna
@@ -25,6 +26,11 @@ early_stopping_metric: "surface_dice"
 
 
 loss:
+#  - type: SurfaceDiceLoss
+#    weight: 1.0
+#    kwargs:
+#      device: "cuda"
+#      verbose: false
   - type: BCELoss
     weight: 0.0
   - type: MccLoss
@@ -48,7 +54,6 @@ train_folders:
   # - kidney_2_ml_labeled_ensemble_cleaned
   # - kidney_1_dense_fold_0
   # - kidney_2
-  # - kidney_2_ml_labeled
   # - kidney_3_sparse_ml_labeled
 #  - kidney_2
 
