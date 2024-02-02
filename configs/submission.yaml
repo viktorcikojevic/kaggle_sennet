@@ -1,12 +1,15 @@
 predictors:
-  threshold: 0.002
+  threshold: 0.18
   percentile_threshold: null
   dust_threshold: null
 #  substride: 0.25
-  substride: 
+  substride: 1.0
   cropping_border: 0
   tta_kwargs:
     add_flips: true
 #    add_flips: false
   models:
-    - "SMP3DModelUpsampleBy2_Unet_resnext50_32x4d_imagenet-c512x4-bs6-abs6-llr-3.5-t111-sm0-ema0-cb0-2024-02-01-13-06-40-last-model"
+    - "SMP_Unet_resnet50_imagenet-c512x1-bs8-abs8-llr-4-t111-sm0-ema1-cb0-2024-01-11-01-05-51"
+    - "SMP_Unet_resnet50_imagenet-c512x8-bs10-abs10-llr-3-t111-sm0-ema0-cb0-2024-01-24-23-41-08"
+    - "SMP_Unet_resnet50_imagenet-c512x8-bs10-abs10-llr-3.5-t111-sm0-ema0-cb0-2024-01-30-00-36-55-single-model"
+    - "SMP3DModelUpsampleBy2_Unet_resnet50_imagenet-c512x8-bs4-abs4-llr-3.5-t111-sm0-ema0-cb0-2024-02-01-02-25-43-best-model"
