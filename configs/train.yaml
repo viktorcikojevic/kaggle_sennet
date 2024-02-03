@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - model: smp_unet_r34_upsample_x4    
+  - model: smp_unet_r50_upsample    
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
@@ -11,9 +11,9 @@ defaults:
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 10000
-batch_size: 4 # final batch size.
-apparent_batch_size: 4 # batch size during training
+val_check_interval: 20000
+batch_size: 5 # final batch size.
+apparent_batch_size: 5 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
@@ -51,7 +51,8 @@ loss:
 
 train_folders:
   - kidney_1_dense
-  # - kidney_2_ml_labeled_ensemble_cleaned
+  - kidney_2_ml_labeled_ensemble_cleaned
+  - kidney_3_sparse_ml_labeled_ensemble
   # - kidney_1_dense_fold_0
   # - kidney_2
   # - kidney_3_sparse_ml_labeled
@@ -59,7 +60,7 @@ train_folders:
 
 val_folders:
 #  - kidney_1_dense
-   - kidney_3_dense
+  - kidney_3_dense
 #   - kidney_3_merged
 #  - kidney_2
 #   - kidney_3_sparse
@@ -80,8 +81,8 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 1 # Number of channels to take from the dataset
-    n_appereant_channels: 1
+    n_take_channels: 2 # Number of channels to take from the dataset
+    n_appereant_channels: 2
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
