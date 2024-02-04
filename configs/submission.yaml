@@ -14,7 +14,7 @@ predictors:
     add_flips: true
 #    add_flips: false
   models:
-    - "SMP_Unet_resnet50_imagenet-c512x2-bs5-abs5-llr-3.5-t111-sm0-ema0-cb0-2024-02-02-20-04-08-last-model"
+    - "SMP_Unet_resnet50_imagenet-c512x2-bs5-abs5-llr-3.5-t111-sm0-ema0-cb0-2024-02-04-02-20-31-last-model"
     - "SMP3DModelUpsampleBy2_Unet_resnext50_32x4d_imagenet-c512x4-bs6-abs6-llr-3.5-t111-sm0-ema0-cb0-2024-02-01-13-06-40-last-model"
     - "SMP_Unet_resnet50_imagenet-c512x1-bs8-abs8-llr-4-t111-sm0-ema1-cb0-2024-01-11-01-05-51"
 
