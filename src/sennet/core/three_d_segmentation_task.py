@@ -54,6 +54,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
             scheduler_spec: dict[str, Any] = None,
             ignore_border_loss: bool = False,
             accumulate_grad_batches: int = 1,
+            data_device: str = "cuda",
             **kwargs
     ):
         pl.LightningModule.__init__(self)
@@ -85,6 +86,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
         assert isinstance(self.val_loader.dataset, ThreeDSegmentationDataset), \
             f"to generate submission, dataset must be ThreeDSegmentationDataset"
         self.cropping_border = self.val_loader.dataset.dataset.cropping_border
+        self.data_device = data_device
 
         self.total_tp = 0
         self.total_fp = 0
@@ -204,6 +206,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 out_dir=out_dir,
                 device="cuda",
                 save_sub=True,
+                data_device=self.data_device,
             )
 
             # mmap_paths = sorted([p for p in out_dir.glob("chunk_*")])

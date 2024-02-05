@@ -50,16 +50,18 @@ loss:
 
 
 train_folders:
+#   - kidney_3_dense
   - kidney_1_dense
   - kidney_3_dense
   # - kidney_2_ml_labeled_ensemble_cleaned
   # - kidney_3_sparse_ml_labeled_ensemble
   # - kidney_1_dense_fold_0
   # - kidney_2
-  # - kidney_3_sparse_ml_labeled
 #  - kidney_2
 
 val_folders:
+   - kidney_2_pl
+#   - kidney_3_pl
 #  - kidney_1_dense
   - kidney_3_dense
 #   - kidney_3_merged
