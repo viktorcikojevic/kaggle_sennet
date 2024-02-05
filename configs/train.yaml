@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - model: smp_unet_r50_upsample    
+  - model: smp_unet_r50_upsample  
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
@@ -18,7 +18,7 @@ num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-group_name: "smp_unet_r50_upsample_n_channels" # maybe this would be useful for grouping experiments when we do hyperparameter search
+group_name: "smp_unet_r50_sr_n_channels" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 2000
 max_steps: -1
 early_stopping_metric: "surface_dice"
@@ -51,6 +51,7 @@ loss:
 
 train_folders:
   - kidney_1_dense
+  - kidney_3_dense
   # - kidney_2_ml_labeled_ensemble_cleaned
   # - kidney_3_sparse_ml_labeled_ensemble
   # - kidney_1_dense_fold_0
@@ -81,8 +82,8 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 2 # Number of channels to take from the dataset
-    n_appereant_channels: 2
+    n_take_channels: 1 # Number of channels to take from the dataset
+    n_appereant_channels: 1
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0

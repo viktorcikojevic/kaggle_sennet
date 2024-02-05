@@ -1,4 +1,4 @@
 type: "SGD"
-log_lr: -2 # sets lr = 10^{-log_lr}. If ls is not null, then it is used instead of log_lr
+log_lr: -3 # sets lr = 10^{-log_lr}. If ls is not null, then it is used instead of log_lr
 kwargs:
   lr: null

@@ -3,6 +3,7 @@ from sennet.custom_modules.models.base_model import Base3DSegmentor, SegmentorOu
 from sennet.custom_modules.models import medical_net_resnet3d as resnet3ds
 from sennet.custom_modules.models import layers
 from sennet.environments.constants import PRETRAINED_DIR
+# from super_image import EdsrModel, EdsrConfig
 import segmentation_models_pytorch as smp
 from line_profiler_pycharm import profile
 from typing import Union, Optional
@@ -490,6 +491,50 @@ class SMP3DModelUpsampleBy2(Base3DSegmentor):
             take_indices_start=0,
             take_indices_end=C,
         )
+
+# class SMPModelSuperResolution(Base3DSegmentor):
+#     def __init__(self, version: str, **kw):
+#         Base3DSegmentor.__init__(self)
+#         self.version = version
+#         self.kw = kw
+#         in_channels = kw['in_channels']
+        
+#         config = EdsrConfig(scale=2)
+#         self.upsampler = EdsrModel(config)
+#         self.upsampler.sub_mean = torch.nn.Identity()
+#         self.upsampler.add_mean = torch.nn.Identity()
+#         self.upsampler.head = torch.nn.Conv2d(1, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#         self.upsampler.tail[1] = torch.nn.Conv2d(64, 1, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+
+#         constructor = getattr(smp, self.version)
+#         self.model = constructor(**kw)
+#         self.downscale_layer = nn.Conv2d(1, 1, kernel_size=3, stride=2, padding=1)
+        
+
+#     def get_name(self) -> str:
+#         return f"SMPModelSuperResolution_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
+
+#     @profile
+#     def predict(self, img: torch.Tensor) -> SegmentorOutput:
+#         assert img.shape[1] == 1, f"{self.__class__.__name__} works in 1 channel images only (for now), expected to have c=1, got {img.shape=}"
+#         B, _, C, H, W = img.shape
+#         img = img.reshape(B*C, 1, H, W)
+        
+        
+#         img_upsampled = self.upsampler(img) # (b*c, 1, h, w) -> (b*c, 1, h*2, w*2)
+        
+        
+#         img_upsampled = img_upsampled.reshape(B, C, H*2, W*2)
+#         model_out = self.model(img_upsampled) # (b, c, h*2, w*2) -> (b, c, h*2, w*2)
+#         model_out = model_out.reshape(B*C, 1, H*2, W*2)
+#         model_out = self.downscale_layer(model_out) # (b*c, 1, h*2, w*2) -> (b*c, 1, h, w)
+#         model_out = model_out.reshape(B, C, H, W)
+#         return SegmentorOutput(
+#             pred=model_out,
+#             take_indices_start=0,
+#             take_indices_end=C,
+#         )
+
 
 if __name__ == "__main__":
     _device = "cuda"
