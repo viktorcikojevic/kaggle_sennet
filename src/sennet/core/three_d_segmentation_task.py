@@ -112,6 +112,7 @@ class ThreeDSegmentationTask(pl.LightningModule):
         seg_pred = self.model.predict(batch["img"])
         preds = seg_pred.pred
         gt_seg_map = batch["gt_seg_map"].float()
+        weights = batch["weights"].float() if batch["weights"] is not None else None
 
         _, pred_d, pred_h, pred_w = preds.shape
         _, _, gt_d, gt_h, gt_w = gt_seg_map.shape
@@ -139,9 +140,10 @@ class ThreeDSegmentationTask(pl.LightningModule):
                     self.cropping_border: gt_seg_map.shape[3]-self.cropping_border,
                     self.cropping_border: gt_seg_map.shape[4]-self.cropping_border,
                 ],
+                weights
             )
         else:
-            loss = self.criterion(resized_pred, gt_seg_map[:, 0, :, :, :])
+            loss = self.criterion(resized_pred, gt_seg_map[:, 0, :, :, :], weights)
         current_lr = self.optimizers().optimizer.param_groups[0]['lr']
         self.log_dict({
             "train_loss": loss,
@@ -220,76 +222,34 @@ class ThreeDSegmentationTask(pl.LightningModule):
             #     connectivity=26,
             # )
 
-            thresholds = [0.001, 0.002, 0.005, 0.01, 0.02, 0.03, 0.04, 0.08, 0.1]
-            # thresholds = np.linspace(0.001, 0.95, 5).tolist()
-            thresholds_all = []
-            precisions_all = []
-            recalls_all = []
-            f1_scores_all = []
-            dices_all = []
-            # for level in range(3):
-            for level in range(1):
-                metrics: ChunkedMetrics = evaluate_chunked_inference(
-                    root_dir=out_dir,
-                    # root_dir=cc3d_out_dir,
-                    label_dir=PROCESSED_DATA_DIR / self.val_folders[0],  # TODO(Sumo): adjust this so we can eval more folders
-                    thresholds=thresholds,
-                )
-                thresholds_all.append(thresholds)
-                precisions_all.append(metrics.precisions)
-                recalls_all.append(metrics.recalls)
-                f1_scores_all.append(metrics.f1_scores)
-                dices_all.append(metrics.surface_dices)
-                
-                best_dice_current = np.max(metrics.surface_dices)
-                best_threshold_current = thresholds[np.argmax(metrics.surface_dices)]
-                
-                indx_best = np.argmax(metrics.surface_dices)
-                # create a new thresholds, between indx_best-1 and indx_best+1
-                if indx_best == 0:
-                    thresholds = np.linspace(
-                        0.05 * thresholds[0],
-                        0.95 * thresholds[0],
-                        5,
-                    ).tolist()
-                elif indx_best == len(thresholds) - 1:
-                    thresholds = np.linspace(
-                        (0.95 * thresholds[-2] + 0.05 * thresholds[-1]),
-                        1.05 * thresholds[-1],
-                        5,
-                    ).tolist()
-                else:
-                    thresholds = np.linspace(
-                        (0.75 * thresholds[indx_best - 1] + 0.25 * thresholds[indx_best]),
-                        (0.25 * thresholds[indx_best - 1] + 0.75 * thresholds[indx_best]),
-                        5,
-                    ).tolist()
+            thresholds = [0.001, 0.002, 0.005, 0.01, 0.025, 0.05, 0.1, 0.2]
+            # thresholds = np.linspace(0.01, 0.8, 20)
+            metrics: ChunkedMetrics = evaluate_chunked_inference(
+                root_dir=out_dir,
+                # root_dir=cc3d_out_dir,
+                label_dir=PROCESSED_DATA_DIR / self.val_folders[0],  # TODO(Sumo): adjust this so we can eval more folders
+                thresholds=thresholds,
+            )
             
-            # turn all into concatenated lists
-            thresholds_all = np.ascontiguousarray(thresholds_all).flatten()
-            precisions_all = np.ascontiguousarray(precisions_all).flatten()
-            recalls_all = np.ascontiguousarray(recalls_all).flatten()
-            f1_scores_all = np.ascontiguousarray(f1_scores_all).flatten()
-            dices_all = np.ascontiguousarray(dices_all).flatten()
             
-            # sort all by thresholds
-            indx_sort = np.argsort(thresholds_all)
-            thresholds_all = thresholds_all[indx_sort]
-            precisions_all = precisions_all[indx_sort]
-            recalls_all = recalls_all[indx_sort]
-            f1_scores_all = f1_scores_all[indx_sort]
-            dices_all = dices_all[indx_sort]
-
+            precisions_all = metrics.precisions
+            recalls_all = metrics.recalls
+            f1_scores_all = metrics.f1_scores
+            dices_all = metrics.surface_dices
+            
+                
             best_f1_score = np.max(f1_scores_all)
+            best_dice_current = np.max(dices_all)
+            best_threshold_current = thresholds[np.argmax(dices_all)]
             print("--------------------------------")
             print("precisions:")
-            print(json.dumps({t: d for t, d in zip(thresholds_all, precisions_all)}, indent=4))
+            print(json.dumps({t: d for t, d in zip(thresholds, precisions_all)}, indent=4))
             print("recalls:")
-            print(json.dumps({t: d for t, d in zip(thresholds_all, recalls_all)}, indent=4))
+            print(json.dumps({t: d for t, d in zip(thresholds, recalls_all)}, indent=4))
             print(f"f1_scores:")
-            print(f"{json.dumps({t: d for t, d in zip(thresholds_all, f1_scores_all)}, indent=4)}")
+            print(f"{json.dumps({t: d for t, d in zip(thresholds, f1_scores_all)}, indent=4)}")
             print("dice_scores:")
-            print(json.dumps({t: d for t, d in zip(thresholds_all, dices_all)}, indent=4))
+            print(json.dumps({t: d for t, d in zip(thresholds, dices_all)}, indent=4))
             print(f"best_threshold_current = {best_threshold_current}")
             print(f"best_dice_current = {best_dice_current}")
             print(f"{crude_f1 = }")

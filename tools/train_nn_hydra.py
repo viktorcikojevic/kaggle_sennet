@@ -66,6 +66,7 @@ def main(cfg: DictConfig):
         ThreeDSegmentationDataset(
             folder=folder,
             substride=cfg.dataset.train_substride,
+            loss_weight_by_surface=cfg.dataset.loss_weight_by_surface,
             **dataset_kwargs,
             **augmentation_kwargs,
         )

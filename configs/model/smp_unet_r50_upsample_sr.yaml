@@ -1,4 +1,4 @@
-type: SMPModelUpsampleBy2
+type: SMPModelSuperResolution
 kwargs:
     version: "Unet"
     encoder_name: "resnet50"
