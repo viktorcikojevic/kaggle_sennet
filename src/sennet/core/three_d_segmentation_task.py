@@ -220,15 +220,15 @@ class ThreeDSegmentationTask(pl.LightningModule):
             #     connectivity=26,
             # )
 
-            thresholds = [0.001, 0.002, 0.005, 0.01, 0.02, 0.03, 0.04, 0.08, 0.1]
-            # thresholds = np.linspace(0.001, 0.95, 5).tolist()
+            # thresholds = [0.001, 0.002, 0.005, 0.01, 0.02, 0.03, 0.04, 0.08, 0.1]
+            thresholds = np.linspace(0.001, 0.95, 5).tolist()
             thresholds_all = []
             precisions_all = []
             recalls_all = []
             f1_scores_all = []
             dices_all = []
-            # for level in range(3):
-            for level in range(1):
+            for level in range(3):
+            # for level in range(1):
                 metrics: ChunkedMetrics = evaluate_chunked_inference(
                     root_dir=out_dir,
                     # root_dir=cc3d_out_dir,
