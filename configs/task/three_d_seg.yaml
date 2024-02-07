@@ -6,4 +6,4 @@ kwargs:
 #    ema_momentum: null
 #    ignore_border_loss: true
   ignore_border_loss: false
-  data_device: "cpu"
+  data_device: "cuda"

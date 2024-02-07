@@ -1,11 +1,9 @@
 defaults:
   - _self_
 #  - model: smp_unet_resnext50_32x4d_upsample
-  - model: smp_manet_resnext101_32x4d_upsample
-#  - model: smp_manet_maxvit_base
-#  - model: smp_manet_resnext50_32x4d
-#  - model: smp_manet_r50
 #  - model: smp_unet_r50
+#  - model: smp_unetpp_resnext101_32x4d_upsample
+  - model: smp_unetpp_final
   - augmentation: multi_channel_augmentation
   - early_stopping: normal
 #  - augmentation: noop
@@ -18,7 +16,7 @@ defaults:
 
 val_check_interval: 10000
 batch_size: 32 # final batch size.
-apparent_batch_size: 2 # batch size during training
+apparent_batch_size: 16 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
@@ -51,19 +49,19 @@ loss:
 
 
 train_folders:
-#   - kidney_3_dense
+#  - kidney_3_dense
   - kidney_1_dense
-#  - kidney_2_pl
+  - kidney_2_pl
   - kidney_3_pl
   # - kidney_1_dense_fold_0
   # - kidney_2
 #  - kidney_2
 
 val_folders:
-   - kidney_2_pl
+#   - kidney_2_pl
 #   - kidney_3_pl
 #  - kidney_1_dense
-#   - kidney_3_dense
+   - kidney_3_dense
 #   - kidney_3_merged
 #  - kidney_2
 #   - kidney_3_sparse

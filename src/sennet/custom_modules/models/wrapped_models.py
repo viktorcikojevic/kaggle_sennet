@@ -181,8 +181,6 @@ class SegformerModel(Base3DSegmentor):
         )
 
 
-
-
 class SMPModelUpsampleBy2(Base3DSegmentor):
     def __init__(self, version: str, **kw):
         Base3DSegmentor.__init__(self)
