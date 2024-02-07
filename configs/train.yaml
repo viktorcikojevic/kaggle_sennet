@@ -52,15 +52,14 @@ loss:
 train_folders:
 #   - kidney_3_dense
   - kidney_1_dense
-  - kidney_3_dense
-  # - kidney_2_ml_labeled_ensemble_cleaned
-  # - kidney_3_sparse_ml_labeled_ensemble
+  - kidney_2_ml_labeled
+  - kidney_3_sparse_ml_labeled
   # - kidney_1_dense_fold_0
   # - kidney_2
 #  - kidney_2
 
 val_folders:
-   - kidney_2_pl
+  #  - kidney_2_pl
 #   - kidney_3_pl
 #  - kidney_1_dense
   - kidney_3_dense
@@ -84,8 +83,8 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 1 # Number of channels to take from the dataset
-    n_appereant_channels: 1
+    n_take_channels: 4 # Number of channels to take from the dataset
+    n_appereant_channels: 4
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0
