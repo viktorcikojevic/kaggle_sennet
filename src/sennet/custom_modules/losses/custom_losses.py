@@ -90,6 +90,25 @@ class PtbLoss(nn.Module):
         return self.loss(logits, target)
 
 
+class TopKPercentBCELoss(nn.Module):
+    def __init__(self, k_percent=0.1):
+        super(TopKPercentBCELoss, self).__init__()
+        self.k_percent = k_percent
+
+    def forward(self, bce_loss):
+        # Flatten the BCE loss tensor
+        bce_loss_flat = bce_loss.view(-1)
+
+        # Calculate the number of elements to keep (top k percent)
+        num_elements = int(self.k_percent * bce_loss_flat.size(0))
+
+        # Sort the BCE loss and select the top k percent
+        topk_loss, _ = torch.topk(bce_loss_flat, num_elements, sorted=False)
+
+        # Calculate the mean loss of the top k percent pixels
+        topk_mean_loss = topk_loss.mean()
+
+        return topk_mean_loss
 def _2x2x2_unfold(tensor: torch.Tensor) -> torch.Tensor:
     # tensor: (b, z, h, w)
     # returns: (b, 8, num_points), unfolded tensor for marching cube

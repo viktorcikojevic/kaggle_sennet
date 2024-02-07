@@ -14,7 +14,31 @@ class PixelShuffleUpsample(nn.Module):
         x = self.pixel_shuffle(x)
         return x
     
-    
+
+class ConvTranspose3DUpsample(nn.Module):
+    def __init__(self, in_channels, out_channels, upscale_factor):
+        super(ConvTranspose3DUpsample, self).__init__()
+        self.conv_transpose = nn.ConvTranspose3d(
+            in_channels=in_channels,
+            out_channels=out_channels * upscale_factor**3,  # Upscale factor cubed for 3D
+            kernel_size=3,
+            stride=upscale_factor,
+            padding=1,
+            output_padding=1
+        )
+        self.conv_refine = nn.Conv3d(
+            in_channels=out_channels * upscale_factor**3,
+            out_channels=out_channels,
+            kernel_size=3,
+            stride=1,
+            padding=1
+        )
+
+    def forward(self, x):
+        x = self.conv_transpose(x)
+        x = self.conv_refine(x)
+        return x
+
 class LayerNorm2d(nn.Module):
     def __init__(self, num_channels: int, eps: float = 1e-6) -> None:
         super().__init__()

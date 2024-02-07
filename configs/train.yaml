@@ -14,15 +14,15 @@ defaults:
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 10000
-batch_size: 32 # final batch size.
-apparent_batch_size: 8 # batch size during training
+val_check_interval: 20000
+batch_size: 5 # final batch size.
+apparent_batch_size: 5 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
 exp_name: three_d_seg
-group_name: "unetr_boi" # maybe this would be useful for grouping experiments when we do hyperparameter search
-max_epochs: 100
+group_name: "smp_unet_r50_sr_n_channels" # maybe this would be useful for grouping experiments when we do hyperparameter search
+max_epochs: 2000
 max_steps: -1
 early_stopping_metric: "surface_dice"
 #early_stopping_metric: "f1_score"
@@ -39,13 +39,17 @@ loss:
   - type: MccLoss
     weight: 0.0
   - type: DiceLoss
-    weight: 1.0
+    weight: 0.4
     kwargs:
       smooth: 0.0001
   - type: FocalLoss
-    weight: 1.0
+    weight: 0.6
     kwargs:
       gamma: 2.0
+  - type: TopKPercentBCELoss
+    weight: 0.0
+    kwargs:
+      k_percent: 0.1
 
 
 train_folders:
@@ -70,13 +74,14 @@ batch_transform:
   kwargs:
     alpha_cutmix: 0.4
     alpha_mixup: 0.4
-    cutmix_prob: 0.3
+    cutmix_prob: 0.2
     mixup_prob: 0.0
     channel_reverse_prob: 0.5
 
 dataset:
   train_substride: 1.0
   val_substride: 1.0
+  loss_weight_by_surface: false
   kwargs:
     crop_size: 512
 #    crop_size: 896
@@ -89,7 +94,7 @@ dataset:
     channel_end: null
     sample_with_mask: false
 
-    crop_size_range: [0.8, 1.2]
+    crop_size_range: [0.7, 1.4]
 #    crop_size_range: null
     p_crop_size_noise: 0.25
     p_crop_size_keep_ar: 0.8

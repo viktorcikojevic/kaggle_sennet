@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 import torch
 from tqdm import tqdm
 from line_profiler_pycharm import profile
-
+import cc3d
 
 class ThreeDSegmentationDataset(Dataset):
     def __init__(
@@ -47,6 +47,8 @@ class ThreeDSegmentationDataset(Dataset):
             cropping_border: int = 0,
             
             cache_mmaps: bool = False,
+            
+            loss_weight_by_surface: bool = False,
 
             **kwargs,
     ):
@@ -105,6 +107,8 @@ class ThreeDSegmentationDataset(Dataset):
         if self.normalisation_kwargs is not None:
             self.transforms.append(Normalise(**self.normalisation_kwargs))
 
+        self.loss_weight_by_surface = loss_weight_by_surface
+
     def __len__(self):
         return len(self.dataset)
 
@@ -121,7 +125,13 @@ class ThreeDSegmentationDataset(Dataset):
         
         # unsqueeze(0) are there to create a channel dimension
         if "gt_seg_map" in data:
+            if self.loss_weight_by_surface:
+                weights = self.get_loss_weights(data["gt_seg_map"])
+            else:
+                weights = np.ones_like(data["gt_seg_map"], dtype=np.float32)
+            
             data["gt_seg_map"] = torch.from_numpy(data["gt_seg_map"]).unsqueeze(0)
+            data["weights"] = torch.from_numpy(weights).unsqueeze(0) if weights is not None else None
 
         data["img"] = torch.from_numpy(data["img"].astype(np.float32))
         data["img"] = data["img"].unsqueeze(0)
@@ -129,6 +139,19 @@ class ThreeDSegmentationDataset(Dataset):
         return data
         # return data["img"]
 
+    def get_loss_weights(self, gt_seg_map: np.ndarray) -> np.ndarray:
+        
+        
+        x_out = cc3d.connected_components(gt_seg_map)
+        max_label = x_out.max()
+        weights = np.zeros_like(gt_seg_map, dtype=np.float32)
+        for i in range(1, max_label + 1):
+            weights[x_out == i] = 9 / (x_out == i).sum()**(2./3)
+        
+        weights = weights + 1
+        weights = weights / weights.mean()
+        
+        return weights
 
 if __name__ == "__main__":
     _ds = ThreeDSegmentationDataset(

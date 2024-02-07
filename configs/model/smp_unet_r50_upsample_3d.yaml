@@ -1,4 +1,4 @@
-type: SMPModelUpsampleBy2
+type: SMP3DModelUpsampleBy2
 kwargs:
     version: "Unet"
     encoder_name: "resnet50"
