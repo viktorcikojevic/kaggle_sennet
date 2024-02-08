@@ -14,13 +14,13 @@ defaults:
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 20000
-batch_size: 5 # final batch size.
-apparent_batch_size: 5 # batch size during training
+val_check_interval: 2000000
+batch_size: 16 # final batch size.
+apparent_batch_size: 16 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
-exp_name: three_d_seg
+exp_name: sennet_repro
 group_name: "smp_unet_r50_sr_n_channels" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 2000
 max_steps: -1
@@ -56,7 +56,7 @@ train_folders:
 #  - kidney_3_dense
   - kidney_1_dense
   - kidney_2_pl2
-  - kidney_3_pl2
+#  - kidney_3_pl2
   # - kidney_1_dense_fold_0
   # - kidney_2
 #  - kidney_2
@@ -86,8 +86,8 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 4 # Number of channels to take from the dataset
-    n_appereant_channels: 4
+    n_take_channels: 1 # Number of channels to take from the dataset
+    n_appereant_channels: 1
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0

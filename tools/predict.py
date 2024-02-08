@@ -35,6 +35,7 @@ def create_model_and_data_factory(
             cfg=cfg,
             cache_mmaps=cache_mmaps,
             cropping_border=submission_cfg["predictors"]["cropping_border"],
+            crop_size=submission_cfg["predictors"].get("crop_size", None),
             batch_size=batch_size,
             num_workers=0,
             fast_mode=fast_mode,
@@ -123,6 +124,8 @@ def main():
             save_sub=False,
             keep_in_memory=cache_mmaps,
             model_and_data_loader_factory=factories,
+            gaussian_kernel_crop_size=submission_cfg["predictors"].get("gaussian_kernel_crop_size", None),
+            gaussian_kernel_sigma=submission_cfg["predictors"].get("gaussian_kernel_sigma", None),
         )
         post_process_kwargs = submission_cfg.get("post_processing", None)
         image_names = (data_out_dir / "image_names").read_text().split("\n")

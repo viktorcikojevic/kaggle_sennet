@@ -153,21 +153,21 @@ def main(cfg: DictConfig):
             mode="max",
             **cfg.early_stopping,
         ),
+        # pl.callbacks.ModelCheckpoint(
+        #     dirpath=model_out_dir,
+        #     save_top_k=-1,
+        #     filename=f"{cfg.model.type}" + "-{epoch:02d}",
+        # ),
         pl.callbacks.ModelCheckpoint(
             dirpath=model_out_dir,
-            save_top_k=-1,
-            filename=f"{cfg.model.type}" + "-{epoch:02d}",
-        ),
-        pl.callbacks.ModelCheckpoint(
-            dirpath=model_out_dir,
-            save_top_k=1,
+            save_top_k=3,
             monitor="f1_score",
             mode="max",
             filename=f"{cfg.model.type}" + "-{epoch:02d}-{f1_score:.2f}",
         ),
         pl.callbacks.ModelCheckpoint(
             dirpath=model_out_dir,
-            save_top_k=1,
+            save_top_k=3,
             monitor="surface_dice" if cfg.task.type == "ThreeDSegmentationTask" else "val_loss",
             mode="max",
             filename=f"{cfg.model.type}" + "-{epoch:02d}-{surface_dice:.2f}",

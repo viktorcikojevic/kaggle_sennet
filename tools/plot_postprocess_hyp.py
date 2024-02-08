@@ -35,7 +35,6 @@ def main():
         # + np.linspace(0.1, 1.0, num=10).tolist()
     )
     chunk_dirs = [Path(d) for d in chunk_dirs]
-    chunk_dirs = [chunk_dirs[2]]
 
     for folder in tqdm(chunk_dirs):
         surface_dices = []
