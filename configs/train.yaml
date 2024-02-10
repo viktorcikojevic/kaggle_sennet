@@ -4,7 +4,8 @@ defaults:
 #  - model: smp_unet_r50
 #  - model: smp_unetpp_resnext101_32x4d_upsample
   - model: smp_unetpp_final
-  - augmentation: multi_channel_augmentation
+#  - augmentation: multi_channel_augmentation
+  - augmentation: igor
   - early_stopping: normal
 #  - augmentation: noop
   - scheduler: none
@@ -53,9 +54,18 @@ loss:
 
 
 train_folders:
+    - name: kidney_1_dense
+      weight: 1.0
+    - name: kidney_2
+      weight: 0.65
+#    - name: kidney_3_dense
+#      weight: 1.0
+#    - name: kidney_3_sparse
+#      weight: 0.85
+
 #  - kidney_3_dense
-  - kidney_1_dense
-  - kidney_2_pl2
+#  - kidney_1_dense
+#  - kidney_2_pl2
 #  - kidney_3_pl2
   # - kidney_1_dense_fold_0
   # - kidney_2
@@ -74,7 +84,7 @@ batch_transform:
   kwargs:
     alpha_cutmix: 0.4
     alpha_mixup: 0.4
-    cutmix_prob: 0.2
+    cutmix_prob: 0.5
     mixup_prob: 0.0
     channel_reverse_prob: 0.5
 

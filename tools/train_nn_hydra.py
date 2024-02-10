@@ -8,7 +8,7 @@ from sennet.custom_modules.losses.loss import CombinedLoss
 from sennet.custom_modules.datasets.transforms.batch_transforms import BatchTransform
 from sennet.custom_modules.models.base_model import Base3DSegmentor
 # from pytorch_lightning.strategies import DeepSpeedStrategy
-from torch.utils.data import DataLoader, ConcatDataset, TensorDataset
+from torch.utils.data import DataLoader, ConcatDataset, TensorDataset, WeightedRandomSampler
 import sennet.custom_modules.models as models
 from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
@@ -62,16 +62,21 @@ def main(cfg: DictConfig):
     print(json.dumps(dataset_kwargs, indent=4))
     print("train_aug_kwargs")
     print(json.dumps(augmentation_kwargs, indent=4))
-    train_dataset = ConcatDataset([
+    train_datasets = [
         ThreeDSegmentationDataset(
-            folder=folder,
+            folder=folder["name"],
             substride=cfg.dataset.train_substride,
             loss_weight_by_surface=cfg.dataset.loss_weight_by_surface,
             **dataset_kwargs,
             **augmentation_kwargs,
         )
         for folder in cfg.train_folders
-    ])
+    ]
+    train_dataset_weights = [
+        folder["weight"]
+        for folder in cfg.train_folders
+    ]
+    train_dataset = ConcatDataset(train_datasets)
 
     # note: the depth along width and height turned off to speed up val
     val_dataset_kwargs = sanitise_val_dataset_kwargs(dataset_kwargs, load_ann=True)
@@ -97,10 +102,18 @@ def main(cfg: DictConfig):
     train_loader = DataLoader(
         train_dataset,
         batch_size=cfg.apparent_batch_size,
-        shuffle=True,
+        # shuffle=True,
         num_workers=cfg.num_workers,
         pin_memory=True,
         drop_last=True,
+        sampler=WeightedRandomSampler(
+            weights=torch.cat([
+                torch.full([len(d)], w, dtype=torch.float32)
+                for w, d in zip(train_dataset_weights, train_datasets, strict=True)
+            ]),
+            num_samples=sum([len(d) for d in train_datasets]),
+            replacement=True,
+        )
     )
     val_loader = DataLoader(
         val_dataset,

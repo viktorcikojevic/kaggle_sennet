@@ -1,7 +1,7 @@
-#post_processing: null
-post_processing:
-  largest_k: 100
-  connectivity: 26
+post_processing: null
+#post_processing:
+#  largest_k: 100
+#  connectivity: 26
 
 predictors:
   threshold: 0.01
@@ -10,8 +10,8 @@ predictors:
 #  substride: 1.0
   cropping_border: 0
   crop_size: 800
-  gaussian_kernel_crop_size: 800
-  gaussian_kernel_sigma: 300
+#  gaussian_kernel_crop_size: 800
+#  gaussian_kernel_sigma: 300
   tta_kwargs:
     add_flips: true
 #    add_flips: false
@@ -25,4 +25,6 @@ predictors:
 #    - "SMP_Unet_tu-maxvit_small_tf_512_imagenet-c512x1-bs32-llr-4.3-t111-sm0-2023-12-28-20-07-29"
 #    - "SMP_Unet_resnext50_32x4d_imagenet-c512x4-bs32-abs8-llr-3.5-t111-sm0-ema0-cb0-2024-02-07-00-43-44"  # upsample rx50 k123
 #    - "SMP_Unet_resnet50_imagenet-c512x1-bs16-abs16-llr-3.5-t111-sm0-ema0-cb0-2024-02-07-23-46-13"  # r50 repro baseline
-    - "SMP_UnetPlusPlus_efficientnet-b3_imagenet-c512x1-bs16-abs16-llr-3.5-t111-sm0-ema0-cb0-2024-02-08-09-41-41"
+#    - "SMP_UnetPlusPlus_efficientnet-b3_imagenet-c512x1-bs16-abs16-llr-3.5-t111-sm0-ema0-cb0-2024-02-08-09-41-41" # eff b3
+#    - "SMP_UnetPlusPlus_efficientnet-b3_imagenet-c512x1-bs16-abs16-llr-3.5-t111-sm0-ema0-cb0-2024-02-09-01-06-05"  # igor aug
+    - "SMP_UnetPlusPlus_efficientnet-b3_imagenet-c512x1-bs16-abs16-llr-3.5-t111-sm0-ema0-cb0-2024-02-09-23-30-00"  # igor aug, k1k2 weight
