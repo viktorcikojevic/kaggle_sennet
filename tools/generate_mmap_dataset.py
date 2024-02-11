@@ -26,7 +26,7 @@ def main():
     output_dir.mkdir(exist_ok=True, parents=True)
 
     if images_dir.is_dir():
-        image_paths = sorted(list(images_dir.glob("*.tif")))
+        image_paths = sorted(list(images_dir.glob("*.tif")) + list(images_dir.glob("*.jp2")))
         (output_dir / "image_paths").write_text("\n".join([str(p) for p in image_paths]))
         print(f"found {len(image_paths)} images under {images_dir}")
         mmap_array: Optional[MmapArray] = None
@@ -98,7 +98,7 @@ def main():
         print(f"{images_dir=} doesn't exist, skipping")
 
     if labels_dir.is_dir():
-        label_paths = sorted(list(labels_dir.glob("*.tif")))
+        label_paths = sorted(list(labels_dir.glob("*.tif")) + list(labels_dir.glob("*.png")))
         print(f"found {len(label_paths)} label_paths under {labels_dir}")
         mmap_array: Optional[MmapArray] = None
         for i, label_path in enumerate(label_paths):

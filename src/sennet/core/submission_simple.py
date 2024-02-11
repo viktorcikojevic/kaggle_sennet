@@ -103,6 +103,7 @@ class TensorReceivingProcess:
 
         for c in tqdm(range(self.current_mean_prob.shape[0]), desc="computing mean"):
             self.current_mean_prob[c, ...] = self.current_total_prob[c, ...] / (self.current_total_count[c, ...] + 1e-8) / self.num_models
+            self.current_mean_prob[c, ...] = torch.nn.functional.sigmoid(self.current_mean_prob[c, ...])
 
         if self.keep_in_memory:
             self.current_total_prob[:] = 0.0
@@ -322,7 +323,8 @@ def generate_submission_df(
             batch_img = batch["img"].to(device)
             seg_pred: SegmentorOutput = model.predict(batch_img)
             raw_pred_batch = seg_pred.pred
-            un_reshaped_pred_batch = torch.nn.functional.sigmoid(raw_pred_batch)
+            # un_reshaped_pred_batch = torch.nn.functional.sigmoid(raw_pred_batch)
+            un_reshaped_pred_batch = raw_pred_batch
 
             # reshape pred to original image size for submission
             _, _, img_d, img_h, img_w = batch["img"].shape
