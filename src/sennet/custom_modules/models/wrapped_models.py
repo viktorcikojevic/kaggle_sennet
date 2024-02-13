@@ -162,6 +162,7 @@ class SMPModelTorchUpsample(Base3DSegmentor):
             version: str,
             factor: int = 2,
             replace_batch_norm_with_layer_norm: bool = False,
+            upsample_on_eval: bool = True,
             **kw
     ):
         Base3DSegmentor.__init__(self)
@@ -173,22 +174,26 @@ class SMPModelTorchUpsample(Base3DSegmentor):
         self.model.initialize()
         if replace_batch_norm_with_layer_norm:
             self.replace_bn_with_ln(self.model)
-        self.downscale_layer = nn.Conv2d(1, 1, kernel_size=3, stride=2, padding=1)
+        self.upsample_on_eval = upsample_on_eval
 
     def get_name(self) -> str:
         return f"SMP_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
 
     @profile
     def predict(self, img: torch.Tensor) -> SegmentorOutput:
+        upsample = True
+        if not self.training and not self.upsample_on_eval:
+            upsample = False
         n_batch, n_c, n_z, n_y, n_x = img.shape
         assert img.shape[1] == 1, f"{self.__class__.__name__} works in 1 channel images only (for now), expected to have c=1, got {img.shape=}"
         # model_out = self.model(img[:, 0, :, :, :])
         reshaped_batch_in = img.reshape(n_batch, -1, n_y, n_x)
-        reshaped_batch_in = tvf.resize(
-            reshaped_batch_in,
-            size=[int(self.factor*n_y), int(self.factor*n_x)],
-            interpolation=tvf.InterpolationMode.BILINEAR
-        )
+        if upsample:
+            reshaped_batch_in = tvf.resize(
+                reshaped_batch_in,
+                size=[int(self.factor*n_y), int(self.factor*n_x)],
+                interpolation=tvf.InterpolationMode.BILINEAR
+            )
         model_out = self.model(reshaped_batch_in)
         # model_out = raw_out.reshape(n_batch, n_z, int(n_y), int(n_x))
         # model_out = raw_out.reshape(n_batch, n_z, int(self.factor*n_y), int(self.factor*n_x))

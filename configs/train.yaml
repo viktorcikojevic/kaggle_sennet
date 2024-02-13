@@ -17,7 +17,7 @@ defaults:
 
 val_check_interval: 2000000
 batch_size: 16 # final batch size.
-apparent_batch_size: 4 # batch size during training
+apparent_batch_size: 2 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
@@ -54,16 +54,16 @@ loss:
 
 
 train_folders:
-    - name: kidney_1_dense
-      weight: 1.0
-    - name: kidney_2_pl
-      weight: 0.65
-    - name: kidney_3_pl
-      weight: 0.85
-    - name: kidney_4
-      weight: 0.65
-#    - name: kidney_3_dense
+#    - name: kidney_1_dense
 #      weight: 1.0
+#    - name: kidney_2_pl
+#      weight: 0.65
+#    - name: kidney_3_pl
+#      weight: 0.85
+#    - name: kidney_4
+#      weight: 0.65
+    - name: kidney_3_dense
+      weight: 1.0
 #    - name: kidney_3_sparse
 #      weight: 0.85
 
