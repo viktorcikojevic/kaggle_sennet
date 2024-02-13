@@ -27,4 +27,9 @@ predictors:
 #    - "SMP_Unet_resnet50_imagenet-c512x1-bs16-abs16-llr-3.5-t111-sm0-ema0-cb0-2024-02-07-23-46-13"  # r50 repro baseline
 #    - "SMP_UnetPlusPlus_efficientnet-b3_imagenet-c512x1-bs16-abs16-llr-3.5-t111-sm0-ema0-cb0-2024-02-08-09-41-41" # eff b3
 #    - "SMP_UnetPlusPlus_efficientnet-b3_imagenet-c512x1-bs16-abs16-llr-3.5-t111-sm0-ema0-cb0-2024-02-09-01-06-05"  # igor aug
-    - "SMP_UnetPlusPlus_efficientnet-b3_imagenet-c512x1-bs16-abs16-llr-3.5-t111-sm0-ema0-cb0-2024-02-09-23-30-00"  # igor aug, k1k2 weight
+#    - "SMP_UnetPlusPlus_efficientnet-b3_imagenet-c512x1-bs16-abs16-llr-3.5-t111-sm0-ema0-cb0-2024-02-09-23-30-00"  # igor aug, k1k2 weight
+#    - "SMP_UnetPlusPlus_efficientnet-b3_imagenet-c512x1-bs16-abs8-llr-3.5-t111-sm0-ema0-cb0-2024-02-11-01-39-37"  # all data, 4 epochs
+#    - "SMP_UnetPlusPlus_efficientnet-b3_imagenet-c512x1-bs16-abs8-llr-3.5-t111-sm0-ema0-cb0-2024-02-11-16-29-37"  # all data, 7 epochs
+#    - "SMP_Unet_efficientnet-b3_imagenet-c512x1-bs16-abs4-llr-3.5-t111-sm0-ema0-cb0-2024-02-13-01-25-06"  # all data, 2x up 1 ep
+#    - "SMP_Unet_efficientnet-b3_imagenet-c512x1-bs16-abs4-llr-3.5-t111-sm0-ema0-cb0-2024-02-13-01-25-06-2"  # all data, 2x up 2 ep
+    - "SMP_Unet_efficientnet-b3_imagenet-c512x1-bs16-abs4-llr-3.5-t111-sm0-ema0-cb0-2024-02-13-01-25-06-3"  # all data, 2x up 3 ep

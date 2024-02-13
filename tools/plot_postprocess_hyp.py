@@ -28,11 +28,13 @@ def main():
     print(json.dumps({k: v.shape for k, v in labels.items()}))
 
     thresholds = (
-        np.linspace(0.00001, 0.0001, num=10).tolist()
+        []
+        + np.linspace(0.00001, 0.0001, num=10).tolist()
         + np.linspace(0.0001, 0.001, num=10).tolist()
         + np.linspace(0.001, 0.01, num=10).tolist()
         + np.linspace(0.01, 0.1, num=10).tolist()
-        # + np.linspace(0.1, 1.0, num=10).tolist()
+        + np.linspace(0.1, 1.0, num=10).tolist()
+        # + np.linspace(0.1, 1.0, num=20).tolist()
     )
     chunk_dirs = [Path(d) for d in chunk_dirs]
 

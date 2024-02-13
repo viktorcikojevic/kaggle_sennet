@@ -8,11 +8,42 @@
 #    classes: ${dataset.kwargs.n_take_channels}
 
 
-type: SMPModel
+##type: SMPModel
+#type: SMPModelTorchUpsample
+##type: SMPModelUpsampleBy2
+#kwargs:
+#    factor: 2
+#    version: "UnetPlusPlus"
+#    decoder_attention_type: "scse"
+#    encoder_name: "efficientnet-b3"
+#    encoder_weights: "imagenet"
+#    in_channels: ${dataset.kwargs.n_take_channels}
+#    classes: ${dataset.kwargs.n_take_channels}
+
+#type: SMPModel
+type: SMPModelTorchUpsample
+#type: SMPModelUpsampleBy2
 kwargs:
-    version: "UnetPlusPlus"
-    decoder_attention_type: "scse"
+    factor: 2
+#    version: "UnetPlusPlus"
+#    decoder_attention_type: "scse"
+    version: "Unet"
     encoder_name: "efficientnet-b3"
     encoder_weights: "imagenet"
     in_channels: ${dataset.kwargs.n_take_channels}
     classes: ${dataset.kwargs.n_take_channels}
+
+
+#type: SMPModel
+##type: SMPModelTorchUpsample
+##type: SMPModelUpsampleBy2
+#kwargs:
+#    factor: 2
+#    version: "Unet"
+#    encoder_name: "tu-convnext_tiny.fb_in22k"
+#    encoder_weights: "imagenet"
+#    in_channels: ${dataset.kwargs.n_take_channels}
+#    classes: ${dataset.kwargs.n_take_channels}
+#    encoder_depth: 4
+##    decoder_channels: [256, 128, 64, 32]
+#    decoder_channels: [768, 384, 14, 7]

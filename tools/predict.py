@@ -56,6 +56,7 @@ def main():
     parser.add_argument("--batch-size", required=False, type=int, default=1)
     parser.add_argument("--cache-mmaps", required=False, action="store_true", default=False)
     parser.add_argument("--fast-mode", required=False, action="store_true", default=False)
+    parser.add_argument("--threshold", required=False, type=float, default=-1.0)
 
     submission_cfg_path = CONFIG_DIR / "submission.yaml"
     with open(submission_cfg_path, "rb") as f:
@@ -70,9 +71,13 @@ def main():
     batch_size = args.batch_size
     cache_mmaps = args.cache_mmaps
     fast_mode = args.fast_mode
+    threshold_override = args.threshold
+    threshold = submission_cfg["predictors"]["threshold"]
     if fast_mode:
         print(f"WARNING: {fast_mode=}, this shouldn't be turned on in prod")
-
+    if threshold_override > 0:
+        print(f"{threshold_override=} given, overriding threshold: {threshold}->{threshold_override}")
+        threshold = threshold_override
     if run_as_single_process:
         print(f"{run_as_single_process=}: removing all multi processing")
     if run_all:
@@ -114,7 +119,7 @@ def main():
         res = generate_submission_df(
             model=None,
             data_loader=None,
-            threshold=submission_cfg["predictors"]["threshold"],
+            threshold=threshold,
             percentile_threshold=submission_cfg["predictors"].get("percentile_threshold", None),
             parallelization_settings=ParallelizationSettings(
                 run_as_single_process=run_as_single_process,

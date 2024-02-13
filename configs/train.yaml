@@ -17,7 +17,7 @@ defaults:
 
 val_check_interval: 2000000
 batch_size: 16 # final batch size.
-apparent_batch_size: 16 # batch size during training
+apparent_batch_size: 4 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
@@ -36,27 +36,31 @@ loss:
 #      device: "cuda"
 #      verbose: false
   - type: BCELoss
-    weight: 0.0
-  - type: MccLoss
-    weight: 0.0
+    weight: 0.6
+#  - type: MccLoss
+#    weight: 0.0
   - type: DiceLoss
     weight: 0.4
     kwargs:
       smooth: 0.0001
-  - type: FocalLoss
-    weight: 0.6
-    kwargs:
-      gamma: 2.0
-  - type: TopKPercentBCELoss
-    weight: 0.0
-    kwargs:
-      k_percent: 0.1
+#  - type: FocalLoss
+#    weight: 0.6
+#    kwargs:
+#      gamma: 2.0
+#  - type: TopKPercentBCELoss
+#    weight: 0.0
+#    kwargs:
+#      k_percent: 0.1
 
 
 train_folders:
     - name: kidney_1_dense
       weight: 1.0
-    - name: kidney_2
+    - name: kidney_2_pl
+      weight: 0.65
+    - name: kidney_3_pl
+      weight: 0.85
+    - name: kidney_4
       weight: 0.65
 #    - name: kidney_3_dense
 #      weight: 1.0
@@ -87,6 +91,9 @@ batch_transform:
     cutmix_prob: 0.5
     mixup_prob: 0.0
     channel_reverse_prob: 0.5
+
+load_from_ckpt_path: null
+#load_from_ckpt_path: "/home/clay/research/kaggle/sennet/data_dumps/models/SMP_UnetPlusPlus_efficientnet-b3_imagenet-c512x1-bs16-abs8-llr-3.5-t111-sm0-ema0-cb0-2024-02-11-01-39-37/SMPModel-epoch=04-surface_dice=0.91.ckpt"
 
 dataset:
   train_substride: 1.0

@@ -13,6 +13,7 @@ import torch.nn as nn
 from transformers import SegformerConfig, SegformerForSemanticSegmentation
 from collections import OrderedDict
 import torch.nn.functional as F
+import torchvision.transforms.functional as tvf
 from sennet.custom_modules.models.unetr import UNETR
 
 
@@ -153,7 +154,67 @@ class SMPModel(Base3DSegmentor):
             else:
                 # Recursively apply to child modules
                 self.replace_bn_with_ln(child)
-        
+
+
+class SMPModelTorchUpsample(Base3DSegmentor):
+    def __init__(
+            self,
+            version: str,
+            factor: int = 2,
+            replace_batch_norm_with_layer_norm: bool = False,
+            **kw
+    ):
+        Base3DSegmentor.__init__(self)
+        self.version = version
+        self.kw = kw
+        self.factor = factor
+        constructor = getattr(smp, self.version)
+        self.model = constructor(**kw)
+        self.model.initialize()
+        if replace_batch_norm_with_layer_norm:
+            self.replace_bn_with_ln(self.model)
+        self.downscale_layer = nn.Conv2d(1, 1, kernel_size=3, stride=2, padding=1)
+
+    def get_name(self) -> str:
+        return f"SMP_{self.version}_{self.kw['encoder_name']}_{self.kw['encoder_weights']}"
+
+    @profile
+    def predict(self, img: torch.Tensor) -> SegmentorOutput:
+        n_batch, n_c, n_z, n_y, n_x = img.shape
+        assert img.shape[1] == 1, f"{self.__class__.__name__} works in 1 channel images only (for now), expected to have c=1, got {img.shape=}"
+        # model_out = self.model(img[:, 0, :, :, :])
+        reshaped_batch_in = img.reshape(n_batch, -1, n_y, n_x)
+        reshaped_batch_in = tvf.resize(
+            reshaped_batch_in,
+            size=[int(self.factor*n_y), int(self.factor*n_x)],
+            interpolation=tvf.InterpolationMode.BILINEAR
+        )
+        model_out = self.model(reshaped_batch_in)
+        # model_out = raw_out.reshape(n_batch, n_z, int(n_y), int(n_x))
+        # model_out = raw_out.reshape(n_batch, n_z, int(self.factor*n_y), int(self.factor*n_x))
+        _, _, m_y, m_x = model_out.shape
+        if m_y != n_y or m_x != n_x:
+            model_out = tvf.resize(
+                model_out,
+                size=[int(n_y), int(n_x)],
+                interpolation=tvf.InterpolationMode.BILINEAR
+            )
+        return SegmentorOutput(
+            pred=model_out,
+            take_indices_start=0,
+            take_indices_end=n_z,
+        )
+
+    def replace_bn_with_ln(self, module):
+        for child_name, child in module.named_children():
+            if isinstance(child, nn.BatchNorm2d):
+                # Get the number of channels in the BatchNorm layer
+                num_channels = child.num_features
+                # Replace with LayerNorm2d
+                setattr(module, child_name, layers.LayerNorm2d(num_channels))
+            else:
+                # Recursively apply to child modules
+                self.replace_bn_with_ln(child)
 
 class SegformerModel(Base3DSegmentor):
     def __init__(self, **kw):

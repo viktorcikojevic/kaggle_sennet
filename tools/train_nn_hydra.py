@@ -171,13 +171,13 @@ def main(cfg: DictConfig):
         #     save_top_k=-1,
         #     filename=f"{cfg.model.type}" + "-{epoch:02d}",
         # ),
-        pl.callbacks.ModelCheckpoint(
-            dirpath=model_out_dir,
-            save_top_k=3,
-            monitor="f1_score",
-            mode="max",
-            filename=f"{cfg.model.type}" + "-{epoch:02d}-{f1_score:.2f}",
-        ),
+        # pl.callbacks.ModelCheckpoint(
+        #     dirpath=model_out_dir,
+        #     save_top_k=3,
+        #     monitor="f1_score",
+        #     mode="max",
+        #     filename=f"{cfg.model.type}" + "-{epoch:02d}-{f1_score:.2f}",
+        # ),
         pl.callbacks.ModelCheckpoint(
             dirpath=model_out_dir,
             save_top_k=3,
@@ -213,11 +213,15 @@ def main(cfg: DictConfig):
         #     offload_parameters=True,
         # ),
         devices=-1,
+        # detect_anomaly=True,
+        detect_anomaly=False,
     )
+    print(f"{cfg.load_from_ckpt_path=}")
     trainer.fit(
         model=task,
         train_dataloaders=train_loader,
         val_dataloaders=dummy_val_loader,
+        ckpt_path=cfg.load_from_ckpt_path,
     )
     if not cfg.dry_logger:
         logger.experiment.config["best_surface_dice"] = task.best_surface_dice
