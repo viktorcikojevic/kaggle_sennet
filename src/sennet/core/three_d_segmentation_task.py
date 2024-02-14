@@ -230,14 +230,14 @@ class ThreeDSegmentationTask(pl.LightningModule):
                 label_dir=PROCESSED_DATA_DIR / self.val_folders[0],  # TODO(Sumo): adjust this so we can eval more folders
                 thresholds=thresholds,
             )
-            
+
             
             precisions_all = metrics.precisions
             recalls_all = metrics.recalls
             f1_scores_all = metrics.f1_scores
             dices_all = metrics.surface_dices
             
-                
+
             best_f1_score = np.max(f1_scores_all)
             best_dice_current = np.max(dices_all)
             best_threshold_current = thresholds[np.argmax(dices_all)]

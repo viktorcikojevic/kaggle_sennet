@@ -396,7 +396,7 @@ class LoadMultiChannelImageAndAnnotationsFromFile:
         return cv2.resize(
             img,
             dsize=(self.output_crop_size, self.output_crop_size),
-            interpolation=cv2.INTER_AREA
+            interpolation=cv2.INTER_LANCZOS4
         )
 
     def __repr__(self):

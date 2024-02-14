@@ -15,6 +15,14 @@ import pandas as pd
 import multiprocessing as mp
 from dataclasses import dataclass
 from typing import Callable
+import cv2
+
+
+def get_kernel(n: int, sigma: int) -> np.ndarray:
+    k = cv2.getGaussianKernel(n, sigma=sigma)
+    k /= k[0, 0]
+    kk = k @ k.T
+    return (kk / kk.sum() * n * n * 5).astype(np.uint8)
 
 
 @dataclass
@@ -52,6 +60,8 @@ class TensorReceivingProcess:
             percentile_threshold: float | None = None,
             keep_in_memory: bool = False,
             num_models: int = 1,
+            gaussian_kernel_crop_size: int | None = None,
+            gaussian_kernel_sigma: int | None = None,
             device: str = "cuda",
     ):
         self.data_queue = data_queue
@@ -69,6 +79,15 @@ class TensorReceivingProcess:
         self.keep_in_memory = keep_in_memory
         self.device = device
 
+        self.gaussian_kernel_crop_size = gaussian_kernel_crop_size
+        self.gaussian_kernel_sigma = gaussian_kernel_sigma
+        assert (self.gaussian_kernel_crop_size is None) == (self.gaussian_kernel_sigma is None), \
+            f"{self.gaussian_kernel_crop_size is None} != {self.gaussian_kernel_sigma is None}"
+        self.gaussian_kernel = None
+        if self.gaussian_kernel_crop_size is not None and self.gaussian_kernel_sigma is not None:
+            kernel = get_kernel(self.gaussian_kernel_crop_size, self.gaussian_kernel_crop_size)
+            self.gaussian_kernel = torch.from_numpy(kernel).to(self.device)
+
     @profile
     def _finalise_image_if_holding_any(self):
         current_mean_prob_is_none = self.current_mean_prob is None
@@ -84,6 +103,7 @@ class TensorReceivingProcess:
 
         for c in tqdm(range(self.current_mean_prob.shape[0]), desc="computing mean"):
             self.current_mean_prob[c, ...] = self.current_total_prob[c, ...] / (self.current_total_count[c, ...] + 1e-8) / self.num_models
+            self.current_mean_prob[c, ...] = torch.nn.functional.sigmoid(self.current_mean_prob[c, ...])
 
         if self.keep_in_memory:
             self.current_total_prob[:] = 0.0
@@ -205,7 +225,10 @@ class TensorReceivingProcess:
             assert self.current_folder == folder, f"can't handle more than one folder: {self.current_folder=}, {folder=}"
 
         self.current_total_prob[lc: uc, ly: uy, lx: ux] += cropped_pred.to(self.device)
-        self.current_total_count[lc: uc, ly: uy, lx: ux] += 1
+        if self.gaussian_kernel is None:
+            self.current_total_count[lc: uc, ly: uy, lx: ux] += 1
+        else:
+            self.current_total_count[lc: uc, ly: uy, lx: ux] += self.gaussian_kernel
 
         # print(f"{self.chunk_boundary} wrote")
         return False
@@ -242,6 +265,8 @@ def generate_submission_df(
         keep_in_memory: bool = False,
         model_and_data_loader_factory: None | list[Callable[[], tuple[Base3DSegmentor, DataLoader]]] = None,  # function to generate model and dataloader
         data_device: str | None = None,
+        gaussian_kernel_crop_size: int | None = None,
+        gaussian_kernel_sigma: int | None = None,
 ) -> SubmissionOutput:
     ps = parallelization_settings
     if data_device is None:
@@ -271,6 +296,8 @@ def generate_submission_df(
         keep_in_memory=keep_in_memory,
         num_models=len(model_and_data_loader_factory),
         device=data_device,
+        gaussian_kernel_crop_size=gaussian_kernel_crop_size,
+        gaussian_kernel_sigma=gaussian_kernel_sigma,
     )
     if ps.run_as_single_process:
         saver_process = tensor_receiving_process
@@ -296,7 +323,8 @@ def generate_submission_df(
             batch_img = batch["img"].to(device)
             seg_pred: SegmentorOutput = model.predict(batch_img)
             raw_pred_batch = seg_pred.pred
-            un_reshaped_pred_batch = torch.nn.functional.sigmoid(raw_pred_batch)
+            # un_reshaped_pred_batch = torch.nn.functional.sigmoid(raw_pred_batch)
+            un_reshaped_pred_batch = raw_pred_batch
 
             # reshape pred to original image size for submission
             _, _, img_d, img_h, img_w = batch["img"].shape

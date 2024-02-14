@@ -1,0 +1,2 @@
+augmenter_class: IgorAugmentation
+augmenter_kwargs: {}

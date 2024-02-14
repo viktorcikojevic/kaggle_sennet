@@ -51,3 +51,6 @@ dependencies:
     - cvxpy
     - plyfile
     - inplace-abn
+    - tensordict
+    - ttach
+    - pyarrow

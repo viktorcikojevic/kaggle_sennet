@@ -1,7 +1,11 @@
 defaults:
   - _self_
-  - model: smp_unet_r50_upsample  
-  - augmentation: multi_channel_augmentation
+#  - model: smp_unet_resnext50_32x4d_upsample
+#  - model: smp_unet_r50
+#  - model: smp_unetpp_resnext101_32x4d_upsample
+  - model: smp_unetpp_final
+#  - augmentation: multi_channel_augmentation
+  - augmentation: igor
   - early_stopping: normal
 #  - augmentation: noop
   - scheduler: none
@@ -11,13 +15,13 @@ defaults:
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
-val_check_interval: 20000
-batch_size: 5 # final batch size.
-apparent_batch_size: 5 # batch size during training
+val_check_interval: 2000000
+batch_size: 16 # final batch size.
+apparent_batch_size: 4 # batch size during training
 num_workers: 1
 dry_logger: false
 quit_immediately: false # just prints out the config and exits, useful for debugging
-exp_name: three_d_seg
+exp_name: sennet_repro
 group_name: "smp_unet_r50_sr_n_channels" # maybe this would be useful for grouping experiments when we do hyperparameter search
 max_epochs: 2000
 max_steps: -1
@@ -31,38 +35,56 @@ loss:
 #    kwargs:
 #      device: "cuda"
 #      verbose: false
-  - type: BCELoss
-    weight: 0.0
-  - type: MccLoss
-    weight: 0.0
-  - type: DiceLoss
-    weight: 0.4
+  - type: BoundaryDoULossV2
+    weight: 1.0
     kwargs:
-      smooth: 0.0001
-  - type: FocalLoss
-    weight: 0.6
-    kwargs:
-      gamma: 2.0
-  - type: TopKPercentBCELoss
-    weight: 0.0
-    kwargs:
-      k_percent: 0.1
+      n_classes: 1
+      allowed_outlier_fraction: 0.25
+#  - type: BCELoss
+#    weight: 0.6
+#  - type: MccLoss
+#    weight: 0.0
+#  - type: DiceLoss
+#    weight: 0.4
+#    kwargs:
+#      smooth: 0.0001
+#  - type: FocalLoss
+#    weight: 0.6
+#    kwargs:
+#      gamma: 2.0
+#  - type: TopKPercentBCELoss
+#    weight: 0.0
+#    kwargs:
+#      k_percent: 0.1
 
 
 train_folders:
-#   - kidney_3_dense
-  - kidney_1_dense
-  - kidney_2_ml_labeled
-  - kidney_3_sparse_ml_labeled
+    - name: kidney_1_dense
+      weight: 1.0
+    - name: kidney_2_pl
+      weight: 0.65
+    - name: kidney_3_pl
+      weight: 0.85
+    - name: kidney_4
+      weight: 0.65
+#    - name: kidney_3_dense
+#      weight: 1.0
+#    - name: kidney_3_sparse
+#      weight: 0.85
+
+#  - kidney_3_dense
+#  - kidney_1_dense
+#  - kidney_2_pl2
+#  - kidney_3_pl2
   # - kidney_1_dense_fold_0
   # - kidney_2
 #  - kidney_2
 
 val_folders:
-  #  - kidney_2_pl
+#   - kidney_2_pl
 #   - kidney_3_pl
 #  - kidney_1_dense
-  - kidney_3_dense
+   - kidney_3_dense
 #   - kidney_3_merged
 #  - kidney_2
 #   - kidney_3_sparse
@@ -71,9 +93,12 @@ batch_transform:
   kwargs:
     alpha_cutmix: 0.4
     alpha_mixup: 0.4
-    cutmix_prob: 0.2
+    cutmix_prob: 0.5
     mixup_prob: 0.0
     channel_reverse_prob: 0.5
+
+load_from_ckpt_path: null
+#load_from_ckpt_path: "/home/clay/research/kaggle/sennet/data_dumps/models/SMP_UnetPlusPlus_efficientnet-b3_imagenet-c512x1-bs16-abs8-llr-3.5-t111-sm0-ema0-cb0-2024-02-11-01-39-37/SMPModel-epoch=04-surface_dice=0.91.ckpt"
 
 dataset:
   train_substride: 1.0
@@ -83,8 +108,8 @@ dataset:
     crop_size: 512
 #    crop_size: 896
     cropping_border: 0
-    n_take_channels: 4 # Number of channels to take from the dataset
-    n_appereant_channels: 4
+    n_take_channels: 1 # Number of channels to take from the dataset
+    n_appereant_channels: 1
     reduce_zero_label: False
     assert_label_exists: True
     channel_start: 0

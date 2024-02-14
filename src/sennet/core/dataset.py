@@ -10,6 +10,7 @@ from tqdm import tqdm
 from line_profiler_pycharm import profile
 import cc3d
 
+
 class ThreeDSegmentationDataset(Dataset):
     def __init__(
             self,

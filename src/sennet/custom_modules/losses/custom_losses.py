@@ -118,6 +118,105 @@ def _2x2x2_unfold(tensor: torch.Tensor) -> torch.Tensor:
     return unfolded
 
 
+# shamelessly copied over from Igor
+class BoundaryDoULossV2(nn.Module):
+    def __init__(self, n_classes=1, allowed_outlier_fraction=0.25):
+        super(BoundaryDoULossV2, self).__init__()
+        self.n_classes = n_classes
+        self.allowed_outlier_fraction = allowed_outlier_fraction
+
+    def _one_hot_encoder(self, input_tensor):
+        tensor_list = []
+        for i in range(self.n_classes):
+            temp_prob = input_tensor == i
+            tensor_list.append(temp_prob.unsqueeze(1))
+        output_tensor = torch.cat(tensor_list, dim=1)
+        return output_tensor.float()
+
+    def _adaptive_size(self, score, target):
+        kernel = torch.Tensor([[0, 1, 0], [1, 1, 1], [0, 1, 0]]).half()
+        padding_out = torch.zeros(
+            (target.shape[0], target.shape[-2] + 2, target.shape[-1] + 2)
+        )
+        padding_out[:, 1:-1, 1:-1] = target
+        h, w = 3, 3
+
+        Y = torch.zeros(
+            (
+                padding_out.shape[0],
+                padding_out.shape[1] - h + 1,
+                padding_out.shape[2] - w + 1,
+            )
+        ).cuda()
+        for i in range(Y.shape[0]):
+            Y[i, :, :] = torch.conv2d(
+                target[i].unsqueeze(0).unsqueeze(0).half(),
+                kernel.unsqueeze(0).unsqueeze(0).cuda(),
+                padding=1,
+            )
+
+        Y = Y * target
+        Y[Y == 5] = 0
+        C = torch.count_nonzero(Y)
+        S = torch.count_nonzero(target)
+        smooth = 1e-5
+        alpha = 1 - (C + smooth) / (S + smooth)
+        alpha = 2 * alpha - 1
+
+        intersect = torch.sum(score * target)
+        y_sum = torch.sum(target * target)
+        z_sum = torch.sum(score * score)
+        alpha = min(
+            alpha, 0.8
+        )  ## We recommend using a truncated alpha of 0.8, as using truncation gives better results on some datasets and has rarely effect on others.
+        loss = (z_sum + y_sum - 2 * intersect + smooth) / (
+            z_sum + y_sum - (1 + alpha) * intersect + smooth
+        )
+
+        return loss
+
+    def forward(self, inputs, target):
+        inputs = inputs.sigmoid()
+
+        assert (
+            inputs.size() == target.size()
+        ), "predict {} & target {} shape do not match".format(
+            inputs.size(), target.size()
+        )
+
+        loss = 0.0
+        for i in range(0, self.n_classes):
+            loss += self._adaptive_size(inputs[:, i], target[:, i])
+
+        # Apply outlier fraction logic to BoundaryDoULoss
+        output = inputs[:, 0]  # Assuming binary classification
+
+        output = output.float()
+        target = target.float()
+
+        pos_mask = target.eq(1.0)
+        neg_mask = ~pos_mask
+
+        pt = output.sigmoid().clamp(1e-6, 1 - 1e-6)
+
+        neg_loss = (
+            -torch.pow(pt, 2) * torch.nn.functional.logsigmoid(-output) * neg_mask
+        )
+
+        if self.allowed_outlier_fraction < 1:
+            neg_loss = neg_loss.flatten()
+            M = neg_loss.numel()
+            num_elements_to_keep = int(M * (1 - self.allowed_outlier_fraction))
+            neg_loss, _ = torch.topk(
+                neg_loss, k=num_elements_to_keep, largest=False, sorted=False
+            )
+
+        neg_loss_reduced = neg_loss.sum() / (neg_mask.sum() + 1e-6)
+        loss_outlier = neg_loss_reduced
+
+        return (loss + loss_outlier) / (self.n_classes + 1)
+
+
 class SurfaceDiceLoss(nn.Module):
     def __init__(self, smooth=1e-3, device="cuda", verbose: bool = False):
         nn.Module.__init__(self)

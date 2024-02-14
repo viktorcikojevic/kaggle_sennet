@@ -306,6 +306,7 @@ def build_data_loader(
         cfg: Dict,
         cache_mmaps: bool = True,
         cropping_border: int | None = None,
+        crop_size: int | None = None,
         batch_size: int = 1,
         num_workers: int = 0,
         fast_mode: bool = False,
@@ -313,6 +314,8 @@ def build_data_loader(
     kwargs = sanitise_val_dataset_kwargs(cfg["dataset"]["kwargs"], load_ann=False, fast_mode=fast_mode)
     if cropping_border is not None:
         kwargs["cropping_border"] = cropping_border
+    if crop_size is not None:
+        kwargs["crop_size"] = crop_size
     dataset = ThreeDSegmentationDataset(
         folder,
         substride=substride,

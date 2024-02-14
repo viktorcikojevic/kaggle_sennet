@@ -8,7 +8,7 @@ from sennet.custom_modules.losses.loss import CombinedLoss
 from sennet.custom_modules.datasets.transforms.batch_transforms import BatchTransform
 from sennet.custom_modules.models.base_model import Base3DSegmentor
 # from pytorch_lightning.strategies import DeepSpeedStrategy
-from torch.utils.data import DataLoader, ConcatDataset, TensorDataset
+from torch.utils.data import DataLoader, ConcatDataset, TensorDataset, WeightedRandomSampler
 import sennet.custom_modules.models as models
 from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
@@ -62,16 +62,21 @@ def main(cfg: DictConfig):
     print(json.dumps(dataset_kwargs, indent=4))
     print("train_aug_kwargs")
     print(json.dumps(augmentation_kwargs, indent=4))
-    train_dataset = ConcatDataset([
+    train_datasets = [
         ThreeDSegmentationDataset(
-            folder=folder,
+            folder=folder["name"],
             substride=cfg.dataset.train_substride,
             loss_weight_by_surface=cfg.dataset.loss_weight_by_surface,
             **dataset_kwargs,
             **augmentation_kwargs,
         )
         for folder in cfg.train_folders
-    ])
+    ]
+    train_dataset_weights = [
+        folder["weight"]
+        for folder in cfg.train_folders
+    ]
+    train_dataset = ConcatDataset(train_datasets)
 
     # note: the depth along width and height turned off to speed up val
     val_dataset_kwargs = sanitise_val_dataset_kwargs(dataset_kwargs, load_ann=True)
@@ -97,10 +102,18 @@ def main(cfg: DictConfig):
     train_loader = DataLoader(
         train_dataset,
         batch_size=cfg.apparent_batch_size,
-        shuffle=True,
+        # shuffle=True,
         num_workers=cfg.num_workers,
         pin_memory=True,
         drop_last=True,
+        sampler=WeightedRandomSampler(
+            weights=torch.cat([
+                torch.full([len(d)], w, dtype=torch.float32)
+                for w, d in zip(train_dataset_weights, train_datasets, strict=True)
+            ]),
+            num_samples=sum([len(d) for d in train_datasets]),
+            replacement=True,
+        )
     )
     val_loader = DataLoader(
         val_dataset,
@@ -153,21 +166,21 @@ def main(cfg: DictConfig):
             mode="max",
             **cfg.early_stopping,
         ),
+        # pl.callbacks.ModelCheckpoint(
+        #     dirpath=model_out_dir,
+        #     save_top_k=-1,
+        #     filename=f"{cfg.model.type}" + "-{epoch:02d}",
+        # ),
+        # pl.callbacks.ModelCheckpoint(
+        #     dirpath=model_out_dir,
+        #     save_top_k=3,
+        #     monitor="f1_score",
+        #     mode="max",
+        #     filename=f"{cfg.model.type}" + "-{epoch:02d}-{f1_score:.2f}",
+        # ),
         pl.callbacks.ModelCheckpoint(
             dirpath=model_out_dir,
-            save_top_k=-1,
-            filename=f"{cfg.model.type}" + "-{epoch:02d}",
-        ),
-        pl.callbacks.ModelCheckpoint(
-            dirpath=model_out_dir,
-            save_top_k=1,
-            monitor="f1_score",
-            mode="max",
-            filename=f"{cfg.model.type}" + "-{epoch:02d}-{f1_score:.2f}",
-        ),
-        pl.callbacks.ModelCheckpoint(
-            dirpath=model_out_dir,
-            save_top_k=1,
+            save_top_k=3,
             monitor="surface_dice" if cfg.task.type == "ThreeDSegmentationTask" else "val_loss",
             mode="max",
             filename=f"{cfg.model.type}" + "-{epoch:02d}-{surface_dice:.2f}",
@@ -187,7 +200,7 @@ def main(cfg: DictConfig):
         val_check_interval=val_check_interval,
         max_epochs=cfg.max_epochs,
         max_steps=cfg.max_steps,
-        # precision="16",
+        precision="16",
         benchmark=True,
         log_every_n_steps=20,
         # gradient_clip_val=2.0,
@@ -200,11 +213,15 @@ def main(cfg: DictConfig):
         #     offload_parameters=True,
         # ),
         devices=-1,
+        # detect_anomaly=True,
+        detect_anomaly=False,
     )
+    print(f"{cfg.load_from_ckpt_path=}")
     trainer.fit(
         model=task,
         train_dataloaders=train_loader,
         val_dataloaders=dummy_val_loader,
+        ckpt_path=cfg.load_from_ckpt_path,
     )
     if not cfg.dry_logger:
         logger.experiment.config["best_surface_dice"] = task.best_surface_dice
