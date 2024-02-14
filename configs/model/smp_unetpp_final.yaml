@@ -28,7 +28,7 @@ kwargs:
 #    version: "UnetPlusPlus"
 #    decoder_attention_type: "scse"
     version: "Unet"
-    encoder_name: "efficientnet-b7"
+    encoder_name: "efficientnet-b3"
     encoder_weights: "imagenet"
     in_channels: ${dataset.kwargs.n_take_channels}
     classes: ${dataset.kwargs.n_take_channels}
